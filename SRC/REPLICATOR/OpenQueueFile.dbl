@@ -11,7 +11,8 @@
 ;;*****************************************************************************
 ;;
 
-import replicator
+import Replicator
+import ReplicationLibrary
 import Synergex.SynergyDE
 
 function OpenQueueFile, boolean

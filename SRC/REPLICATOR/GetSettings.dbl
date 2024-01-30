@@ -55,27 +55,98 @@ proc
 
     ;;Instance name
 
+    ;;Command line?
+    if (CommandLineParser.Parse("instance",clValues)) then
+    begin
+        using clValues.Count select
+        (1),
+        begin
+            data now, a20, %datetime
+            Settings.InstanceName = (string)clValues[0]
+            Settings.LogFileName = "REPLICATOR_LOGDIR:REPLICATOR_" + Settings.InstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
+            Settings.TransactionFile = "REPLICATOR_DATA:REPLICATION_" + Settings.InstanceName + ".ISM"
+        end
+        (0),
+        begin
+            Logger.ErrorLog("Missing value after the -instance option")
+            ok = false
+        end
+        (),
+        begin
+            Logger.ErrorLog("Only one value may follow the -instance option")
+            ok = false
+        end
+        endusing
+    end
+    else
+    begin
+        ;;Environment variable?
+        data tmpval, a80
+        xcall getlog("REPLICATOR_INSTANCE",tmpval,length)
+        if (length)
+        begin
+            data now, a20, %datetime
+            upcase tmpval
+            Settings.InstanceName = tmpval(1:length)
+            Settings.LogFileName = "REPLICATOR_LOGDIR:REPLICATOR_" + Settings.InstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
+            Settings.TransactionFile = "REPLICATOR_DATA:REPLICATION_" + Settings.InstanceName + ".ISM"
+        end
+    end
+
+    ;;Report the instance name
+    if (ok)
+    begin
+        Logger.Log("Instance name " + Settings.InstanceName)
+    end
+
+    ;;Open log file
+
+    if (ok)
+    begin
+        ok = Logger.OpenLog()
+    end
+
+    ;;Queue type
+
     if (ok)
     begin
         ;;Command line?
-        if (CommandLineParser.Parse("instance",clValues)) then
+        if (CommandLineParser.Parse("queuetype")) then
         begin
             using clValues.Count select
             (1),
             begin
-                data now, a20, %datetime
-                Settings.InstanceName = (string)clValues[0]
-                Settings.LogFileName = "REPLICATOR_LOGDIR:REPLICATOR_" + Settings.InstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
-                Settings.TransactionFile = "REPLICATOR_DATA:REPLICATION_" + Settings.InstanceName + ".ISM"
+                data queueType = (string)clValues[0]
+
+                using queueType.ToUpper() select
+                ("ISAM"),
+                begin
+                    Settings.QueueType = MessageQueueType.IsamFile
+                end
+                ("KAFKA"),
+                begin
+.ifdef DBLNET
+                    Settings.QueueType = MessageQueueType.Kafka
+.else
+                    Logger.ErrorLog("Queue type " + queueType + " is only valid when running the .NET version of replicator.")
+                    ok = false
+.endc
+                end
+                (),
+                begin
+                    Logger.ErrorLog("Value " + queueType + " is invalid for the -queuetype option. Specify ISAM or KAFKA.")
+                    ok = false
+                end
+                endusing
             end
             (0),
             begin
-                Logger.ErrorLog("Missing value after the -instance option")
+                Logger.ErrorLog("Missing value after the -queuetype option. Specify ISAM or KAFKA.")
                 ok = false
             end
             (),
             begin
-                Logger.ErrorLog("Only one value may follow the -instance option")
+                Logger.ErrorLog("Only one value may follow the -queuetype option. Specify ISAM or KAFKA.")
                 ok = false
             end
             endusing
@@ -84,23 +155,130 @@ proc
         begin
             ;;Environment variable?
             data tmpval, a80
-            xcall getlog("REPLICATOR_INSTANCE",tmpval,length)
+            xcall getlog("REPLICATOR_QUEUE_TYPE",tmpval,length)
             if (length)
             begin
-                data now, a20, %datetime
-                Settings.InstanceName = tmpval(1:length)
-                Settings.LogFileName = "REPLICATOR_LOGDIR:REPLICATOR_" + Settings.InstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
-                Settings.TransactionFile = "REPLICATOR_DATA:REPLICATION_" + Settings.InstanceName + ".ISM"
+                upcase tmpval
+                using tmpval(1:length) select
+                ("ISAM"),
+                begin
+                    Settings.QueueType = MessageQueueType.IsamFile
+                end
+                ("KAFKA"),
+                begin
+.ifdef DBLNET
+                    Settings.QueueType = MessageQueueType.Kafka
+.else
+                    Logger.ErrorLog("REPLICATOR_QUEUE_TYPE " + tmpval(1:length) + " is only valid when running the .NET version of replicator.")
+                    ok = false
+.endc
+                end
+                (),
+                begin
+                    Logger.ErrorLog("Value " + tmpval(1:length) + " is invalid for REPLICATOR_QUEUE_TYPE. Specify ISAM or KAFKA.")
+                    ok = false
+                end
+                endusing
             end
         end
-
-        ;;Report the instance name
-        Logger.Log("Instance name " + Settings.InstanceName)
     end
 
-    ;;Open log file
+    ;;Report the queue type
+    if (ok)
+    begin
+        if (Settings.QueueType == MessageQueueType.IsamFile) then
+            Logger.Log("Queue type ISAM")
+        else
+            Logger.Log("Queue type KAFKA")
+    end
 
-    ok = Logger.OpenLog()
+    ;;Database connectivity mode
+
+    if (ok)
+    begin
+        ;;Command line?
+        if (CommandLineParser.Parse("connectionmode")) then
+        begin
+            using clValues.Count select
+            (1),
+            begin
+                data connectionMode = (string)clValues[0]
+
+                using connectionMode.ToUpper() select
+                ("SQLCONNECTION"),
+                begin
+                    Settings.ConnectionMode = DatabaseConnectionMode.SqlConnection
+                end
+                ("SQLCLIENT"),
+                begin
+.ifdef DBLNET
+                    Settings.ConnectionMode = DatabaseConnectionMode.SqlClient
+.else
+                    Logger.ErrorLog("Connection mode " + connectionMode + " is only valid when running the .NET version of replicator.")
+                    ok = false
+.endc
+                end
+                (),
+                begin
+                    Logger.ErrorLog("Value " + connectionMode + " is invalid for the -connectionmode option. Specify SQLCONNECTION or SQLCLIENT.")
+                    ok = false
+                end
+                endusing
+            end
+            (0),
+            begin
+                Logger.ErrorLog("Missing value after the -connectionmode option. Specify SQLCONNECTION or SQLCLIENT.")
+                ok = false
+            end
+            (),
+            begin
+                Logger.ErrorLog("Only one value may follow the -connectionmode option. Specify SQLCONNECTION or SQLCLIENT.")
+                ok = false
+            end
+            endusing
+        end
+        else
+        begin
+            ;;Environment variable?
+            data tmpval, a80
+            xcall getlog("REPLICATOR_CONNECTION_MODE",tmpval,length)
+            if (length)
+            begin
+                upcase tmpval
+                using tmpval(1:length) select
+                ("SQLCONNECTION"),
+                begin
+                    Settings.ConnectionMode = DatabaseConnectionMode.SqlConnection
+                end
+                ("SQLCLIENT"),
+                begin
+.ifdef DBLNET
+                    Settings.ConnectionMode = DatabaseConnectionMode.SqlClient
+.else
+                    Logger.ErrorLog("REPLICATOR_CONNECTION_MODE " + tmpval(1:length) + " is only valid when running the .NET version of replicator.")
+                    ok = false
+.endc
+                end
+                (),
+                begin
+                    Logger.ErrorLog("Value " + tmpval(1:length) + " is invalid for REPLICATOR_CONNECTION_MODE. Specify SQLCONNECTION or SQLCLIENT.")
+                    ok = false
+                end
+                endusing
+            end
+        end
+    end
+
+    ;;Report the connection mode
+    if (ok)
+    begin
+        using Settings.ConnectionMode select
+        (DatabaseConnectionMode.SqlConnection),
+            Logger.Log("Connection mode SQL Connection")
+        (DatabaseConnectionMode.SqlClient),
+            Logger.Log("Connection mode SQL Client")
+        endusing
+    end
 
     ;;Local export directory
 

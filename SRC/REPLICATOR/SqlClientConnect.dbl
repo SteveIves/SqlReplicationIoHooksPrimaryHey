@@ -1,65 +1,48 @@
 ;;*****************************************************************************
 ;;
-;; Routine:     DatabaseConnect
+;; Routine:     SqlClientConnect
 ;;
-;; Description: Connect to the database and configure the database environment.
+;; Description: Use SqlClient to connect to the database and configure the database environment.
 ;;
 ;; Author:      Steve Ives, Synergex Professional Services Group
 ;;
-;; Created:     30th December 2019
+;; Created:     29th January 2024
 ;;
 ;;*****************************************************************************
 ;;
 
+.ifdef DBLNET
+
 import replicator
 import ReplicationLibrary
+import System.Data.SqlClient
 
-function DatabaseConnect, boolean
-
-    .include "CONNECTDIR:ssql.def"
+function SqlClientConnect, boolean
 
     stack record
-        ok,         boolean
         length,     int
         dbstatus,   int
         dberrtxt,   a1024
     endrecord
 proc
+    data ok = true
+
     ;;Connect to the database
 
     Logger.Log("Connecting to database...")
-    if (%ssc_connect(Settings.DatabaseChannel,Settings.DatabaseConnectString)==SSQL_NORMAL) then
+
+    Settings.DatabaseConnection = new SqlConnection(Settings.DatabaseConnectString)
+
+    try
     begin
+        Settings.DatabaseConnection.Open()
         Logger.Log("Connected")
-        ok = true
-
-        ;;Set the SQL statement execution timeout
-        Logger.Log("Setting database execution timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
-        if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))!=SSQL_NORMAL)
-        begin
-            dbstatus = %ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
-            Logger.ErrorLog("Failed to set database execution timeout to " + %string(Settings.DatabaseTimeout) + " seconds!")
-            Logger.Log("Error message was : " + dberrtxt(1,length))
-            ok = false
-
-            ;;If we're sending emails then let's record the error
-            if (Settings.CanSendEmail())
-            begin
-                data body = new string[3]
-                body[1] = "ERROR: Failed to set database timeout!"
-                body[2] = "Specified timeout value was " + %string(Settings.DatabaseTimeout) + " seconds"
-                body[3] = "Error message was :  " + dberrtxt(1,length)
-                xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to set database timeout!",body,false,^null)
-            end
-        end
     end
-    else
+    catch (ex, @SqlException)
     begin
-        ;;Failed to connect
-        dbstatus = %ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
         Logger.ErrorLog("Failed to connect to database!")
         Logger.Log("Connect string was: " + Settings.DatabaseConnectString)
-        Logger.Log("Error message was : " + dberrtxt(1,length))
+        Logger.Log("Error message was : " + ex.Message)
         ok = false
 
         ;;If we're sending emails then let's record the connect failure
@@ -72,8 +55,11 @@ proc
             xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to connect to database!",body,false,^null)
         end
     end
+    endtry
 
-    ;;Enable SQL Server Auto-Commit mode?
+    ;TODO: Do we need to set the database command execution timeout like we did in SQL Connection?
+
+    ;;Enable SQL Server Auto-Commit?
 
     if (ok)
     begin
@@ -82,14 +68,16 @@ proc
         (DatabaseCommitMode.Automatic),
         begin
             Logger.Log("Commit mode: AUTOMATIC")
-            dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"yes")
+            ;TODO: Set AUTO COMMIT MODE
+            ;dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"yes")
         end
 
         (DatabaseCommitMode.Batch),
         begin
             Logger.Log("Commit mode: BATCH")
             Logger.VerboseLog(" - Start transaction")
-            dbstatus = %ssc_commit(Settings.DatabaseChannel,SSQL_TXON)
+            ;TODO: Need to start a transaction
+            ;dbstatus = %ssc_commit(Settings.DatabaseChannel,SSQL_TXON)
             Counters.BatchCounter = 0
         end
 
@@ -102,6 +90,7 @@ proc
     end
 
     ;;Report custom bulk load batch size
+
     if (ok)
     begin
         if (Settings.BulkLoadBatchSize > 0)
@@ -111,6 +100,7 @@ proc
     end
 
     ;;Report if data compression is enabled
+
     if (ok)
     begin
         using Settings.DataCompressionMode select
@@ -127,3 +117,4 @@ proc
 
 endfunction
 
+.endc

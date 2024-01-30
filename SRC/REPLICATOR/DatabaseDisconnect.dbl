@@ -11,7 +11,8 @@
 ;;*****************************************************************************
 ;;
 
-import replicator
+import Replicator
+import ReplicationLibrary
 
 subroutine DatabaseDisconnect
 proc

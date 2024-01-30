@@ -38,6 +38,10 @@
 import System.Collections
 import ReplicationLibrary
 
+.ifdef DBLNET
+import System.Diagnostics
+.endc
+
 main ReplicatorMenu
 
     .include "WND:windows.def"
@@ -171,7 +175,10 @@ proc
     begin
         xcall w_disp(mainwnd,WD_CLR,WDC_WND,WD_POS,1,1,"SQL Replicator Menu",WD_POS,1,25,"Instance: "+instanceName,WD_POS,1,50,"Table: " + tableName)
 
-.ifndef DBLNET
+.ifdef DBLNET
+        xcall w_disp(mainwnd,WD_POS,3,2,"SR. Start Replicator (Normal)")
+        xcall w_disp(mainwnd,WD_POS,4,2,"SD. Start Replicator (Detached/CRASH!)")
+.else
         if (windows) then
         begin
             xcall w_disp(mainwnd,WD_POS,3,2,"SR. Start Replicator (Normal)")
@@ -246,12 +253,22 @@ proc
 
         ("SR"),
         begin
+.ifdef DBLNET
+            ;TODO: Need to improve this before .NET release!!!
+            data startInfo = new ProcessStartInfo() {
+&               FileName = "C:\DEV_SYNERGEX\SqlReplication\EXE\net6.0\NetReplicator.exe",
+&               UseShellExecute = true,
+&               WindowStyle = ProcessWindowStyle.Normal
+&           }
+            System.Diagnostics.Process.Start(startInfo)
+.else
             if (windows) then
                 xcall spawn("dbr REPLICATOR_EXE:replicator.dbr",D_NOWINDOW|D_NOWAIT)
             else if (unix)
             begin
                 xcall spawn("nohup dbr REPLICATOR_EXE:replicator.dbr $REPLICATOR_INSTANCE </dev/null >/dev/null 2>&1 &")
             end
+.endc
         end
 
         ("RS"),
@@ -296,10 +313,19 @@ proc
 
         ("SD"),
         begin
+.ifdef DBLNET
+            data startInfo = new ProcessStartInfo() {
+&               FileName = "C:\DEV_UNFI\UBSSQLReplication\EXE\net6.0\NetReplicator.exe",
+&               UseShellExecute = false,
+&               CreateNoWindow = true
+&           }
+            System.Diagnostics.Process.Start(startInfo)
+.else
             if (windows)
             begin
                 xcall spawn("dbr -d REPLICATOR_EXE:replicator.dbr",D_NOWINDOW|D_NOWAIT)
             end
+.endc
         end
 
         ("SN"),

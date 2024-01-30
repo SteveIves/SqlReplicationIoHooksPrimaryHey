@@ -1,0 +1,26 @@
+;;*****************************************************************************
+;;
+;; Routine:     OpenKafkaQueue
+;;
+;; Description: Open the Kafka queue.
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;
+;; Created:     28th August 2023
+;;
+;;*****************************************************************************
+;;
+
+.ifdef DBLNET
+
+import replicator
+import Synergex.SynergyDE
+
+function OpenKafkaQueue, boolean
+proc
+
+
+    freturn false
+endfunction
+
+.endc

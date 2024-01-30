@@ -126,11 +126,6 @@ namespace ReplicationLibrary
         proc
             if(nspc_find(symbolTableId, key,objectIndex) != 0) then
             begin
-                if (objectStore[objectIndex] == ^null)
-                begin
-                    value = ^null
-                    mreturn false
-                end
                 kvp = objectStore[objectIndex]
                 value = ((@KeyValuePair)kvp).Value
                 mreturn true

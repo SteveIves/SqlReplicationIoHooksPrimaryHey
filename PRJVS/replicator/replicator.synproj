@@ -130,9 +130,6 @@
     <Compile Include="..\..\SRC\REPLICATOR\SendEmail.dbl">
       <Link>SendEmail.dbl</Link>
     </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\Settings.dbl">
-      <Link>Settings.dbl</Link>
-    </Compile>
     <Compile Include="..\..\SRC\REPLICATOR\TimeNow.dbl">
       <Link>TimeNow.dbl</Link>
     </Compile>

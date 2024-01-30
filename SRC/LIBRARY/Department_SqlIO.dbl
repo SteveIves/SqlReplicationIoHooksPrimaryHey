@@ -1,0 +1,714 @@
+;;*****************************************************************************
+;;
+;; File:        Department_SqlIO.dbl
+;;
+;; Description: Various functions that performs SQL I/O for DEPARTMENT
+;;
+;;*****************************************************************************
+;; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
+;;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
+;;*****************************************************************************
+
+.ifndef DBLNET
+ ;This code was generated from the SqlClientIO template and can only be used
+ ;in .NET. For traditional DBL environments use the SqlIO template
+.else
+
+import ReplicationLibrary
+import Synergex.SynergyDE.Select
+import System.Data.SqlClient
+
+.ifndef strDepartment
+.include "DEPARTMENT" repository, structure="strDepartment", end
+.endc
+
+.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
+.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX ") + x)
+
+;;*****************************************************************************
+;;; <summary>
+;;; Determines if the Department table exists in the database.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
+
+function Department_Exists, ^val
+    optional out aErrorMessage, a
+    endparams
+    stack record
+        error, int
+        errorMessage, string
+    endrecord
+proc
+    error = 0
+    errorMessage = String.Empty
+
+    try
+    begin
+        disposable data command = new SqlCommand("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Department'",Settings.DatabaseConnection) { 
+        &   CommandTimeout = Settings.DatabaseTimeout
+        & }
+        disposable data reader = command.ExecuteReader()
+        if (reader.Read()) then
+        begin
+            ; Table exists
+            error = 1
+        end
+        else
+        begin
+            errorMessage = "Table not found"
+            error = 0
+        end
+    end
+    catch (ex, @SqlException)
+    begin
+        errorMessage = ex.Message
+        error = -1
+    end
+    endtry
+
+    if (^passed(aErrorMessage) && error)
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    ;TODO: Old code included xcall ThrowOnCommunicationError(dberror,errtxt)
+
+    freturn error
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Creates the Department table in the database.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Create, ^val
+    optional out aErrorMessage, a
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        transactionInProgress, boolean
+        errorMessage, string
+    endrecord
+    static record
+        createTableCommand, string
+    endrecord
+proc
+    ok = true
+    transactionInProgress = false
+    errorMessage = String.Empty
+
+    ;Define the CREATE TABLE statement
+
+    if (createTableCommand == ^null)
+    begin
+        createTableCommand = 'CREATE TABLE "Department" ('
+        & + '"DeptId" VARCHAR(15) NOT NULL,'
+        & + '"DeptName" VARCHAR(50) NOT NULL,'
+        & + '"DeptManager" DECIMAL(6) NOT NULL,'
+        & + 'CONSTRAINT PK_Department PRIMARY KEY CLUSTERED("DeptId" ASC)'
+        & + ')'
+
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Page),
+            createTableCommand = createTableCommand + " WITH(DATA_COMPRESSION=PAGE)"
+        (DatabaseDataCompression.Row),
+            createTableCommand = createTableCommand + " WITH(DATA_COMPRESSION=ROW)"
+        endusing
+    end
+
+    ;;Create the database table and primary key constraint
+
+    try
+    begin
+        disposable data command = new SqlCommand(createTableCommand,Settings.DatabaseConnection) { 
+        &   CommandTimeout = Settings.DatabaseTimeout
+        & }
+        command.ExecuteNonQuery()
+    end
+    catch (ex, @SqlException)
+    begin
+        ok = false
+        errorMessage = "Failed to create table. Error was: " + ex.Message
+    end
+    endtry 
+
+    ;;Grant access permissions
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('GRANT ALL ON "Department" TO PUBLIC',Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to grant table permissions. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;;Commit or rollback the transaction
+
+    if (Settings.CommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;;Success, commit the transaction
+            try
+            begin
+                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
+                &   CommandTimeout = Settings.DatabaseTimeout
+                & }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                ok = false
+                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
+                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
+            end
+            endtry
+        end
+        else
+        begin
+            ;;There was an error, rollback the transaction
+            try
+            begin
+                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
+                &   CommandTimeout = Settings.DatabaseTimeout
+                & }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                ok = false
+                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
+                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
+            end
+            endtry
+        end
+    end
+
+    ;;If there was an error message, return it to the calling routine
+
+    if (^passed(aErrorMessage))
+    begin
+        if (ok) then
+            clear aErrorMessage
+        else
+            aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Add alternate key indexes to the Department table if they do not exist.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Index, ^val
+    optional out aErrorMessage, a
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+        now, a20
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+    ;;Create index 1 (Department manager)
+
+    if (ok && !%Index_Exists("IX_Department_DeptManager"))
+    begin
+        data sql = 'CREATE  INDEX IX_Department_DeptManager ON "Department"("DeptManager" ASC)'
+
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Page),
+            sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
+        (DatabaseDataCompression.Row),
+            sql = sql + " WITH(DATA_COMPRESSION=ROW)"
+        endusing
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.BulkLoadTimeout
+            & }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to create index IX_Department_DeptManager. Error was: " + ex.Message
+        end
+        endtry 
+
+        now = %datetime
+
+        if (ok) then
+        begin
+            writelog(" - Added index IX_Department_DeptManager")
+        end
+        else
+        begin
+            writelog(" - ERROR: " + errorMessage)
+            ok = true
+        end
+    end
+
+    ;;Commit or rollback the transaction
+
+    if (Settings.CommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;;Success, commit the transaction
+            try
+            begin
+                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
+                &   CommandTimeout = Settings.DatabaseTimeout
+                & }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                ok = false
+                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
+                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
+            end
+            endtry
+        end
+        else
+        begin
+            ;;There was an error, rollback the transaction
+            try
+            begin
+                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
+                &   CommandTimeout = Settings.DatabaseTimeout
+                & }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                ok = false
+                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
+                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
+            end
+            endtry
+        end
+    end
+
+    if (^passed(aErrorMessage) && !ok)
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Removes alternate key indexes from the Department table in the database.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_UnIndex, ^val
+    optional out aErrorMessage, a
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+
+
+
+
+    if (!ok && ^passed(aErrorMessage))
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Insert a row into the Department table.
+;;; </summary>
+;;; <param name="a_data">Record to be inserted.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
+
+function Department_Insert, ^val
+    required in  a_data,   a
+    optional out aErrorMessage, a
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+        sts, int
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+
+    if (!ok && ^passed(aErrorMessage))
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn sts
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Inserts multiple rows into the Department table.
+;;; </summary>
+;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <param name="a_exception">Memory handle to load exception data records into.</param>
+;;; <param name="a_terminal">Terminal number channel to log errors on.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_InsertRows, ^val
+    required in  a_data, i
+    optional out aErrorMessage, a
+    optional out a_exception, i
+    optional in  a_terminal, i
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+
+
+
+    if (!ok && ^passed(aErrorMessage))
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Updates a row in the Department table.
+;;; </summary>
+;;; <param name="a_data">Record containing data to update.</param>
+;;; <param name="a_rows">Returned number of rows affected.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Update, ^val
+    required in  a_data,   a
+    optional out a_rows,   i
+    optional out aErrorMessage, a
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+
+
+
+    if (!ok && ^passed(aErrorMessage))
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Deletes a row from the Department table.
+;;; </summary>
+;;; <param name="a_key">Unique key of row to be deleted.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Delete, ^val
+    required in  a_key,    a
+    optional out aErrorMessage, a
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+
+
+
+
+    if (!ok && ^passed(aErrorMessage))
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Deletes all rows from the Department table.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Clear, ^val
+    optional out aErrorMessage, a
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+
+
+
+
+
+    if (!ok && ^passed(aErrorMessage))
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Deletes the Department table from the database.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Drop, ^val
+    optional out aErrorMessage, a
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+
+
+
+
+
+
+    if (!ok && ^passed(aErrorMessage))
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Load all data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <param name="a_added">Total number of successful inserts.</param>
+;;; <param name="a_failed">Total number of failed inserts.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Load, ^val
+    optional out   aErrorMessage, a
+    optional inout a_added, n
+    optional out   a_failed, n
+    endparams
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+proc
+    ok = false
+    errorMessage = String.Empty
+
+
+
+
+
+
+
+
+    if (!ok && ^passed(aErrorMessage))
+    begin
+        aErrorMessage = errorMessage
+    end
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Bulk load data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a CSV file.
+;;; </summary>
+;;; <param name="a_connection">Established database connection.</param>
+;;; <param name="a_commit_mode">What commit mode are we using?</param>
+;;; <param name="a_localpath">Path to local export directory</param>
+;;; <param name="a_remotepath">Remote export directory or URL</param>
+;;; <param name="a_db_timeout">Database timeout in seconds.</param>
+;;; <param name="a_bl_timeout">Bulk load timeout in seconds.</param>
+;;; <param name="a_bl_batchsz">Bulk load batch size in rows.</param>
+;;; <param name="a_logchannel">Log file channel to log messages on.</param>
+;;; <param name="a_records">Total number of records processed</param>
+;;; <param name="a_exceptions">Total number of exception records detected</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_BulkLoad, ^val
+    required in  a_connection, @SqlConnection
+    required in  a_commit_mode,i
+    required in  a_localpath,  a
+    required in  a_server,     a
+    required in  a_port,       i
+    required in  a_db_timeout, n
+    required in  a_bl_timeout, n
+    required in  a_bl_batchsz, n
+    optional in  a_logchannel, n
+    optional in  a_ttchannel,  n
+    optional out a_records,    n
+    optional out a_exceptions, n
+    optional out a_errtxt,     a
+    endparams
+
+    .align
+    stack record local_data
+        ok, boolean
+    endrecord
+
+proc
+    init local_data
+    ok = false
+
+    freturn ok
+
+endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; Close cursors associated with the Department table.
+;;; </summary>
+;;; <param name="a_connection">Established database connection.</param>
+;;; <param name="a_commit_mode">What commit mode are we using?</param>
+
+subroutine Department_Close
+    required in a_connection, @SqlConnection
+    endparams
+
+proc
+
+    xreturn
+
+endsubroutine
+
+;;*****************************************************************************
+;;; <summary>
+;;; Exports REPLICATOR_DATA:DEPARTMENT.ISM to a CSV file.
+;;; </summary>
+;;; <param name="fileSpec">File to create</param>
+;;; <param name="recordCount">Passed number of records to export, returned number of records exported.</param>
+;;; <param name="errorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Csv, boolean
+    required in    fileSpec, a
+    optional inout recordCount, n
+    optional out   errorMessage, a
+    endparams
+
+    .include "DEPARTMENT" repository, record="department", end
+
+    .align
+    stack record local_data
+        ok,                             boolean     ;;Return status
+    endrecord
+
+proc
+    init local_data
+    ok = false
+
+    freturn ok
+
+endfunction
+
+.endc

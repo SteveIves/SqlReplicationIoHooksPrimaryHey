@@ -1,4 +1,9 @@
-namespace replicator
+
+.ifdef DBLNET
+import System.Data.SqlClient
+.endc
+
+namespace ReplicationLibrary
 
     structure strStructureData
         structure_name,     a32    ;;Name of structure
@@ -19,6 +24,16 @@ namespace replicator
         None,       1
         Row,        2
         Page,       3
+    endenum
+
+    public enum MessageQueueType
+        IsamFile,           1
+        Kafka,              2
+    endenum
+
+    public enum DatabaseConnectionMode
+        SqlConnection,      1
+        SqlClient,          2
     endenum
 
     ;;; <summary>
@@ -64,6 +79,11 @@ namespace replicator
             QRetryMaxAttempts   = 10
             QRetryDelaySeconds  = 30
             DataCompressionMode = DatabaseDataCompression.None
+            QueueType           = MessageQueueType.IsamFile
+            ConnectionMode      = DatabaseConnectionMode.SqlConnection
+.ifdef DBLNET
+            DatabaseConnection  = ^null
+.endc
         endmethod
 
         ;;; <summary>
@@ -76,6 +96,17 @@ namespace replicator
         ;;; </summary>
         public static readwrite property DatabaseChannel, i4
 
+        ;;; <summary>
+        ;;; Are we using Synergy SQL Connection or Microsoft SqlClient to interact with the database
+        ;;; </summary>
+        public static readwrite property ConnectionMode, DatabaseConnectionMode
+
+.ifdef DBLNET
+        ;;; <summary>
+        ;;; If using Microsoft SqlClient, this is the connection to the database
+        ;;; </summary>
+        public static readwrite property DatabaseConnection, @SqlConnection
+.endc
         ;;; <summary>
         ;;; Database connection string.
         ;;; </summary>
@@ -289,6 +320,11 @@ namespace replicator
         ;;; Use data compression for tables and indexes?
         ;;; </summary>
         public static readwrite property DataCompressionMode, DatabaseDataCompression
+
+        ;;; <summary>
+        ;;; Queue type (ISAM File, Kafka MQ).
+        ;;; </summary>
+        public static readwrite property QueueType, MessageQueueType
 
     endclass
 

@@ -11,7 +11,8 @@
 ;;*****************************************************************************
 ;;
 
-import replicator
+import Replicator
+import ReplicationLibrary
 
 function ConfigureEnvironment, boolean
 
@@ -55,40 +56,69 @@ proc
 
     if (ok)
     begin
-        ok = %OpenQueueFile
+        using Settings.QueueType select
+        (MessageQueueType.IsamFile),
+        begin
+            ok = %OpenQueueFile()
+        end
+.ifdef DBLNET
+        (MessageQueueType.Kafka),
+        begin
+            ok = %OpenKafkaQueue()
+        end
+.endc
+        (),
+        begin
+            Logger.ErrorLog("Invalid queue type")
+            ok = false
+        end
+        endusing
     end
 
-    ;;Enable and Initialize SQL Connection
+    ;;Connect to the database
 
     if (ok)
     begin
-        ;;Enable the "Improve SQL statement caching for SQL Server" feature (Synergy V11)
-        ;;
-        ;;The SQLPERFORMANCESQL environment variable causes SQL Connection to use SQLDescribeParam internally
-        ;;to improve performance for SQL statements with I/O parameters when accessing SQL Server.
-        ;;
-        ;;This is the equivalent of using %SSC_CMD(chn,,SSQL_PERFORMANCE_SQL)
-        ;;
-        ;;Setting this environment variable will have no effect on pre V11 systems, but will enable the
-        ;;enhanced performance feature under V11 and later versions.
-        ;;
-        xcall setlog("SQLPERFORMANCESQL","YES",length)
+
+        using Settings.ConnectionMode select
+
+        (DatabaseConnectionMode.SqlConnection),
+        begin
+            ;;Enable the "Improve SQL statement caching for SQL Server" feature (Synergy V11)
+            ;;
+            ;;The SQLPERFORMANCESQL environment variable causes SQL Connection to use SQLDescribeParam internally
+            ;;to improve performance for SQL statements with I/O parameters when accessing SQL Server.
+            ;;
+            ;;This is the equivalent of using %SSC_CMD(chn,,SSQL_PERFORMANCE_SQL)
+            ;;
+            ;;Setting this environment variable will have no effect on pre V11 systems, but will enable the
+            ;;enhanced performance feature under V11 and later versions.
+            ;;
+            xcall setlog("SQLPERFORMANCESQL","YES",length)
 
 .ifdef OS_VMS
-        xcall init_ssql
+            xcall init_ssql
 .else
-        status = %option(48,1)
+            status = %option(48,1)
 .endc
-        if (%ssc_init(Settings.DatabaseChannel,Settings.MaxCursors,Settings.MaxColumns)==SSQL_NORMAL) then
-        begin
-            ;;Connect to the database and configure the database environment
-            ok = %DatabaseConnect
+            if (%ssc_init(Settings.DatabaseChannel,Settings.MaxCursors,Settings.MaxColumns)==SSQL_NORMAL) then
+            begin
+                ;;Connect to the database and configure the database environment
+                ok = %DatabaseConnect
+            end
+            else
+            begin
+                Logger.ErrorLog("Failed to initialize SQL Connection")
+                ok = false
+            end
         end
-        else
+.ifdef DBLNET
+        (DatabaseConnectionMode.SqlClient),
         begin
-            Logger.ErrorLog("Failed to initialize SQL Connection")
-            ok = false
+            ok = %SqlClientConnect
         end
+.endc
+        endusing
     end
 
     ;;Register a shutdown handler
@@ -100,7 +130,7 @@ proc
         xcall syn_atexit(%xaddr("ReplicatorShutdown"))
 .endc
 
-.ifdef d_GUI
+.ifdef D_GUI
     ;;If anything has gone wrong so far and we're running on the terminal, pause so that
     ;;the user can read any error messages before the application window is removed.
     if (!ok && Settings.RunningOnTerminal)

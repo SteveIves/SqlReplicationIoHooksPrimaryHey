@@ -1,0 +1,91 @@
+
+import System
+import System.Threading
+import Confluent.Kafka
+
+main
+proc
+    ;TODO: Compiler bug: This begin/end should not be necessary but without it I get an ILASM error
+    ;%DBL-E-ILASM, ILASM error: NetMqClientTest.il(236) : error : Undeclared identifier _lcldata_0_$hoistfld.
+    begin
+        
+        ;TODO: Compiler Bug. Doesn't like AutoOffsetReset = AutoOffsetReset.Earliest
+        ;data conf = new ConsumerConfig()
+        ;& {
+        ;&  GroupId = "test-consumer-group",
+        ;&  BootstrapServers = "localhost:9092",
+        ;&  AutoOffsetReset = AutoOffsetReset.Earliest
+        ;& }
+
+        data conf = new ConsumerConfig()
+        conf.GroupId = "ReplicationConsumers"
+        conf.BootstrapServers = "localhost:9092"
+        conf.AutoOffsetReset = AutoOffsetReset.Earliest
+        conf.EnableAutoCommit = false
+
+        ;Note: The AutoOffsetReset property determines the start offset in the event
+        ;there are not yet any committed offsets for the consumer group for the
+        ;topic/partitions of interest. By default, offsets are committed
+        ;automatically, so in this example, consumption will only start from the
+        ;earliest message in the topic the first time you run the program.
+
+        disposable data consumer = new ConsumerBuilder<Ignore, string>(conf).Build()
+        consumer.Subscribe("ReplicationQueue")
+
+        disposable data cts = new CancellationTokenSource()
+
+        lambda cancelKeyPress(s,e)
+        begin
+            e.Cancel = true ;Prevent the process from terminating.
+            cts.Cancel()
+        end
+
+        Console.CancelKeyPress += cancelKeyPress
+
+        try
+        begin
+            repeat
+            begin
+                try
+                begin
+                    ;Blocks until a consume result is available or the operation has been cancelled.
+                    data result = consumer.Consume(cts.Token)
+
+                    Console.WriteLine("Received message '{0}' at '{1}'",result.Value,result.TopicPartitionOffset)
+
+                    ;Process the message into SQL Server
+                    data messageProcessed = false
+
+
+
+
+
+
+
+                    ;Simulate success
+                    messageProcessed = true
+
+                    ;If successful, commit the message in the queue
+                    if (messageProcessed)
+                    begin
+                        consumer.Commit()
+                    end
+
+                end
+                catch (e, @ConsumeException)
+                begin
+                    Console.WriteLine("ERROR: {0}",e.Error.Reason)
+                end
+                endtry
+            end
+        end
+        catch (e, @Exception)
+        begin
+            ; Ensure the consumer leaves the group cleanly and final offsets are committed.
+            consumer.Close()
+        end
+        endtry
+
+    end
+
+endmain

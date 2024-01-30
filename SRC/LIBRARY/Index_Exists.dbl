@@ -1,0 +1,94 @@
+;;*****************************************************************************
+;;
+;; File:        Index_Exists.dbl
+;;
+;; Description: Determines if a named index exists in a database
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2024, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.ifdef DBLNET
+
+import System.Data.SqlClient
+import ReplicationLibrary
+
+;;; <summary>
+;;; Determines if a named index exists in a database.
+;;; </summary>
+;;; <param name="a_indexname">Name of index to check.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns 1 if the index exists, otherwise a number indicating the type of error.</returns>
+function Index_Exists, ^val
+    required in  aIndexName, string
+    endparams
+
+    .align
+    stack record
+        error, int    ;;Returned error number
+        errorMessage, string
+        dberror     ,int    ;;Database error number
+        cursor      ,int    ;;Database cursor
+        length      ,int    ;;Length of a string
+        index_name  ,a128   ;;Retrieved index name
+        errtxt      ,a256   ;;Error message text
+    endrecord
+
+proc
+
+    try
+    begin
+        disposable data command = new SqlCommand("SELECT name FROM SysIndexes WHERE name='" + aIndexName + "'",Settings.DatabaseConnection) { 
+        &    CommandTimeout = Settings.DatabaseTimeout
+        &    }
+
+        disposable data reader = command.ExecuteReader()
+
+        if (reader.Read()) then
+        begin
+            ; Index exists
+            error = 1
+        end
+        else
+        begin
+            error = 0
+        end
+    end
+    catch (ex, @SqlException)
+    begin
+        error = -1
+    end
+    endtry
+
+    freturn error
+
+endfunction
+
+.endc

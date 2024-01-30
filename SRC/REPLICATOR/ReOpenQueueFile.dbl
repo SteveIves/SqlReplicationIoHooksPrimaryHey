@@ -12,6 +12,7 @@
 ;;
 
 import replicator
+import ReplicationLibrary
 
 function ReOpenQueueFile, boolean
     stack record

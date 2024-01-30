@@ -12,6 +12,7 @@
 ;;
 
 import replicator
+import ReplicationLibrary
 import System.Collections
 
 function DatabaseReconnect, boolean

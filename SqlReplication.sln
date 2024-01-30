@@ -14,6 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{
 		SRC\TEMPLATES\ExcludeKeyTest.json = SRC\TEMPLATES\ExcludeKeyTest.json
 		SRC\TEMPLATES\FileDataReport.tpl = SRC\TEMPLATES\FileDataReport.tpl
 		SRC\TEMPLATES\GetReplicatedTables.tpl = SRC\TEMPLATES\GetReplicatedTables.tpl
+		SRC\TEMPLATES\SqlClientIO.tpl = SRC\TEMPLATES\SqlClientIO.tpl
 		SRC\TEMPLATES\SqlIO.tpl = SRC\TEMPLATES\SqlIO.tpl
 	EndProjectSection
 EndProject
@@ -84,6 +85,8 @@ EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetReplicationLibrary", "PRJVS\NetReplicationLibrary\NetReplicationLibrary.synproj", "{D62894B0-E298-40F2-A110-04B008E0FEBB}"
 EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetReplicatorMenu", "PRJVS\NetReplicatorMenu\NetReplicatorMenu.synproj", "{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}"
+EndProject
+Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetKafkaClientTest", "PRJVS\NetMqClientTest\NetKafkaClientTest.synproj", "{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -247,6 +250,24 @@ Global
 		{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}.Release|x64.Build.0 = Release|Any CPU
 		{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}.Release|x86.ActiveCfg = Release|x86
 		{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}.Release|x86.Build.0 = Release|x86
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|x64.Build.0 = Debug|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|x86.ActiveCfg = Debug|x86
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|x86.Build.0 = Debug|x86
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|Any CPU.ActiveCfg = Debug|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|Any CPU.Build.0 = Debug|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|x64.ActiveCfg = Debug|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|x64.Build.0 = Debug|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|x86.ActiveCfg = Debug|x86
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|x86.Build.0 = Debug|x86
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x64.ActiveCfg = Release|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x64.Build.0 = Release|Any CPU
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x86.ActiveCfg = Release|x86
+		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk" DefaultTargets="restore;Build">
+  <Import Project="$(SolutionDir)Common.props" />
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework Condition="'$(TargetFrameworkOverride)' == ''">net6.0</TargetFramework>
@@ -7,6 +8,8 @@
     <EnableDefaultItems>false</EnableDefaultItems>
     <ProjectGuid>{8d5e6b55-813c-4921-a676-e0eb82a3dbd9}</ProjectGuid>
     <Name>NetReplicatorMenu</Name>
+    <EnableCommonProperties>True</EnableCommonProperties>
+    <CommonPropertiesFileLocation>$(SolutionDir)Common.props</CommonPropertiesFileLocation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>

@@ -2,6 +2,7 @@
 ;;
 
 import replicator
+import ReplicationLibrary
 
 .ifdef DBLNET
 

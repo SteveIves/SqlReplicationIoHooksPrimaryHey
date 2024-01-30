@@ -32,6 +32,9 @@
   <ItemGroup>
     <PackageReference Include="Synergex.SynergyDE.Build" Version="23.*" />
     <PackageReference Include="Synergex.SynergyDE.synrnt" Version="12.*" />
+    <PackageReference Include="System.Data.SqlClient">
+      <Version>4.8.6</Version>
+    </PackageReference>
     <PackageReference Include="System.Text.Json">
       <Version>6.0.8</Version>
     </PackageReference>
@@ -42,7 +45,9 @@
     <Compile Include="..\..\SRC\LIBRARY\DatabaseCommunicationException.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\Department_SqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmployeeSqlIO.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\Employee_SqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\File.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\FileChunkReader.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\FileServiceClient.dbl" />
@@ -52,6 +57,7 @@
     <Compile Include="..\..\SRC\LIBRARY\GetInstanceNames.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\GetReplicatedTables.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IndexExists.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\Index_Exists.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\InstanceInfo.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IOHooksISAM.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IOHooksRELATIVE.dbl" />
@@ -67,6 +73,7 @@
     <Compile Include="..\..\SRC\LIBRARY\OpenOrCreateQueueFile.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\PopulateReplicationKey.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Replicate.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\Settings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SmtpMail.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringDictionary.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringTools.dbl" />

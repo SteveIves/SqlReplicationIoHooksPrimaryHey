@@ -186,6 +186,9 @@
     <Compile Include="..\..\SRC\LIBRARY\Replicate.dbl">
       <Link>Replicate.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\Settings.dbl">
+      <Link>Settings.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\SmtpMail.dbl">
       <Link>SmtpMail.dbl</Link>
     </Compile>

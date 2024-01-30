@@ -27,6 +27,8 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;//              whose columns match the fields defined in a Synergy
 ;//              repository structure.
 ;//
+;//              The code produced by this template uses Synergy SQL Connection
+;//
 ;// Author:      Steve Ives, Synergex Professional Services Group
 ;//
 ;// Copyright    (c) 2009 Synergex International Corporation.

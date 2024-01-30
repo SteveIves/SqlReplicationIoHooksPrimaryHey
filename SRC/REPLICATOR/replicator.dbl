@@ -703,8 +703,18 @@ CheckTable,
         data doReturn, boolean, false
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Exists"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Exists"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Exists"
+                status = %xsubr(functionName,dberrtxt)
+            end
+            endusing
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -764,8 +774,18 @@ CreateTable,
         data doReturn, boolean, false
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Create"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),(i)(Settings.DataCompressionMode),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Create"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),(i)(Settings.DataCompressionMode),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Create"
+                status = %xsubr(functionName,dberrtxt)
+            end
+            endusing
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -827,16 +847,25 @@ LoadTable,
             data successCount,  int,maxRowsToLoad
             data failCount,     int,0
 
-            functionName = %atrim(instruction.structure_name) + "Load"
-
-            if (Settings.RunningOnTerminal) then
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
             begin
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt,Settings.LogLoadExceptions,Settings.TerminalChannel,successCount,failCount,Settings.BulkLoadProgressReporting)
+                functionName = %atrim(instruction.structure_name) + "Load"
+                if (Settings.RunningOnTerminal) then
+                begin
+                    status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt,Settings.LogLoadExceptions,Settings.TerminalChannel,successCount,failCount,Settings.BulkLoadProgressReporting)
+                end
+                else
+                begin
+                    status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt,Settings.LogLoadExceptions,,successCount,failCount)
+                end
             end
-            else
+            (DatabaseConnectionMode.SqlClient),
             begin
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt,Settings.LogLoadExceptions,,successCount,failCount)
+                functionName = %atrim(instruction.structure_name) + "_Load"
+                status = %xsubr(functionName,dberrtxt,successCount,failCount)
             end
+            endusing
 
             if (status) then
             begin
@@ -896,6 +925,16 @@ BulkLoadTable,
             data totalRows, int,maxRowsToLoad
             data failRows,  int,0
 
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                
+            end
+            endusing
             functionName = %atrim(instruction.structure_name) + "BulkLoad"
             status = %xsubr(functionName,Settings.DatabaseChannel,(i)(Settings.CommitMode),Settings.LocalExportPath,Settings.FileServiceHost,Settings.FileServicePort,Settings.DatabaseTimeout,Settings.BulkLoadTimeout,Settings.BulkLoadBatchSize,Settings.LogFileChannel,Settings.TerminalChannel,totalRows,failRows,dberrtxt)
 
@@ -955,6 +994,16 @@ DoInsert,
     begin
         if (Settings.LogKeys)
         begin
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                
+            end
+            endusing
             functionName = %atrim(instruction.structure_name) + "KeyVal"
             status = %xsubr(functionName,instruction.record,keyValue,keyLength)
             Logger.VerboseLog(" - Key: " + keyValue(1:keyLength))
@@ -966,8 +1015,18 @@ DoInsert,
         data doReturn, boolean, false
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Insert"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),instruction.record(1,structure_data.structure_size),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Insert"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),instruction.record(1,structure_data.structure_size),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Insert"
+                status = %xsubr(functionName,instruction.record(1,structure_data.structure_size),dberrtxt)
+            end
+            endusing
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1048,8 +1107,18 @@ DoInsertRelative,
         data doReturn, boolean, false
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Insert"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),recordNumber,instruction.record(1,structure_data.structure_size),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Insert"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),recordNumber,instruction.record(1,structure_data.structure_size),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Insert"
+                status = %xsubr(functionName,recordNumber,instruction.record(1,structure_data.structure_size),dberrtxt)
+            end
+            endusing
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1129,8 +1198,18 @@ DoUpdate,
         data doReturn, boolean, false
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Update"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),instruction.record(1,structure_data.structure_size),rows,dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Update"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),instruction.record(1,structure_data.structure_size),rows,dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Update"
+                status = %xsubr(functionName,instruction.record(1,structure_data.structure_size),rows,dberrtxt)
+            end
+            endusing
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1212,6 +1291,16 @@ DoUpdateRelative,
         data doReturn, boolean, false
         try
         begin
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                
+            end
+            endusing
             functionName = %atrim(instruction.structure_name) + "Update"
             status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),recordNumber,instruction.record(1,structure_data.structure_size),rows,dberrtxt)
             exitloop
@@ -1286,8 +1375,18 @@ DoDelete,
     begin
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Delete"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),keyValue(1:keyLength),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Delete"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),keyValue(1:keyLength),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Delete"
+                status = %xsubr(functionName,keyValue(1:keyLength),dberrtxt)
+            end
+            endusing
             if (status) then
             begin
                 Logger.VerboseLog(" - Row deleted")
@@ -1337,8 +1436,18 @@ DoCreateTable,
     begin
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Exists"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Exists"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Exists"
+                status = %xsubr(functionName,dberrtxt)
+            end
+            endusing
             using status select
             (1),
             begin
@@ -1353,8 +1462,19 @@ DoCreateTable,
                 begin
                     try
                     begin
-                        functionName = %atrim(instruction.structure_name) + "Create"
-                        status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),(i)(Settings.DataCompressionMode),dberrtxt)
+                        using Settings.ConnectionMode select
+                        (DatabaseConnectionMode.SqlConnection),
+                        begin
+                            functionName = %atrim(instruction.structure_name) + "Create"
+                            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),(i)(Settings.DataCompressionMode),dberrtxt)
+                        end
+                        (DatabaseConnectionMode.SqlClient),
+                        begin
+                            functionName = %atrim(instruction.structure_name) + "_Create"
+                            status = %xsubr(functionName,dberrtxt)
+                        end
+                        endusing
+
                         if (status) then
                         begin
                             if (Settings.CanSendEmail())
@@ -1433,8 +1553,18 @@ DoLoadTable,
         data doReturn, boolean, false
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Exists"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Exists"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Exists"
+                status = %xsubr(functionName,dberrtxt)
+            end
+            endusing
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1511,6 +1641,16 @@ DoCreateCsv,
     try
     begin
         data csvFileSpec,   a128,   Settings.LocalExportPath
+        using Settings.ConnectionMode select
+        (DatabaseConnectionMode.SqlConnection),
+        begin
+                
+        end
+        (DatabaseConnectionMode.SqlClient),
+        begin
+                
+        end
+        endusing
         functionName = %atrim(instruction.structure_name) + "Csv"
         status = %xsubr(functionName,csvFileSpec,dberrtxt)
         if (status) then
@@ -1539,8 +1679,18 @@ DoDeleteAllRows,
     begin
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Clear"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Clear"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Clear"
+                status = %xsubr(functionName,dberrtxt)
+            end
+            endusing
             if (status) then
             begin
                 Logger.VerboseLog(" - Table truncated")
@@ -1596,8 +1746,18 @@ DoDeleteTable,
         data doReturn, boolean, false
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Drop"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Drop"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Drop"
+                status = %xsubr(functionName,dberrtxt)
+            end
+            endusing
             if (status) then
             begin
                 Logger.VerboseLog(" - Table deleted")
@@ -1648,8 +1808,18 @@ DoAddIndexes,
     begin
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "Index"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),(i)(Settings.DatabaseTimeout),(i)(Settings.BulkLoadTimeout),(i)(Settings.DataCompressionMode),(i)(Settings.LogFileChannel),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "Index"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),(i)(Settings.DatabaseTimeout),(i)(Settings.BulkLoadTimeout),(i)(Settings.DataCompressionMode),(i)(Settings.LogFileChannel),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_Index"
+                status = %xsubr(functionName,dberrtxt)
+            end
+            endusing
             if (status) then
             begin
                 Logger.VerboseLog(" - Indexes added")
@@ -1702,8 +1872,18 @@ DoDeleteIndexes,
     begin
         try
         begin
-            functionName = %atrim(instruction.structure_name) + "UnIndex"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            using Settings.ConnectionMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                functionName = %atrim(instruction.structure_name) + "UnIndex"
+                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.CommitMode),dberrtxt)
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                functionName = %atrim(instruction.structure_name) + "_UnIndex"
+                status = %xsubr(functionName,dberrtxt)
+            end
+            endusing
             if (status) then
             begin
                 Logger.VerboseLog(" - Indexes removed")
