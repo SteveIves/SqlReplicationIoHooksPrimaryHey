@@ -98,7 +98,7 @@ namespace replicator
         proc
             ;;Log the message
             if (Settings.LogFileChannel!=0)
-                writes(Settings.LogFileChannel,%TimeNow + message)
+                writes(Settings.LogFileChannel,%TimeNow + " " + message)
             ;;If running on the terminal, also display the message
             if (Settings.RunningOnTerminal)
                 writes(Settings.TerminalChannel,message)
@@ -185,7 +185,7 @@ namespace replicator
         ;;; <summary>
         ;;; Log the failure of a database function
         ;;; </summary>
-        ;;; <param name="functionName">Nam of failing function</param>
+        ;;; <param name="functionName">Name of failing function</param>
         ;;; <param name="errorNumber">Database error number</param>
         ;;; <param name="errorMessage">Database error message</param>
         ;;; <returns></returns>
