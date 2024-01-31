@@ -727,44 +727,47 @@ proc
                 Settings.MaxColumns = %integer(tmpval(1:length))
         end
 
+        ;;-----------------------------------------------------------
         ;;Check that none of our tables exceed the configured maximum
+        ;;Added by Steve Ives, 1/31/2024
 
         begin
             data tables, @ArrayList
             data table, string
             data columns = 0
             data highestColumns = 0
-            data problemTableCount = 0
-            data problemTables = new StringBuilder()
+            data problemTables = 0
 
             xcall GetReplicatedTables(Settings.InstanceName,tables)
 
             foreach table in tables
             begin
-                ;TODO: compiler or runtime Bug? columns gets the wrong value!
-                ;if (columns=%xsubr(table+"Cols") > highestColumns)
-                ;    highestColumns = columns
-
                 columns=%xsubr(table+"Cols")
 
                 if (columns > highestColumns)
                     highestColumns = columns
 
                 if (columns > Settings.MaxColumns)
-                begin
-                    if (problemTables.Length > 0)
-                        problemTables.Append(",")
-                    problemTables.Append(table)
-                    problemTableCount += 1
-                end
+                    problemTables += 1
             end
 
-            if (problemTableCount > 0)
+            Logger.Log("Max columns found: " + %string(highestColumns))
+
+            if (problemTables > 0)
             begin
-                Logger.ErrorLog("Table(s) " + problemTables.ToString() + " exceed maximum column count " + %string(Settings.MaxColumns))
-                ok = false
+                if (highestColumns <= 1024) then
+                begin
+                    Logger.Log("WARNING: Max columns raised from " + %string(Settings.MaxColumns) + " to " + %string(highestColumns))
+                    Settings.MaxColumns = highestColumns
+                end
+                else
+                begin
+                    Logger.ErrorLog("One or more tables exceed the maximum supported column count of 1024")
+                    ok = false
+                end
             end
         end
+        ;;-----------------------------------------------------------
     end
 
     ;;Max cursors
