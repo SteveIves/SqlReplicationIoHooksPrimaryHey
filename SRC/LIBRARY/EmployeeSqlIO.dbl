@@ -3088,3 +3088,16 @@ proc
     fileType = "DBL ISAM"
     freturn true
 endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <returns></returns>
+
+function EmployeeCols ,^val
+proc
+
+    freturn 15
+
+endfunction

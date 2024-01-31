@@ -3592,3 +3592,38 @@ proc
     fileType = "<FILE_TYPE>"
     freturn true
 endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <returns></returns>
+
+function <StructureName>Cols ,^val
+proc
+<COUNTER_1_RESET>
+<IF STRUCTURE_RELATIVE><COUNTER_1_INCREMENT></IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF DEFINED_ASA_TIREMAX>
+      <IF STRUCTURE_ISAM AND USER>
+        <COUNTER_1_INCREMENT>
+      <ELSE STRUCTURE_ISAM AND NOT USER>
+        <COUNTER_1_INCREMENT>
+      <ELSE STRUCTURE_RELATIVE AND USER>
+        <COUNTER_1_INCREMENT>
+      <ELSE STRUCTURE_RELATIVE AND NOT USER>
+        <COUNTER_1_INCREMENT>
+      </IF STRUCTURE_ISAM>
+    <ELSE>
+      <IF STRUCTURE_ISAM>
+        <COUNTER_1_INCREMENT>
+      <ELSE STRUCTURE_RELATIVE>
+        <COUNTER_1_INCREMENT>
+      </IF STRUCTURE_ISAM>
+    </IF DEFINED_ASA_TIREMAX>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+    freturn <COUNTER_1_VALUE>
+
+endfunction

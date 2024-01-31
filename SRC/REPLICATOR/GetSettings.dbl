@@ -14,6 +14,7 @@
 import replicator
 import ReplicationLibrary
 import System.Collections
+import System.Text
 
 function GetSettings, boolean
     stack record
@@ -21,6 +22,9 @@ function GetSettings, boolean
         clValues,   @ArrayList
         length,     int
     endrecord
+    external function
+        xsubr,  ^val
+    endexternal
 proc
     ;;Configure defaults
     ok = true
@@ -721,6 +725,45 @@ proc
             xcall getlog("REPLICATOR_MAX_COLS",tmpval,length)
             if (length>0)
                 Settings.MaxColumns = %integer(tmpval(1:length))
+        end
+
+        ;;Check that none of our tables exceed the configured maximum
+
+        begin
+            data tables, @ArrayList
+            data table, string
+            data columns = 0
+            data highestColumns = 0
+            data problemTableCount = 0
+            data problemTables = new StringBuilder()
+
+            xcall GetReplicatedTables(Settings.InstanceName,tables)
+
+            foreach table in tables
+            begin
+                ;TODO: compiler or runtime Bug? columns gets the wrong value!
+                ;if (columns=%xsubr(table+"Cols") > highestColumns)
+                ;    highestColumns = columns
+
+                columns=%xsubr(table+"Cols")
+
+                if (columns > highestColumns)
+                    highestColumns = columns
+
+                if (columns > Settings.MaxColumns)
+                begin
+                    if (problemTables.Length > 0)
+                        problemTables.Append(",")
+                    problemTables.Append(table)
+                    problemTableCount += 1
+                end
+            end
+
+            if (problemTableCount > 0)
+            begin
+                Logger.ErrorLog("Table(s) " + problemTables.ToString() + " exceed maximum column count " + %string(Settings.MaxColumns))
+                ok = false
+            end
         end
     end
 

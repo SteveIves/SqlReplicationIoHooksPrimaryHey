@@ -2785,3 +2785,16 @@ proc
     fileType = "DBL ISAM"
     freturn true
 endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <returns></returns>
+
+function DepartmentCols ,^val
+proc
+
+    freturn 3
+
+endfunction
