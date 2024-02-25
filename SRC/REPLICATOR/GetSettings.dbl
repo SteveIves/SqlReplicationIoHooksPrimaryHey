@@ -34,14 +34,14 @@ proc
 
     if (CommandLineParser.Parse("syslog")) then
     begin
-        Settings.SystemLog = true
+        Settings.SystemLogging = true
     end
     else
     begin
         ;;Environment variable?
         data tmpval, a3
         xcall getlog("REPLICATOR_SYSTEM_LOG",tmpval,length)
-        Settings.SystemLog = ((length>0)&&(tmpval.eq."YES"))
+        Settings.SystemLogging = ((length>0)&&(tmpval.eq."YES"))
     end
 
     ;;Log file location
@@ -211,12 +211,12 @@ proc
                 using connectionMode.ToUpper() select
                 ("SQLCONNECTION"),
                 begin
-                    Settings.ConnectionMode = DatabaseConnectionMode.SqlConnection
+                    Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlConnection
                 end
                 ("SQLCLIENT"),
                 begin
 .ifdef DBLNET
-                    Settings.ConnectionMode = DatabaseConnectionMode.SqlClient
+                    Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlClient
 .else
                     Logger.ErrorLog("Connection mode " + connectionMode + " is only valid when running the .NET version of replicator.")
                     ok = false
@@ -252,12 +252,12 @@ proc
                 using tmpval(1:length) select
                 ("SQLCONNECTION"),
                 begin
-                    Settings.ConnectionMode = DatabaseConnectionMode.SqlConnection
+                    Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlConnection
                 end
                 ("SQLCLIENT"),
                 begin
 .ifdef DBLNET
-                    Settings.ConnectionMode = DatabaseConnectionMode.SqlClient
+                    Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlClient
 .else
                     Logger.ErrorLog("REPLICATOR_CONNECTION_MODE " + tmpval(1:length) + " is only valid when running the .NET version of replicator.")
                     ok = false
@@ -276,7 +276,7 @@ proc
     ;;Report the connection mode
     if (ok)
     begin
-        using Settings.ConnectionMode select
+        using Settings.DatabaseConnectMode select
         (DatabaseConnectionMode.SqlConnection),
             Logger.Log("Connection mode SQL Connection")
         (DatabaseConnectionMode.SqlClient),
@@ -453,14 +453,14 @@ proc
         ;;Command line?
         if (CommandLineParser.Parse("progress")) then
         begin
-            Settings.BulkLoadProgressReporting = true
+            Settings.LogLoadProgress = true
         end
         else
         begin
             ;;Environment variable?
             data tmpval, a10
             xcall getlog("REPLICATOR_LOAD_PROGRESS",tmpval,length)
-            Settings.BulkLoadProgressReporting = ((length>0)&&(tmpval.eq."YES"))
+            Settings.LogLoadProgress = ((length>0)&&(tmpval.eq."YES"))
         end
     end
 
@@ -471,14 +471,14 @@ proc
         ;;Command line?
         if (CommandLineParser.Parse("verbose")) then
         begin
-            Settings.FullLogging = true
+            Settings.VerboseLogging = true
         end
         else
         begin
             ;;Environment variable?
             data tmpval, a3
             xcall getlog("REPLICATOR_FULL_LOG",tmpval,length)
-            Settings.FullLogging = ((length>0)&&(tmpval.eq."YES"))
+            Settings.VerboseLogging = ((length>0)&&(tmpval.eq."YES"))
         end
     end
 
@@ -489,14 +489,14 @@ proc
         ;;Command line?
         if (CommandLineParser.Parse("keyvalues")) then
         begin
-            Settings.LogKeys = true
+            Settings.LogKeyValues = true
         end
         else
         begin
             ;;Environment variable?
             data tmpval, a3
             xcall getlog("REPLICATOR_LOG_KEYS",tmpval,length)
-            Settings.LogKeys = ((length>0)&&(tmpval.eq."YES"))
+            Settings.LogKeyValues = ((length>0)&&(tmpval.eq."YES"))
         end
     end
 
@@ -507,14 +507,14 @@ proc
         ;;Command line?
         if (CommandLineParser.Parse("loaderrors")) then
         begin
-            Settings.LogLoadExceptions = true
+            Settings.LogBulkLoadExceptions = true
         end
         else
         begin
             ;;Environment variable?
             data tmpval, a3
             xcall getlog("REPLICATOR_LOG_BULK_LOAD_EXCEPTIONS",tmpval,length)
-            Settings.LogLoadExceptions = ((length>0)&&(tmpval.eq."YES"))
+            Settings.LogBulkLoadExceptions = ((length>0)&&(tmpval.eq."YES"))
         end
     end
 
@@ -892,11 +892,11 @@ proc
             begin
                 using ((string)clValues[0]).ToUpper() select
                 ("AUTOMATIC"),
-                    Settings.CommitMode = DatabaseCommitMode.Automatic
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Automatic
                 ("BATCH"),
-                    Settings.CommitMode = DatabaseCommitMode.Batch
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Batch
                 ("MANUAL"),
-                    Settings.CommitMode = DatabaseCommitMode.Manual
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Manual
                 (),
                 begin
                     Logger.ErrorLog("Invalid option value following the -commitmode option. Specify AUTOMATIC, BATCH (default) or MANUAL.")
@@ -925,11 +925,11 @@ proc
             begin
                 using ((String)tmpval(1:length)).ToUpper() select
                 ("AUTOMATIC"),
-                    Settings.CommitMode = DatabaseCommitMode.Automatic
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Automatic
                 ("BATCH"),
-                    Settings.CommitMode = DatabaseCommitMode.Batch
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Batch
                 ("MANUAL"),
-                    Settings.CommitMode = DatabaseCommitMode.Manual
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Manual
                 (),
                 begin
                     Logger.ErrorLog("Invalid value specified for option REPLICATOR_COMMIT_MODE. Specify YES or NO.")
@@ -952,9 +952,9 @@ proc
             begin
                 try
                 begin
-                    Settings.CommitBatchRows = %integer((string)clValues[0])
+                    Settings.CommitBatchSize = %integer((string)clValues[0])
 
-                    if (Settings.CommitBatchRows<2)
+                    if (Settings.CommitBatchSize<2)
                     begin
                         Logger.ErrorLog("Invalid option value following the -commitbatch option. Specify an integer greater than 1.")
                         ok = false
@@ -989,9 +989,9 @@ proc
             begin
                 try
                 begin
-                    Settings.CommitBatchRows = %integer(%atrim(tmpval))
+                    Settings.CommitBatchSize = %integer(%atrim(tmpval))
 
-                    if (Settings.CommitBatchRows<2)
+                    if (Settings.CommitBatchSize<2)
                     begin
                         Logger.ErrorLog("Invalid option value for REPLICATOR_COMMIT_BATCH. Specify an integer greater than 1.")
                         ok = false
@@ -1180,8 +1180,8 @@ proc
             begin
                 try
                 begin
-                    Settings.RetryMaxAttempts = %integer((string)clValues[0])
-                    if (Settings.RetryMaxAttempts < 0)
+                    Settings.DatabaseRetryMax = %integer((string)clValues[0])
+                    if (Settings.DatabaseRetryMax < 0)
                     begin
                         Logger.ErrorLog("Invalid option value for -reconnectattempts. Value must be >= 0.")
                         ok = false
@@ -1215,8 +1215,8 @@ proc
             begin
                 try
                 begin
-                    Settings.RetryMaxAttempts = %integer(%atrim(tmpval))
-                    if (Settings.RetryMaxAttempts < 0)
+                    Settings.DatabaseRetryMax = %integer(%atrim(tmpval))
+                    if (Settings.DatabaseRetryMax < 0)
                     begin
                         Logger.ErrorLog("Invalid option value for REPLICATOR_RECONNECT_ATTEMPTS. Value must be >= 0.")
                         ok = false
@@ -1242,8 +1242,8 @@ proc
             begin
                 try
                 begin
-                    Settings.RetryDelaySeconds = %integer((string)clValues[0])
-                    if (Settings.RetryDelaySeconds < 1)
+                    Settings.DatabaseRetryDelay = %integer((string)clValues[0])
+                    if (Settings.DatabaseRetryDelay < 1)
                     begin
                         Logger.ErrorLog("Invalid option value for -reconnectdelay. Value must be 1 or greater.")
                         ok = false
@@ -1277,8 +1277,8 @@ proc
             begin
                 try
                 begin
-                    Settings.RetryDelaySeconds = %integer(%atrim(tmpval))
-                    if (Settings.RetryDelaySeconds < 1)
+                    Settings.DatabaseRetryDelay = %integer(%atrim(tmpval))
+                    if (Settings.DatabaseRetryDelay < 1)
                     begin
                         Logger.ErrorLog("Invalid option value for REPLICATOR_RECONNECT_DELAY. Value must be 1 or greater.")
                         ok = false
@@ -1304,8 +1304,8 @@ proc
             begin
                 try
                 begin
-                    Settings.QRetryMaxAttempts = %integer((string)clValues[0])
-                    if (Settings.QRetryMaxAttempts < 0)
+                    Settings.QueueReconnectAttempts = %integer((string)clValues[0])
+                    if (Settings.QueueReconnectAttempts < 0)
                     begin
                         Logger.ErrorLog("Invalid option value for -qreconnectattempts. Value must be >= 0.")
                         ok = false
@@ -1339,8 +1339,8 @@ proc
             begin
                 try
                 begin
-                    Settings.QRetryMaxAttempts = %integer(%atrim(tmpval))
-                    if (Settings.QRetryMaxAttempts < 0)
+                    Settings.QueueReconnectAttempts = %integer(%atrim(tmpval))
+                    if (Settings.QueueReconnectAttempts < 0)
                     begin
                         Logger.ErrorLog("Invalid option value for REPLICATOR_QRECONNECT_ATTEMPTS. Value must be >= 0.")
                         ok = false
@@ -1366,8 +1366,8 @@ proc
             begin
                 try
                 begin
-                    Settings.QRetryDelaySeconds = %integer((string)clValues[0])
-                    if (Settings.QRetryDelaySeconds < 1)
+                    Settings.QueueReconnectDelay = %integer((string)clValues[0])
+                    if (Settings.QueueReconnectDelay < 1)
                     begin
                         Logger.ErrorLog("Invalid option value for -qreconnectdelay. Value must be 1 or greater.")
                         ok = false
@@ -1401,8 +1401,8 @@ proc
             begin
                 try
                 begin
-                    Settings.QRetryDelaySeconds = %integer(%atrim(tmpval))
-                    if (Settings.QRetryDelaySeconds < 1)
+                    Settings.QueueReconnectDelay = %integer(%atrim(tmpval))
+                    if (Settings.QueueReconnectDelay < 1)
                     begin
                         Logger.ErrorLog("Invalid option value for REPLICATOR_QRECONNECT_DELAY. Value must be 1 or greater.")
                         ok = false

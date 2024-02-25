@@ -18,7 +18,7 @@ subroutine DatabaseDisconnect
 proc
     try
     begin
-        using Settings.ConnectionMode select
+        using Settings.DatabaseConnectMode select
         (DatabaseConnectionMode.SqlConnection),
         begin
             data dbstatus, int

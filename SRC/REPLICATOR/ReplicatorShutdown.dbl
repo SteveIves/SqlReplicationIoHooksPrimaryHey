@@ -48,7 +48,7 @@ proc
 
     ;;If we are in batch commit mode, commit any final changes
 
-    if (Settings.CommitMode == DatabaseCommitMode.Batch && Counters.BatchCounter > 0)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch && Counters.BatchCounter > 0)
     begin
         message = "Commit transaction with " + %string(Counters.BatchCounter) + " change"
         if (Counters.BatchCounter>1)
@@ -66,7 +66,7 @@ proc
     message += "INSERTS: " + %string(Counters.Inserts,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
     message += "UPDATES: " + %string(Counters.Updates,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
     message += "DELETES: " + %string(Counters.Deletes,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
-    if (Settings.CommitMode == DatabaseCommitMode.Batch)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         message += "COMMITS: " + %string(Counters.BatchCommits,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
     message += "ERRORS:  " + %string(Counters.Errors, "ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
     message += "--------------------------------------------------"
@@ -79,7 +79,7 @@ proc
 
     ;;If were writing to the system log, record the counters there too
 
-    if (Settings.SystemLog)
+    if (Settings.SystemLogging)
     begin
 .ifdef DBLNET
         nop

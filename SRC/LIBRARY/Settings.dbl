@@ -5,6 +5,321 @@ import System.Data.SqlClient
 
 namespace ReplicationLibrary
 
+    ;;; <summary>
+    ;;; Represents various settings used within the replicator application.
+    ;;; </summary>
+.ifdef D_VMS
+    public class Settings
+.else
+    public static class Settings
+.endc
+
+        ;;; <summary>
+        ;;; Configure default settings
+        ;;; Can't use a static constructor because VMS doesn't support them
+        ;;; </summary>
+        public static method Initialize, void
+            record
+                now, a20
+            endrecord
+        proc
+            now = %datetime
+            InstanceName        = "DEFAULT"
+            BulkLoadBatchSize   = 0
+            BulkLoadTimeout     = 900
+            CommitBatchSize     = 1000
+            DatabaseCommitMode  = DatabaseCommitMode.Batch
+            DatabaseConnectMode = DatabaseConnectionMode.SqlConnection
+            DatabaseChannel     = 1
+.ifdef DBLNET
+            DatabaseConnection  = ^null
+.endc
+            DatabaseTimeout     = 60
+            DataCompressionMode = DatabaseDataCompression.None
+            ErrorSleepTime      = 0.01
+            FileServiceHost     = ^null
+            FileServicePort     = 8080
+            LocalExportPath     = ^null
+            LogFileChannel      = 0
+            LogFileName         = "REPLICATOR_LOGDIR:REPLICATOR_" + InstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
+            MaxColumns          = 254
+            MaxCursors          = 128
+            QueueReconnectDelay = 30
+            QueueReconnectAttempts  = 10
+            QueueType           = MessageQueueType.IsamFile
+            DatabaseRetryDelay  = 30
+            DatabaseRetryMax    = 10
+            RunningOnTerminal   = (%tnmbr >= 0)
+            SleepTime           = 60
+            SystemLogging       = false
+            TransactionFile     = "REPLICATOR_DATA:REPLICATION_" + InstanceName + ".ISM"
+        endmethod
+
+        private static mInstanceName, string
+
+        ;;; <summary>
+        ;;; The name of the replicator instance. The default instance name is DEFAULT. The instance name is used to
+        ;;; discriminate between multiple instances of the replicator that might be active, each processing different
+        ;;; data sets.
+        ;;; </summary>
+        public static property InstanceName, string
+            method get
+            proc
+                mreturn mInstanceName
+            endmethod
+            method set
+            proc
+                mInstanceName = value.ToUpper()
+            endmethod
+        endproperty
+
+        ;;; <summary>
+        ;;; The batch size to be used with bulk load operations.
+        ;;; </summary>
+        public static readwrite property BulkLoadBatchSize, int
+
+        ;;; <summary>
+        ;;; Database statement execution timeout for bulk load and indexing operations in seconds. The default value is 900 seconds (15 minutes).
+        ;;; </summary>
+        public static readwrite property BulkLoadTimeout, i4
+
+        ;;; <summary>
+        ;;; If the replicator is in batch commit mode, how many rows constitute a batch?
+        ;;; </summary>
+        public static readwrite property CommitBatchSize, i4
+
+        ;;; <summary>
+        ;;; Database commit mode (Automatic, Manual or Batch).
+        ;;; </summary>
+        public static readwrite property DatabaseCommitMode, DatabaseCommitMode
+
+        ;;; <summary>
+        ;;; Are we using Synergy SQL Connection or Microsoft SqlClient to interact with the database
+        ;;; </summary>
+        public static readwrite property DatabaseConnectMode, DatabaseConnectionMode
+
+        ;;; <summary>
+        ;;; Database connection string.
+        ;;; </summary>
+        public static readwrite property DatabaseConnectString, string
+
+        ;;; <summary>
+        ;;; How many seconds should replicator wait between database re-connect attempts?
+        ;;; </summary>
+        public static readwrite property DatabaseRetryDelay, i4
+
+        ;;; <summary>
+        ;;; How many times should replicator attempt to re-connect to the database?
+        ;;; </summary>
+        public static readwrite property DatabaseRetryMax, i4
+
+        ;;; <summary>
+        ;;; Database statement execution timeout in seconds. The default is 60 seconds.
+        ;;; </summary>
+        public static readwrite property DatabaseTimeout, i4
+
+        ;;; <summary>
+        ;;; Use data compression for tables and indexes?
+        ;;; </summary>
+        public static readwrite property DataCompressionMode, DatabaseDataCompression
+
+        ;;; <summary>
+        ;;; The email address to be used as the sender of status messages.
+        ;;; </summary>
+        public static readwrite property EmailSender, string
+
+        ;;; <summary>
+        ;;; The DNS name or IP address of the SMTP server to use to send email messages.
+        ;;; The SMTP server must be configured to accept messages from unauthenticated sources.
+        ;;; </summary>
+        public static readwrite property EmailServer, string
+
+        ;;; <summary>
+        ;;; The email address or addresses to send status messages to.
+        ;;; One or more email addresses seperated by commas.
+        ;;; </summary>
+        public static readwrite property ErrorEmail, string
+
+        ;;; <summary>
+        ;;; How many seconds should we sleep after processing an error?
+        ;;; </summary>
+        public static readwrite property ErrorSleepTime, decimal
+
+        ;;; <summary>
+        ;;; The name or IP address of the system running FileService
+        ;;; </summary>
+        public static readwrite property FileServiceHost, string
+
+        ;;; <summary>
+        ;;; The IP port number that FileService is listening on
+        ;;; </summary>
+        public static readwrite property FileServicePort, i4
+
+        ;;; <summary>
+        ;;; Where should export files be created locally?
+        ;;; </summary>
+        public static readwrite property LocalExportPath, string
+
+        ;;; <summary>
+        ;;; Log bulk load exceptions to a log file?
+        ;;; </summary>
+        public static readwrite property LogBulkLoadExceptions, boolean
+
+        ;;; <summary>
+        ;;; The location where the log file should be created.
+        ;;; </summary>
+        public static readwrite property LogDirectory, string
+
+        ;;; <summary>
+        ;;; The name of the replicator log file.
+        ;;; If running in interactive mode this will be TT:
+        ;;; </summary>
+        public static readwrite property LogFileName, string
+
+        ;;; <summary>
+        ;;; Include key data in debug logs?
+        ;;; </summary>
+        public static readwrite property LogKeyValues, boolean
+
+        ;;; <summary>
+        ;;; Should we report progress when bulk loading tables?
+        ;;; </summary>
+        public static readwrite property LogLoadProgress, boolean
+
+        ;;; <summary>
+        ;;; Maximum number of columns in a database table
+        ;;; </summary>
+        public static readwrite property MaxColumns, i4
+
+        ;;; <summary>
+        ;;; Maximum number of database cursors
+        ;;; </summary>
+        public static readwrite property MaxCursors, i4
+
+        ;;; <summary>
+        ;;; Queue location (ISAM directory or Kafka topic).
+        ;;; </summary>
+        public static readwrite property QueueLocation, string
+
+        ;;; <summary>
+        ;;; How many times should replicator attempt to re-connect to a remote queue file?
+        ;;; </summary>
+        public static readwrite property QueueReconnectAttempts, i4
+
+        ;;; <summary>
+        ;;; How many seconds should replicator wait between remote queue file re-connect attempts?
+        ;;; </summary>
+        public static readwrite property QueueReconnectDelay, i4
+
+        ;;; <summary>
+        ;;; Queue type (ISAM File, Kafka MQ).
+        ;;; </summary>
+        public static readwrite property QueueType, MessageQueueType
+
+        ;;; <summary>
+        ;;; How many seconds should we sleep when we run out of instructions to process?
+        ;;; </summary>
+        public static readwrite property SleepTime, i4
+
+        ;;; <summary>
+        ;;; Should we stop processing and close if we encounter an error?
+        ;;; </summary>
+        public static readwrite property StopOnError, boolean
+
+        ;;; <summary>
+        ;;; Should we also log to the system log?
+        ;;; </summary>
+        public static readwrite property SystemLogging, boolean
+
+        ;;; <summary>
+        ;;; Are we doing verbose logging?
+        ;;; </summary>
+        public static readwrite property VerboseLogging, boolean
+
+        ;------------------------------------------------------------------------------------------------
+        ; Internal stuff below here
+
+.region "Internal properties"
+
+        ;;; <summary>
+        ;;; A synergy namespace used to store information about SDMS channels that the replicator currently has open
+        ;;; </summary>
+        public static readwrite property ChannelInfo, i4
+
+        ;;; <summary>
+        ;;; The SQL Connection database channel that represents our connection to the database.
+        ;;; </summary>
+        public static readwrite property DatabaseChannel, i4
+
+.ifdef DBLNET
+        ;;; <summary>
+        ;;; If using Microsoft SqlClient, this is the connection to the database
+        ;;; </summary>
+        public static readwrite property DatabaseConnection, @SqlConnection
+.endc
+
+        ;;; <summary>
+        ;;; The channel number of the replication instruction file.
+        ;;; </summary>
+        public static readwrite property InstructionChannel, i4
+
+        ;;; <summary>
+        ;;; The channel that the replicator log file is open on.
+        ;;; </summary>
+        public static readwrite property LogFileChannel, i4
+
+        ;;; <summary>
+        ;;; Are we attached to a terminal?
+        ;;; </summary>
+        public static readwrite property RunningOnTerminal, boolean
+
+        ;;; <summary>
+        ;;; If running interactively, the channel number of the terminal.
+        ;;; </summary>
+        public static readwrite property TerminalChannel, i4
+
+        ;;; <summary>
+        ;;; The name of the replication transation log file.
+        ;;; </summary>
+        public static readwrite property TransactionFile, string
+
+.endregion
+
+.region "Methods"
+
+        ;;; <summary>
+        ;;; Are we able to use bulk load?
+        ;;; </summary>
+        ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
+        public static method CanBulkLoad, boolean
+        proc
+.ifdef OS_VMS
+            mreturn (FileServiceHost!=^null && FileServiceHost.Length>1)
+.endc
+.ifdef OS_UNIX
+            mreturn (FileServiceHost!=^null && FileServiceHost.Length>1)
+.endc
+.ifdef OS_WINDOWS7
+            ;TODO: ENHANCEMENT: On windows we can also bulk load IF the database is on the same server as the replicator
+            ;TODO: Needs to change for SQLClient
+            mreturn (!DatabaseConnectString.ToLower().StartsWith("net:") || (FileServiceHost!=^null))
+.endc
+        endmethod
+
+        ;;; <summary>
+        ;;; Are we able to send email messages. In order for this to return true we must have values
+        ;;; for EmailError, EmailServer, EmailSender and EmailDomain.
+        ;;; </summary>
+        ;;; <returns>Returns true if we have all the data, but does not guarantee that email can be sent!</returns>
+        public static method CanSendEmail, boolean
+        proc
+            mreturn (ErrorEmail != ^null && ErrorEmail.Length>0 && EmailServer != ^null && EmailServer.Length>0 && EmailSender != ^null && EmailSender.Length>0)
+        endmethod
+
+.endregion
+
+    endclass
+
     structure strStructureData
         structure_name,     a32    ;;Name of structure
         structure_size,     i4     ;;Record length
@@ -35,297 +350,5 @@ namespace ReplicationLibrary
         SqlConnection,      1
         SqlClient,          2
     endenum
-
-    ;;; <summary>
-    ;;; Represents various settings used within the replicator application.
-    ;;; </summary>
-    .ifdef D_VMS
-    public class Settings
-    .else
-    public static class Settings
-    .endc
-
-        ;;; <summary>
-        ;;; Configure default settings
-        ;;; Can't use a static constructor because VMS doesn't support them
-        ;;; </summary>
-        public static method Initialize, void
-            record
-                now, a20
-            endrecord
-        proc
-            now = %datetime
-            CommitBatchRows     = 1000
-            CommitMode          = DatabaseCommitMode.Batch
-            ErrorSleepTime      = 0.01
-            LocalExportPath     = ^null
-            FileServiceHost     = ^null
-            FileServicePort     = 8080
-            InstanceName        = "DEFAULT"
-            LogFileChannel      = 0
-            LogFileName         = "REPLICATOR_LOGDIR:REPLICATOR_" + InstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
-            MaxCursors          = 128
-            MaxColumns          = 254
-            RunningOnTerminal   = (%tnmbr >= 0)
-            SleepTime           = 60
-            SystemLog           = false
-            TransactionFile     = "REPLICATOR_DATA:REPLICATION_" + InstanceName + ".ISM"
-            DatabaseChannel     = 1
-            DatabaseTimeout     = 60
-            BulkLoadTimeout     = 900
-            BulkLoadBatchSize   = 0
-            RetryMaxAttempts    = 10
-            RetryDelaySeconds   = 30
-            QRetryMaxAttempts   = 10
-            QRetryDelaySeconds  = 30
-            DataCompressionMode = DatabaseDataCompression.None
-            QueueType           = MessageQueueType.IsamFile
-            ConnectionMode      = DatabaseConnectionMode.SqlConnection
-.ifdef DBLNET
-            DatabaseConnection  = ^null
-.endc
-        endmethod
-
-        ;;; <summary>
-        ;;; A synergy namespace used to store information about SDMS channels that the replicator currently has open
-        ;;; </summary>
-        public static readwrite property ChannelInfo, i4
-
-        ;;; <summary>
-        ;;; The SQL Connection database channel that represents our connection to the database.
-        ;;; </summary>
-        public static readwrite property DatabaseChannel, i4
-
-        ;;; <summary>
-        ;;; Are we using Synergy SQL Connection or Microsoft SqlClient to interact with the database
-        ;;; </summary>
-        public static readwrite property ConnectionMode, DatabaseConnectionMode
-
-.ifdef DBLNET
-        ;;; <summary>
-        ;;; If using Microsoft SqlClient, this is the connection to the database
-        ;;; </summary>
-        public static readwrite property DatabaseConnection, @SqlConnection
-.endc
-        ;;; <summary>
-        ;;; Database connection string.
-        ;;; </summary>
-        public static readwrite property DatabaseConnectString, string
-
-        private static mInstanceName, string
-
-        ;;; <summary>
-        ;;; The name of the replicator instance. The default instance name is DEFAULT. The instance name is used to
-        ;;; discriminate between multiple instances of the replicator that might be active, each processing different
-        ;;; data sets.
-        ;;; </summary>
-        public static property InstanceName, string
-            method get
-            proc
-                mreturn mInstanceName
-            endmethod
-            method set
-            proc
-                mInstanceName = value.ToUpper()
-            endmethod
-        endproperty
-
-        ;;; <summary>
-        ;;; The channel number of the replication instruction file.
-        ;;; </summary>
-        public static readwrite property InstructionChannel, i4
-
-        ;;; <summary>
-        ;;; The email address or addresses to send status messages to.
-        ;;; One or more email addresses seperated by commas.
-        ;;; </summary>
-        public static readwrite property ErrorEmail, string
-
-        ;;; <summary>
-        ;;; The DNS name or IP address of the SMTP server to use to send email messages.
-        ;;; The SMTP server must be configured to accept messages from unauthenticated sources.
-        ;;; </summary>
-        public static readwrite property EmailServer, string
-
-        ;;; <summary>
-        ;;; The email address to be used as the sender of status messages.
-        ;;; </summary>
-        public static readwrite property EmailSender, string
-
-        ;;; <summary>
-        ;;; How many seconds should we sleep after processing an error?
-        ;;; </summary>
-        public static readwrite property ErrorSleepTime, decimal
-
-        ;;; <summary>
-        ;;; How many times should replicator attempt to re-connect to the database?
-        ;;; </summary>
-        public static readwrite property RetryMaxAttempts, i4
-
-        ;;; <summary>
-        ;;; How many seconds should replicator wait between database re-connect attempts?
-        ;;; </summary>
-        public static readwrite property RetryDelaySeconds, i4
-
-        ;;; <summary>
-        ;;; How many times should replicator attempt to re-connect to a remote queue file?
-        ;;; </summary>
-        public static readwrite property QRetryMaxAttempts, i4
-
-        ;;; <summary>
-        ;;; How many seconds should replicator wait between remote queue file re-connect attempts?
-        ;;; </summary>
-        public static readwrite property QRetryDelaySeconds, i4
-
-        ;;; <summary>
-        ;;; Where should export files be created locally?
-        ;;; </summary>
-        public static readwrite property LocalExportPath, string
-
-        ;;; <summary>
-        ;;; The name or IP address of the system running FileService
-        ;;; </summary>
-        public static readwrite property FileServiceHost, string
-
-        ;;; <summary>
-        ;;; The IP port number that FileService is listening on
-        ;;; </summary>
-        public static readwrite property FileServicePort, i4
-
-        ;;; <summary>
-        ;;; Are we doing full logging?
-        ;;; </summary>
-        public static readwrite property FullLogging, boolean
-
-        ;;; <summary>
-        ;;; The channel that the replicator log file is open on.
-        ;;; </summary>
-        public static readwrite property LogFileChannel, i4
-
-        ;;; <summary>
-        ;;; The name of the replicator log file.
-        ;;; If running in interactive mode this will be TT:
-        ;;; </summary>
-        public static readwrite property LogFileName, string
-
-        ;;; <summary>
-        ;;; Include key data in debug logs?
-        ;;; </summary>
-        public static readwrite property LogKeys, boolean
-
-        ;;; <summary>
-        ;;; Log bulk load exceptions to a log file?
-        ;;; </summary>
-        public static readwrite property LogLoadExceptions, boolean
-
-        ;;; <summary>
-        ;;; Maximum number of database cursors
-        ;;; </summary>
-        public static readwrite property MaxCursors, i4
-
-        ;;; <summary>
-        ;;; Maximum number of columns in a database table
-        ;;; </summary>
-        public static readwrite property MaxColumns, i4
-
-        ;;; <summary>
-        ;;; Should we report progress when bulk loading tables?
-        ;;; </summary>
-        public static readwrite property BulkLoadProgressReporting, boolean
-
-        ;;; <summary>
-        ;;; Are we attached to a terminal?
-        ;;; </summary>
-        public static readwrite property RunningOnTerminal, boolean
-
-        ;;; <summary>
-        ;;; How many seconds should we sleep when we run out of instructions to process?
-        ;;; </summary>
-        public static readwrite property SleepTime, i4
-
-        ;;; <summary>
-        ;;; Should we stop processing and close if we encounter an error?
-        ;;; </summary>
-        public static readwrite property StopOnError, boolean
-
-        ;;; <summary>
-        ;;; Should we also log to the system log?
-        ;;; </summary>
-        public static readwrite property SystemLog, boolean
-
-        ;;; <summary>
-        ;;; If running interactively, the channel number of the terminal.
-        ;;; </summary>
-        public static readwrite property TerminalChannel, i4
-
-        ;;; <summary>
-        ;;; The name of the replication transation log file.
-        ;;; </summary>
-        public static readwrite property TransactionFile, string
-
-        ;;; <summary>
-        ;;; Are we able to use bulk load?
-        ;;; </summary>
-        ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
-        public static method CanBulkLoad, boolean
-        proc
-            .ifdef OS_VMS
-                mreturn (FileServiceHost!=^null && FileServiceHost.Length>1)
-            .endc
-            .ifdef OS_UNIX
-                mreturn (FileServiceHost!=^null && FileServiceHost.Length>1)
-            .endc
-            .ifdef OS_WINDOWS7
-            ;TODO: ENHANCEMENT: On windows we can also bulk load IF the database is on the same server as the replicator
-            mreturn (!DatabaseConnectString.ToLower().StartsWith("net:") || (FileServiceHost!=^null))
-            .endc
-        endmethod
-
-        ;;; <summary>
-        ;;; Are we able to send email messages. In order for this to return true we must have values
-        ;;; for EmailError, EmailServer, EmailSender and EmailDomain.
-        ;;; </summary>
-        ;;; <returns>Returns true if we have all the data, but does not guarantee that email can be sent!</returns>
-        public static method CanSendEmail, boolean
-        proc
-            mreturn (ErrorEmail != ^null && ErrorEmail.Length>0 && EmailServer != ^null && EmailServer.Length>0 && EmailSender != ^null && EmailSender.Length>0)
-        endmethod
-
-        ;;; <summary>
-        ;;; Database commit mode (Automatic, Manual or Batch).
-        ;;; </summary>
-        public static readwrite property CommitMode, DatabaseCommitMode
-
-        ;;; <summary>
-        ;;; If the replicator is in batch commit mode, how many rows constitute a batch?
-        ;;; </summary>
-        public static readwrite property CommitBatchRows, i4
-
-        ;;; <summary>
-        ;;; Database statement execution timeout in seconds. The default is 60 seconds.
-        ;;; </summary>
-        public static readwrite property DatabaseTimeout, i4
-
-        ;;; <summary>
-        ;;; Database statement execution timeout for bulk load and indexing operations in seconds. The default value is 900 seconds (15 minutes).
-        ;;; </summary>
-        public static readwrite property BulkLoadTimeout, i4
-
-        ;;; <summary>
-        ;;; The batch size to be used with bulk load operations.
-        ;;; </summary>
-        public static readwrite property BulkLoadBatchSize, int
-
-        ;;; <summary>
-        ;;; Use data compression for tables and indexes?
-        ;;; </summary>
-        public static readwrite property DataCompressionMode, DatabaseDataCompression
-
-        ;;; <summary>
-        ;;; Queue type (ISAM File, Kafka MQ).
-        ;;; </summary>
-        public static readwrite property QueueType, MessageQueueType
-
-    endclass
 
 endnamespace

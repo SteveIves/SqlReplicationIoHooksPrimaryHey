@@ -1,0 +1,734 @@
+;;*****************************************************************************
+;;
+;; File:        IoHooksKAFKA.dbl
+;;
+;; Description: I/O Hooks class for ISAM to SQL replication via KAFKA
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2024, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import Synergex.SynergyDE.IOExtensions
+import Synergex.SynergyDE.Select
+.ifdef DBLNET
+import System.IO
+.endc
+import System.Text
+import System.Text.Json
+
+namespace ReplicationLibrary
+
+    ;;-------------------------------------------------------------------------
+    ;;I/O hooks class that implements SQL Replication via KAFKA
+    ;;
+    public class IoHooksKAFKA extends IOHooks
+
+        protected mTableName,       string
+        protected mInstanceName,    string
+        protected mLoggingLevel,    int,        0
+        protected mActive,          boolean,    false
+        protected mMultiTable,      boolean,    false      
+        protected mChannel,         int,        0
+        protected mSyncKeyNumber,   int,        0
+        protected mFillTimeStamp,   boolean,    false
+        protected mTimeStampPos,    int,        0
+        protected mFileHandle,      i4
+        protected mExceptionLog,    string
+        protected mExceptionCount,  int,        0
+        protected mExceptionMax,    int,        1
+        protected mKafkaFileOpen,   boolean,    false
+        protected mOpenMode,        a3
+
+        protected static mBrokers, string
+        protected static mActiveInstances, int, 0
+
+        ;;---------------------------------------------------------------------
+        ;;Constructor
+
+        public method IoHooksKAFKA
+            required in aChannel, n
+            required in aTableName, string
+            required in aInstanceName, string
+            required in aLoggingLevel, int
+            parent(aChannel)
+
+            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+
+            record
+                thisKey, i4
+                isIsam, boolean
+                isRelative, boolean
+                envval, a1024
+                envlen, i4
+            endrecord
+
+            record keyinfo
+                keypos ,d5
+                keylen ,d3
+                keydup ,d1
+                keyasc ,d1
+                keymod ,d1
+                keynam ,a15
+                key_spos ,8d5
+                key_slen ,8d3
+            endrecord
+
+            .ifdef D_VMS
+            .include "REPLICATION_VMS" repository, structure="strInstruction", end
+            .else
+            .include "REPLICATION" repository, structure="strInstruction", end
+            .endc
+
+            .define MaybeErrorLog(x)   if (mLoggingLevel!=0) Console.WriteLine("ERROR: "+x)
+            .define MaybeVerboseLog(x) if (mLoggingLevel==2) Console.WriteLine(x)
+        proc
+            mChannel = aChannel
+            mTableName = aTableName.Trim().ToUpper()
+            mInstanceName = aInstanceName.Trim().ToUpper()
+            mLoggingLevel = aLoggingLevel
+
+            ;;Has SQL replication been suppressed via SQL_REPLICATION_DISABLED="YES"?
+            xcall getlog("SQL_REPLICATION_DISABLED",envval,envlen)
+            if (envlen)
+            begin
+                upcase envval
+                if (envval(1,envlen)=="YES")
+                begin
+                    MaybeVerboseLog("Replication disabled via SQL_REPLICATION_DISABLED")
+                    mreturn
+                end
+            end
+
+            ;;Make sure the channel is to an indexed file and open in update mode
+            xcall getfa(aChannel,"OMD",mOpenMode)
+
+            using mOpenMode select
+            ("U:I"),
+            begin
+                ;;Check that the record length is not over the maximum we can support
+                data recLen, int
+                xcall getfa(aChannel,"RSZ",recLen)
+                if (recLen > ^size(strInstruction.record))
+                    exit
+
+                ;;Search for a unique key
+                for thisKey from 0 thru %isinfo(aChannel,"NUMKEYS") - 1
+                begin
+                    if (!%isinfo(aChannel,"DUPS",thisKey))
+                    begin
+                        ;;Found one
+                        mActive = true
+                        isIsam = true
+                        mSyncKeyNumber = thisKey
+                        LastRecordCache.Init(aChannel)
+
+                        ;;Is it REPLICATION_KEY and 20 long? If so we will cause the PRE STORE hook
+                        ;;to fill the key with a timestamp value for new records.
+                        xcall iskey(aChannel,thisKey,keyinfo)
+                        upcase keyinfo.keynam
+                        if ((mFillTimeStamp=(keyinfo.keynam=="REPLICATION_KEY"))&&(keylen==20))
+                            mTimeStampPos = keypos
+
+                        ;;Good to go
+                        exitloop
+                    end
+                end
+
+                if (mActive)
+                begin
+                    ;;Record the table name
+                    if (mMultiTable = aTableName.StartsWith("MULTI_"))
+                    begin
+                        .ifdef D_NETSTANDARD
+                        mTableName = aTableName.Replace("MULTI_","")
+                        .else
+                        mTableName = aTableName - "MULTI_"
+                        .endc
+                    end
+                end
+
+            end
+            ("U:R"),
+            begin
+                ;;Check that the record length is not over the maximum we can support
+                data recLen, int
+                xcall getfa(aChannel,"RSZ",recLen)
+                if (recLen > ^size(strInstruction.record))
+                    exit
+
+                ;;Record that we are active
+                mActive = true
+                isRelative = true
+                LastRecordCache.Init(aChannel)
+
+                ;;Record the channel number, table name and instance name
+                mTableName = aTableName
+                mInstanceName = aInstanceName
+            end
+            endusing
+
+            if (mActive)
+            begin
+                xcall getlog("REPLICATOR_KAFKA_MAX_FAIL",envval,envlen)
+                if (envlen)
+                begin
+                    try
+                    begin
+                        data tmpval, int
+                        if ((tmpval=%integer(envval(1,envlen))) >= 0)
+                        begin 
+                            mExceptionMax = tmpval
+                        end
+                    end
+                    catch (ex)
+                    begin
+                        MaybeErrorLog("REPLICATOR_KAFKA_MAX_FAIL is set to an invalid value " + envval(1,envlen))
+                    end
+                    endtry
+                end
+
+                MaybeVerboseLog("Kafka max failures = " + %string(mExceptionMax))
+
+                ;Check if some other I/O hooks instance for some other channel has already established the connection to the broker
+                if ((mActiveInstances += 1) == 1)
+                begin 
+                    if (mBrokers == ^null)
+                    begin
+                        xcall getlog("REPLICATOR_KAFKA_BROKERS",envval,envlen)
+                        if (envlen) then
+                        begin
+                            mBrokers = envval(1,envlen)
+                            MaybeVerboseLog("Kafka brokers are: " + mBrokers)
+                        end
+                        else
+                        begin
+                            MaybeErrorLog("No brokers defined. Set environment variable REPLICATOR_KAFKA_BROKERS")
+                            mActive = false
+                        end
+                    end
+
+                    ;Connect to a broker
+                    MaybeVerboseLog("Connecting to broker")
+                    if (IsError(%rep_startup_zmq((a)mBrokers)))
+                    begin
+                        MaybeErrorLog("rep_startup_zmq returned an error status!")
+                        mActive = false
+                    end
+                end
+            end
+
+            if (mActive)
+            begin
+                ;Tell the ZMQ broker we're opening a file
+                MaybeVerboseLog("Opening file " + mTableName)
+                if (IsError(%rep_start_file((a)mTableName,mFileHandle))) then
+                begin
+                    ;TODO: Failed, record a management event?
+                    MaybeErrorLog("rep_start_file returned an error status!")
+                    deactivate()
+                end
+                else
+                begin
+                    mKafkaFileOpen = true
+                end
+            end
+
+            ; * * * Nothing below here should change mActive * * *
+
+            if (mActive) then
+            begin
+                mExceptionLog = "REPLICATOR_DATA:exceptions_" + mTableName + ".log"
+
+                MaybeVerboseLog("Replication active on channel " + %string(aChannel) + " for "  + mTableName )
+            end
+            else
+            begin
+                MaybeVerboseLog("Replication NOT active on channel " + %string(aChannel) + " for "  + mTableName )
+                mreturn
+            end
+
+        endmethod
+
+        method ~IoHooksKAFKA
+        proc
+            deactivate()
+        endmethod
+
+        private method deactivate, void
+            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+        proc
+            mActive = false
+            close_file()
+            if ((mActiveInstances-=1) == 0)
+            begin
+                data shutdownStatus, i4
+                ;Disconnect from the broker
+                MaybeVerboseLog("Disconnecting from broker")
+                if (shutdownStatus = %rep_shutdown_zmq())
+                begin
+                    MaybeErrorLog("rep_shutdown_zmq returned error status: " + %string(shutdownStatus))
+                end
+            end
+        endmethod
+
+        private method close_file, void
+            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+        proc
+            if (mKafkaFileOpen)
+            begin
+                MaybeVerboseLog("Closing file " + mTableName)
+                if (IsError(%rep_stop_file(mFileHandle)))
+                begin
+                    MaybeErrorLog("rep_stop_file returned an error status!")
+                end
+            end
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;READ hooks
+
+        public override method read_post_operation_hook, void
+            required inout       aRecord, a
+            optional in mismatch aKey,    n
+            optional in          aRfa,    a
+            optional in          aKeynum, n
+            required in          aFlags,  IOFlags
+            required inout       aError,  int
+        proc
+            if (mActive && !aError && !(aFlags&IOFlags.LOCK_NO_LOCK))
+            begin
+                ;;Record the record that was just read (to support delete)
+                LastRecordCache.Update(mChannel,aRecord)
+            end
+        endmethod
+
+        public override method reads_post_operation_hook ,void
+            required inout aRecord, a
+            optional in    aRfa,    a
+            required in    aFlags,  IOFlags
+            required inout aError,  int
+        proc
+            if (mActive && !aError && !(aFlags&IOFlags.LOCK_NO_LOCK))
+            begin
+                ;;Record the record that was just read (to support delete)
+                LastRecordCache.Update(mChannel,aRecord)
+            end
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;WRITE hooks
+
+        public override method write_post_operation_hook, void
+            required inout       aRecord, a
+            optional in          aRecnum, n
+            optional in          aRfa,    a
+            required in          aFlags,  IOFlags
+            required inout       aError,  int
+
+            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+        proc
+            ;;A record was just updated. If it changed then replicate the change.
+            if (mActive && !aError)
+            begin
+                using mOpenMode select
+                ("U:I"),
+                begin
+                    if (LastRecordCache.HasChanged(mChannel,aRecord))
+                    begin
+                        data tableName, string, getTableName(aRecord)
+                        if (tableName(1:1)!="*")
+                        begin
+                            data keyvalue, string, %keyval(mChannel,aRecord,mSyncKeyNumber)
+                            data oldrecord, string, LastRecordCache.Retrieve(mChannel)
+                            MaybeVerboseLog("Update " + keyvalue + " in " + mTableName)
+                            if (IsError(%rep_write_op(mFileHandle,OP_TYPE_UPDATE_AC,(a)keyvalue,aRecord,(a)oldrecord,))) ;Do not remove the additional commas!!!
+                            begin
+                                data exceptionLog, i4
+                                MaybeErrorLog("rep_write_op returned an error status!")
+
+                                ;This can only happen if no brokers are available.
+                                ;A record was updated in the ISAM file and NOT replicated to the Kafka queue.
+                                ;Log the failure so that the changes can be replayed later.
+
+                                if ((mExceptionCount+=1) > mExceptionMax)
+                                begin
+                                    deactivate()
+                                end
+
+                                try
+                                begin
+.ifdef DBLNET
+                                    disposable data stream = new System.IO.MemoryStream()
+                                    data options = new JsonWriterOptions()
+                                    options.Indented = true
+                                    data jsonWriter = new Utf8JsonWriter(stream,options)
+.else
+                                    data jsonBuffer = new StringBuilder()
+                                    data jsonWriter = Utf8JsonWriter.CreateUtf8JsonWriter(jsonBuffer)
+                                    data jsonString, string
+.endc
+                                    jsonWriter.WriteStartObject()
+                                    jsonWriter.WriteString("Timestamp",%datetime)
+                                    jsonWriter.WriteString("Operation","Update")
+                                    jsonWriter.WriteString("Key",DataEncoding.ToBase64(keyvalue))
+                                    jsonWriter.WriteString("OldRecord",DataEncoding.ToBase64(oldrecord))
+                                    jsonWriter.WriteString("NewRecord",DataEncoding.ToBase64(aRecord))
+                                    jsonWriter.WriteEndObject()
+                                    jsonWriter.Flush()
+                                    jsonWriter.Reset()
+.ifdef DBLNET
+                                    data jsonString = Encoding.UTF8.GetString(stream.ToArray())
+.else
+                                    jsonString = jsonBuffer.ToString()
+.endc
+                                    open(exceptionLog=0,a,mExceptionLog)
+                                    writes(exceptionLog,jsonString)
+
+                                    ;open(exceptionLog=0,a,mExceptionLog)
+                                    ;writes(exceptionLog,
+                                    ;&     "TME:[" +  + "]" + %char(13) + %char(10)
+                                    ;&   + "OPR:[UPD]" + %char(13) + %char(10)
+                                    ;&   + "KEY:[" + DataEncoding.ToBase64(keyvalue) +  "]" + %char(13) + %char(10)
+                                    ;&   + "OLD:[" + DataEncoding.ToBase64(oldrecord) + "]" + %char(13) + %char(10)
+                                    ;&   + "REC:[" + DataEncoding.ToBase64(aRecord) +   "]"
+                                    ;& )
+
+                                    MaybeErrorLog("Failed update written to exception log")
+                                end
+                                catch (ex)
+                                begin
+                                    MaybeErrorLog("* * * Failed update NOT written to exception log - DATA LOST * * *")
+                                end
+                                finally
+                                begin
+                                    if (exceptionLog && %chopen(exceptionLog))
+                                    begin
+                                        close exceptionLog
+                                    end
+                                end
+                                endtry
+                            end
+                        end
+                    end
+                end
+                ("U:R"),
+                begin
+                    if (LastRecordCache.HasChanged(mChannel,aRecord))
+                    begin
+                        ;TODO: xcall Replicate(mInstanceName,REPLICATION_INSTRUCTION.UPDATE_RELATIVE,mTableName,%string(aRecnum)+":"+aRecord)
+                    end
+                end
+                endusing
+            end
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;STORE hooks
+
+        public override method store_pre_operation_hook, void
+            required inout aRecord, a
+            required in    aFlags,  IOFlags
+        proc
+            ;;If we're using REPLICATION_KEY, and the program has no populated it, then
+            ;;then add a timestamp value for the new record. This MAY NOT result in a
+            ;;unique value, which in that case will result in a duplicate key error from
+            ;; the STORE.
+            if (mActive && mFillTimeStamp && !aRecord(mTimeStampPos:20))
+            begin
+                aRecord(mTimeStampPos:20) = %datetime
+            end
+        endmethod
+
+        public override method store_post_operation_hook, void
+            required inout       aRecord, a
+            optional in          aRfa,    a
+            required in          aFlags,  IOFlags
+            required inout       aError,  int
+
+            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+        proc
+            ;;A new record was just created. Replicate the change.
+            if (mActive && !aError)
+            begin
+                data tableName, string, getTableName(aRecord)
+                if (tableName(1:1)!="*")
+                begin
+                    data keyvalue, string, %keyval(mChannel,aRecord,mSyncKeyNumber)
+                    MaybeVerboseLog("Insert " + keyvalue + " in " + mTableName)
+                    if (IsError(%rep_write_op(mFileHandle,OP_TYPE_INSERT_AC,(a)keyvalue,aRecord,,))) ;Do not remove the additional commas!!!
+                    begin
+                        data exceptionLog, i4
+                        MaybeErrorLog("rep_write_op returned an error status!")
+
+                        ;This can only happen if no brokers are available.
+                        ;A record was created in the ISAM file and NOT replicated to the Kafka queue.
+                        ;Log the failure so that the changes can be replayed later.
+
+                        if ((mExceptionCount+=1) > mExceptionMax)
+                        begin
+                            deactivate()
+                        end
+
+                        try
+                        begin
+.ifdef DBLNET
+                            disposable data stream = new System.IO.MemoryStream()
+                            data options = new JsonWriterOptions()
+                            options.Indented = true
+                            data jsonWriter = new Utf8JsonWriter(stream,options)
+.else
+                            data jsonBuffer = new StringBuilder()
+                            data jsonWriter = Utf8JsonWriter.CreateUtf8JsonWriter(jsonBuffer)
+                            data jsonString, string
+.endc
+                            jsonWriter.WriteStartObject()
+                            jsonWriter.WriteString("Timestamp",%datetime)
+                            jsonWriter.WriteString("Operation","Insert")
+                            jsonWriter.WriteString("Key",DataEncoding.ToBase64(keyvalue))
+                            jsonWriter.WriteString("OldRecord","")
+                            jsonWriter.WriteString("NewRecord",DataEncoding.ToBase64(aRecord))
+                            jsonWriter.WriteEndObject()
+                            jsonWriter.Flush()
+                            jsonWriter.Reset()
+.ifdef DBLNET
+                            data jsonString = Encoding.UTF8.GetString(stream.ToArray())
+.else
+                            jsonString = jsonBuffer.ToString()
+.endc
+                            open(exceptionLog=0,a,mExceptionLog)
+                            writes(exceptionLog,jsonString)
+
+                            ;open(exceptionLog=0,a:s,mExceptionLog)
+                            ;writes(exceptionLog,
+                            ;&     "TME:[" + %datetime + "]" + %char(13) + %char(10)
+                            ;&   + "OPR:[INS]" + %char(13) + %char(10)
+                            ;&   + "KEY:[" + DataEncoding.ToBase64(keyvalue) + "]" + %char(13) + %char(10)
+                            ;&   + "REC:[" + DataEncoding.ToBase64(aRecord)  + "]"
+                            ;& )
+
+                            MaybeErrorLog("Failed insert written to exception log")
+                        end
+                        catch (ex)
+                        begin
+                            MaybeErrorLog("* * * Failed insert NOT written to exception log - DATA LOST * * *")
+                        end
+                        finally
+                        begin
+                            if (exceptionLog && %chopen(exceptionLog))
+                            begin
+                                close exceptionLog
+                            end
+                        end
+                        endtry
+                    end
+                end
+            end
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;DELETE hooks
+
+        public override method delete_post_operation_hook, void
+            required inout aError, int
+
+            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+        proc
+            ;;A record was just deleted. Replicate the change.
+            if (mActive && !aError)
+            begin
+                data tableName, string, getTableName(LastRecordCache.Retrieve(mChannel))
+                if (tableName(1:1)!="*")
+                begin
+                    data oldrecord, string, LastRecordCache.Retrieve(mChannel)
+                    data keyvalue, string, %keyval(mChannel,(a)oldrecord,mSyncKeyNumber)
+                    MaybeVerboseLog("Delete " + keyvalue +  " in " + mTableName)
+                    if (IsError(%rep_write_op(mFileHandle,OP_TYPE_DELETE_AC,(a)keyvalue,,,))) ;Do not remove the additional commas!!!
+                    begin
+                        data exceptionLog, i4
+                        MaybeErrorLog("rep_write_op returned an error status!")
+
+                        ;This can only happen if no brokers are available.
+                        ;A record was deleted from the ISAM file and NOT replicated to the Kafka queue.
+                        ;Log the failure so that the changes can be replayed later.
+
+                        if ((mExceptionCount+=1) > mExceptionMax)
+                        begin
+                            deactivate()
+                        end
+
+                        try
+                        begin
+.ifdef DBLNET
+                            disposable data stream = new MemoryStream()
+                            data options = new JsonWriterOptions()
+                            options.Indented = true
+                            data jsonWriter = new Utf8JsonWriter(stream,options)
+.else
+                            data jsonBuffer = new StringBuilder()
+                            data jsonWriter = Utf8JsonWriter.CreateUtf8JsonWriter(jsonBuffer)
+                            data jsonString, string
+.endc
+                            jsonWriter.WriteStartObject()
+                            jsonWriter.WriteString("Timestamp",%datetime)
+                            jsonWriter.WriteString("Operation","Delete")
+                            jsonWriter.WriteString("Key",DataEncoding.ToBase64(keyvalue))
+                            jsonWriter.WriteString("OldRecord","")
+                            jsonWriter.WriteString("NewRecord","")
+                            jsonWriter.WriteEndObject()
+                            jsonWriter.Flush()
+                            jsonWriter.Reset()
+.ifdef DBLNET
+                            data jsonString = Encoding.UTF8.GetString(stream.ToArray())
+.else
+                            jsonString = jsonBuffer.ToString()
+.endc
+                            open(exceptionLog=0,a,mExceptionLog)
+                            writes(exceptionLog,jsonString)
+
+                            ;open(exceptionLog=0,a:s,mExceptionLog)
+                            ;writes(exceptionLog,
+                            ;&     "TME:[" + %datetime + "]" + %char(13) + %char(10)
+                            ;&   + "OPR:[DEL]" + %char(13) + %char(10)
+                            ;&   + "KEY:[" + DataEncoding.ToBase64(keyvalue) + "]"
+                            ;& )
+
+                            MaybeErrorLog("Failed delete written to exception log")
+                        end
+                        catch (ex)
+                        begin
+                            MaybeErrorLog("* * * Failed delete NOT written to exception log - DATA LOST * * *")
+                        end
+                        finally
+                        begin
+                            if (exceptionLog && %chopen(exceptionLog))
+                            begin
+                                close exceptionLog
+                            end
+                        end
+                        endtry
+                    end
+                end
+            end
+        endmethod
+
+        ;;---------------------------------------------------------------------
+        ;;CLOSE hooks
+
+        public override method close_pre_operation_hook, void
+            required in aFlags, IOFlags
+
+            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+        proc
+            if (mActive)
+            begin
+                ;;Clear the last record cache
+                LastRecordCache.Clear(mChannel)
+                ;Tell the broker we're closing the file
+                close_file()
+            end
+        endmethod
+
+        ;;-------------------------------------------------------------------------------------
+        ;;Custom code for multi-record layout files
+
+        private method getTableName, string
+            required in aRecord, a
+        proc
+;            if (mMultiTable) then
+;            begin
+;                using mTableName select
+;
+;                ;An example of a file with multple record formats, each of which is replicated to a different table.
+;                ("FILENAME"),
+;                begin
+;                    data rec, strSomething, aRecord
+;                    ;;Make sure you cover all the bases here, if not it'll be a problem!
+;                    ;;The structures you will need should be available because they are public in the _IO routines
+;                    if (rec.some_tag_field=="1") then
+;                        mreturn "Table1"
+;                    if (rec.some_tag_field=="2") then
+;                        mreturn "TableName2"
+;                    if (rec.some_tag_field=="3")
+;                        mreturn "Table3"
+;                end
+;
+;                ;An example of a file with a header record defined using one structure, and data with another.
+;                ("FILENAME"),
+;                begin
+;                    data rec, strSomething, aRecord
+;                    ;;Make sure you cover all the bases here, if not it'll be a problem!
+;                    ;;The structures you will need should be available because they are public in the _IO routines
+;                    if (rec.some_tag_field=="HEADER") then
+;                        mreturn "*IGNORE"
+;                    if (rec.some_tag_field=="DATA") then
+;                        mreturn "TableName1"
+;                end
+;
+;                ;Anything else, the programmer forgot to declare it here.
+;                ;Returning anything beginning with * will cause the replication request to be ignored
+;                (),
+;                    mreturn "*BUG"
+;                endusing
+;            end
+;            else
+;            begin
+            begin
+                mreturn mTableName
+            end
+
+        endmethod
+
+        ;;-------------------------------------------------------------------------------------
+
+        private method IsError, boolean
+            required in aStatus, i4
+            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+        proc
+            if (aStatus != 0)
+            begin
+                data errorStatus, i4
+                data errorText, a1024
+                if (!errorStatus=%rep_get_error(aStatus,errorText)) then
+                begin
+                    if (errorText) then
+                        MaybeErrorLog("Status " + %string(aStatus) + " Message: " + %atrim(errorText))
+                    else
+                        MaybeErrorLog("Status " + %string(aStatus) + " and rep_get_error returned a blank message")
+                end
+                else
+                    MaybeErrorLog("Status " + %string(aStatus) + " and rep_get_error returned fail status " + %string(errorStatus))
+                mreturn true
+            end
+            mreturn false
+        endmethod
+
+    endclass
+
+endnamespace

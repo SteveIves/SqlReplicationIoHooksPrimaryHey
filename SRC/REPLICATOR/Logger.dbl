@@ -113,7 +113,7 @@ namespace replicator
         proc
             Logger.Log("ERROR: " + message)
             ;;Are we also logging to the system log?
-            if (Settings.SystemLog)
+            if (Settings.SystemLogging)
 .ifdef DBLNET
             nop
 .else
@@ -128,7 +128,7 @@ namespace replicator
         public static method VerboseLog, void
             required in message, string
         proc
-            if (Settings.FullLogging)
+            if (Settings.VerboseLogging)
                 Logger.Log(message)
         endmethod
 

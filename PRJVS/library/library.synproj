@@ -30,7 +30,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
     <DebugOptimize>Debug</DebugOptimize>
     <DBLink_ReferenceCheck>True</DBLink_ReferenceCheck>
-    <TargetRuntimeLevel>11010100</TargetRuntimeLevel>
+    <TargetRuntimeLevel>12010100</TargetRuntimeLevel>
     <LanguageCompatibilityLevel>11010100</LanguageCompatibilityLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
@@ -147,6 +147,9 @@
     <Compile Include="..\..\SRC\LIBRARY\IOHooksISAM.dbl">
       <Link>IOHooksISAM.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\IOHooksKAFKA.dbl">
+      <Link>IOHooksKAFKA.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\IOHooksRELATIVE.dbl">
       <Link>IOHooksRELATIVE.dbl</Link>
     </Compile>
@@ -164,6 +167,9 @@
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\Json.dbl">
       <Link>Json.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\KafkaAPI.dbl">
+      <Link>KafkaAPI.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\LastRecordCache.dbl">
       <Link>LastRecordCache.dbl</Link>
@@ -203,6 +209,10 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="..\..\SRC\LIBRARY\IOHooksKAFKA.def">
+      <SubType>Content</SubType>
+      <Link>IOHooksKAFKA.def</Link>
+    </Content>
     <Content Include="..\..\SRC\LIBRARY\SmtpMail.def">
       <SubType>Content</SubType>
       <Link>SmtpMail.def</Link>

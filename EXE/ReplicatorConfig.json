@@ -1,0 +1,51 @@
+{
+  "Instances": [
+    {
+      "InstanceName": "DEFAULT",
+      "BulkLoadBatchSize": 10000,
+      "BulkLoadTimeout": 900,
+      "CommitBatchSize": 1000,
+      "DatabaseCommitMode": "Batch",
+      "DatabaseConnectMode": "SQLCLIENT",
+      "DatabaseConnectString": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
+      "DatabaseRetryDelay": 60,
+      "DatabaseRetryMax": 10,
+      "DatabaseTimeout": 60,
+      "DataCompressionMode": "None",
+      "EmailSender": "",
+      "EmailServer": "",
+      "ErrorEmail": "",
+      "ErrorSleepTime": 0.01,
+      "FileServiceHost": "LOCALHOST",
+      "FileServicePort": 8080,
+      "LocalExportPath": "C:\\DEV_SYNERGEX\\SqlReplication\\CSV",
+      "LogBulkLoadExceptions": false,
+      "LogDirectory": "C:\\DEV_SYNERGEX\\SqlReplication\\LOGS",
+      "LogKeyValues": false,
+      "LogLoadProgress": false,
+      "MaxColumns": 256,
+      "MaxCursors": 128,
+      "QueueLocation": "ISAM Directory or Kafka TOPIC",
+      "QueueReconnectAttempts": 10,
+      "QueueReconnectDelay": 60,
+      "QueueType": "ISAM",
+      "SleepTime": 2,
+      "StopOnError": true,
+      "SystemLogging": false,
+      "VerboseLogging": false
+    }
+  ],
+  "DefaultInstance": "DEFAULT",
+  "TableMaps": [
+    {
+      "FileName": "DEPARTMENT",
+      "Instance": "DEFAULT",
+      "Enabled":  true
+    },
+    {
+      "FileName": "EMPLOYEE",
+      "Instance": "DEFAULT",
+      "Enabled": true
+    }
+  ]
+}

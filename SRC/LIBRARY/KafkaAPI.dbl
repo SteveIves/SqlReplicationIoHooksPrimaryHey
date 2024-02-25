@@ -1,0 +1,281 @@
+;;*****************************************************************************
+;;
+;; File:        KafkaAPI.dbl
+;;
+;; Description: DBL wrappers for the C API to Kafka for use on Windows and Linux
+;;              (On OpenVMS the C functions are called directly from IoHooksKAFKA)
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2024, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+.ifndef OS_VMS
+
+.ifdef D_GUI
+.define D_KAFKA_LIBRARY "kafka_api.dll"
+.endc
+
+.ifdef OS_UNIX
+.define D_KAFKA_LIBRARY "kafka_api.so"
+.endc
+
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Connects to the broker
+;;; </summary>
+;;; <param name="aBrokers">String containing list of broker URL's</param>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
+
+function rep_startup_zmq, i
+    aBrokers, a
+    stack record
+        status, i4
+    endrecord
+    global common
+        rep_dll_handle, D_ADDR
+    endcommon
+proc
+    ;Open the DLL/SO
+    try
+    begin
+        rep_dll_handle = %dll_open(D_KAFKA_LIBRARY)
+    end
+    catch (e, @Exception)
+    begin
+        freturn -1
+    end
+    endtry
+
+    ;Call rep_startup_zmq
+.ifdef DBLNET
+    data args = new object[1]
+    args[1] = (object)aBrokers
+    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_startup_zmq",args)
+.else
+    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_startup_zmq",aBrokers)
+.endc
+
+    freturn status
+
+endfunction
+
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Disconnects from the broker
+;;; </summary>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
+
+function rep_shutdown_zmq, i
+    stack record
+        status, i4
+    endrecord
+    external common
+        rep_dll_handle, D_ADDR
+    endcommon
+proc
+.ifdef DBLNET
+    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_shutdown_zmq")
+.else
+    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_shutdown_zmq")
+.endc
+    try
+    begin
+        data dllCloseStatus, i4, %dll_close(rep_dll_handle)
+    end
+    catch (e, @Exception)
+    begin
+       nop 
+    end
+    endtry
+    freturn status
+endfunction
+
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Tells the broker that a file is being opened
+;;; </summary>
+;;; <param name="aTableName">Name of table associated with the file being opened</param>
+;;; <param name="aFileHandle">Returned file handle</param>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
+
+function rep_start_file, i
+    aTableName, a
+    aFileHandle, i
+    stack record
+        status, i4
+    endrecord
+    external common
+        rep_dll_handle, D_ADDR
+    endcommon
+proc
+.ifdef DBLNET
+    data args = new object[2]
+    args[1] = (object)aTableName
+    args[2] = (object)aFileHandle
+    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_start_file",args)
+.else
+    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_start_file",aTableName,aFileHandle)
+.endc
+    freturn status
+endfunction
+
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Tells the broker that a file is being closed
+;;; </summary>
+;;; <param name="aFileHandle">File handle obtained from rep_start_file</param>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
+
+function rep_stop_file, i
+    aFileHandle, i
+    stack record
+        status, i4
+    endrecord
+    external common
+        rep_dll_handle, D_ADDR
+    endcommon
+proc
+.ifdef DBLNET
+    data args = new object[1]
+    args[1] = (object)aFileHandle
+    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_stop_file",args)
+.else
+    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_stop_file",aFileHandle)
+.endc
+    freturn status
+endfunction
+
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Tells the broker to write an instruction to the Kafka queue
+;;; </summary>
+;;; <param name="aFileHandle">File handle obtained from rep_start_file</param>
+;;; <param name="aOperation"></param>
+;;; <param name="aKeyValue"></param>
+;;; <param name="aRecord"></param>
+;;; <param name="aOldRecord"></param>
+;;; <param name="aSomethingElse"></param>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
+
+function rep_write_op, i
+    aFileHandle, i
+    aOperation, i
+    aKeyValue, a
+    aRecord, a
+    aOldRecord, a
+    aSomethingElse, a
+    stack record
+        status, i4
+    endrecord
+    external common
+        rep_dll_handle, D_ADDR
+    endcommon
+proc
+.ifdef DBLNET
+    data args = new object[6]
+    args[1] = (object)aFileHandle
+    args[2] = (object)aOperation
+    args[3] = (object)aKeyValue
+    args[4] = (object)aRecord
+    args[5] = (object)aOldRecord
+    args[6] = (object)aSomethingElse
+    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_write_op",args)
+.else
+    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_write_op",aFileHandle,aOperation,aKeyValue,aRecord,aOldRecord,aSomethingElse)
+.endc
+    freturn status
+endfunction
+
+;;-----------------------------------------------------------------------------
+
+;function rep_start_txn, i
+;    stack record
+;        status, i4
+;    endrecord
+;    external common
+;        rep_dll_handle, D_ADDR
+;    endcommon
+;proc
+;.ifdef DBLNET
+;    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_start_txn",args)
+;.else
+;    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_start_txn",args)
+;.endc
+;    freturn 1
+;endfunction
+
+;;-----------------------------------------------------------------------------
+
+;function rep_stop_txn, i
+;    stack record
+;        status, i4
+;    endrecord
+;    external common
+;        rep_dll_handle, D_ADDR
+;    endcommon
+;proc
+;.ifdef DBLNET
+;    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_stop_txn",args)
+;.else
+;    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_stop_txn",args)
+;.endc
+;    freturn 1
+;endfunction
+
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Get the error text associated wiht the most recent failure
+;;; </summary>
+;;; <param name="aStatus">Status code returned by previous failing routine</param>
+;;; <param name="aErrorMessage">Associated error message</param>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
+
+function rep_get_error, i
+    aStatus, i
+    aErrorMessage, a
+    stack record
+        status, i4
+    endrecord
+    external common
+        rep_dll_handle, D_ADDR
+    endcommon
+proc
+.ifdef DBLNET
+    data args = new object[2]
+    args[1] = (object)aStatus
+    args[2] = (object)aErrorMessage
+    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_get_error",args)
+.else
+    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_get_error",aStatus,aErrorMessage)
+.endc
+    freturn status
+endfunction
+
+.endc

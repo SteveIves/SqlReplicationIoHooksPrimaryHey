@@ -55,20 +55,20 @@ proc
 
     ;;Attempt to re-connect to the database
 
-    if (Settings.RetryMaxAttempts < 1)
+    if (Settings.DatabaseRetryMax < 1)
     begin
         ;;Re-connect has been disabled!
         Logger.Log("Database re-connect has been disabled!")
         freturn false
     end
 
-    Logger.Log("Attempting database reconnect (max " + %string(Settings.RetryMaxAttempts) + " attempts with a " + %string(Settings.RetryDelaySeconds) + " second interval)")
+    Logger.Log("Attempting database reconnect (max " + %string(Settings.DatabaseRetryMax) + " attempts with a " + %string(Settings.DatabaseRetryDelay) + " second interval)")
 
-    for connectionAttempt from 1 thru Settings.RetryMaxAttempts
+    for connectionAttempt from 1 thru Settings.DatabaseRetryMax
     begin
-        if (Settings.RetryDelaySeconds)
+        if (Settings.DatabaseRetryDelay)
         begin
-            sleep Settings.RetryDelaySeconds
+            sleep Settings.DatabaseRetryDelay
         end
             
         Logger.Log(" - Attempt " + %string(connectionAttempt) + "...")

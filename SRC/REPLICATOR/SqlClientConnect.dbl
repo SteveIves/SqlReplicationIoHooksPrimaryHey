@@ -63,7 +63,7 @@ proc
 
     if (ok)
     begin
-        using Settings.CommitMode select
+        using Settings.DatabaseCommitMode select
 
         (DatabaseCommitMode.Automatic),
         begin

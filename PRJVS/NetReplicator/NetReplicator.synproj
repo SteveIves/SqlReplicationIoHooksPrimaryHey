@@ -10,6 +10,9 @@
     <Name>NetReplicator</Name>
     <EnableCommonProperties>True</EnableCommonProperties>
     <CommonPropertiesFileLocation>$(SolutionDir)Common.props</CommonPropertiesFileLocation>
+    <SignAssembly>false</SignAssembly>
+    <AssemblyOriginatorKeyFile />
+    <DelaySign>False</DelaySign>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
@@ -64,5 +67,13 @@
     <Compile Include="..\..\SRC\REPLICATOR\SendEmail.dbl" />
     <Compile Include="..\..\SRC\REPLICATOR\SqlClientConnect.dbl" />
     <Compile Include="..\..\SRC\REPLICATOR\TimeNow.dbl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Properties" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Properties\launchSettings.json">
+      <SubType>Content</SubType>
+    </Content>
   </ItemGroup>
 </Project>

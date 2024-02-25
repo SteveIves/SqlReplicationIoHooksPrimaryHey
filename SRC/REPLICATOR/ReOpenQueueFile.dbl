@@ -47,18 +47,18 @@ proc
 
     do
     begin
-        Logger.Log(" - Waiting " + %string(Settings.QRetryDelaySeconds) + " seconds before attempting to re-connect...")
-        sleep Settings.QRetryDelaySeconds
+        Logger.Log(" - Waiting " + %string(Settings.QueueReconnectDelay) + " seconds before attempting to re-connect...")
+        sleep Settings.QueueReconnectDelay
         retryCount += 1
 
-        Logger.Log(" - Re-connect attempt " + %string(retryCount) + " of " + %string(Settings.QRetryMaxAttempts) + "...")
+        Logger.Log(" - Re-connect attempt " + %string(retryCount) + " of " + %string(Settings.QueueReconnectAttempts) + "...")
         if (%OpenQueueFile)
         begin
             Logger.Log(" - Connected!")
             freturn true
         end
     end
-    until (retryCount == Settings.QRetryMaxAttempts)
+    until (retryCount == Settings.QueueReconnectAttempts)
 
     if (reConnected)
         freturn true

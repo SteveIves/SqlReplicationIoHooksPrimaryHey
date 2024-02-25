@@ -150,7 +150,6 @@ function <StructureName>_Create, ^val
     .align
     stack record
         ok, boolean
-        transactionInProgress, boolean
         errorMessage, string
     endrecord
     static record
@@ -158,7 +157,6 @@ function <StructureName>_Create, ^val
     endrecord
 proc
     ok = true
-    transactionInProgress = false
     errorMessage = String.Empty
 
     ;Define the CREATE TABLE statement
@@ -248,7 +246,7 @@ proc
 
     ;;Commit or rollback the transaction
 
-    if (Settings.CommitMode == DatabaseCommitMode.Manual)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
@@ -411,7 +409,7 @@ proc
   </ALTERNATE_KEY_LOOP>
     ;;Commit or rollback the transaction
 
-    if (Settings.CommitMode == DatabaseCommitMode.Manual)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
@@ -708,18 +706,82 @@ function <StructureName>_Drop, ^val
     endrecord
 
 proc
-    ok = false
+    ok = true
     errorMessage = String.Empty
 
+    ;;Drop the database table and primary key constraint
 
-
-
-
-
-
-    if (!ok && ^passed(aErrorMessage))
+    try
     begin
-        aErrorMessage = errorMessage
+        disposable data command = new SqlCommand("DROP TABLE <StructureName>",Settings.DatabaseConnection) { 
+        &   CommandTimeout = Settings.DatabaseTimeout
+        & }
+        command.ExecuteNonQuery()
+    end
+    catch (ex, @SqlException)
+    begin
+        using ex.Number select
+        (3701), ;Cannot drop the table '<StructureName>', because it does not exist or you do not have permission.
+            nop
+        (),
+        begin
+            errorMessage = "Failed to drop table. Error was: " + ex.Message
+            ok = false
+        end
+        endusing
+    end
+    endtry 
+
+    ;;Commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;;Success, commit the transaction
+            try
+            begin
+                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
+                &   CommandTimeout = Settings.DatabaseTimeout
+                & }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                ok = false
+                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
+                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
+            end
+            endtry
+        end
+        else
+        begin
+            ;;There was an error, rollback the transaction
+            try
+            begin
+                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
+                &   CommandTimeout = Settings.DatabaseTimeout
+                & }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                ok = false
+                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
+                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
+            end
+            endtry
+        end
+    end
+
+    ;;If there was an error message, return it to the calling routine
+
+    if (^passed(aErrorMessage))
+    begin
+        if (ok) then
+            clear aErrorMessage
+        else
+            aErrorMessage = errorMessage
     end
 
     freturn ok

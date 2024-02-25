@@ -80,7 +80,7 @@ proc
     if (ok)
     begin
 
-        using Settings.ConnectionMode select
+        using Settings.DatabaseConnectMode select
 
         (DatabaseConnectionMode.SqlConnection),
         begin
@@ -187,7 +187,7 @@ proc
         end
 
         ;;If were writing to the system log, record the startup
-        if (Settings.SystemLog)
+        if (Settings.SystemLogging)
         begin
             data tmpmsg, string, "Replicator " + Settings.InstanceName + " started" + %char(13) + %char(10)
             tmpmsg += "Database connect string is " + Settings.DatabaseConnectString + %char(13) + %char(10)
