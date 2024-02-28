@@ -23,8 +23,10 @@
 ;;*****************************************************************************
 ;;
 
-import replicator
 import ReplicationLibrary
+.ifdef DBLNET
+import System.Data.SqlClient
+.endc
 
 subroutine ReplicatorShutdown
 
@@ -54,7 +56,33 @@ proc
         if (Counters.BatchCounter>1)
             message = message + "s"
         Logger.VerboseLog(message)
-        dbstatus = %ssc_commit(Settings.DatabaseChannel,SSQL_TXON)
+
+        using Settings.DatabaseConnectMode select
+        (DatabaseConnectionMode.SqlConnection),
+        begin
+            dbstatus = %ssc_commit(Settings.DatabaseChannel,SSQL_TXON)
+        end
+.ifdef DBLNET
+        (DatabaseConnectionMode.SqlClient),
+        begin
+            try
+            begin
+                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
+                &    CommandTimeout = Settings.DatabaseTimeout
+                &    }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                ;TODO: ENHANCEMENT: Commit failed - now what?
+
+
+            end
+            endtry
+        end
+.endc
+        endusing
+
         Counters.BatchCommits += 1
         Counters.BatchCounter = 0
     end

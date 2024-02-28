@@ -94,44 +94,8 @@
     </PostBuildEvent>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\..\SRC\REPLICATOR\ConfigureEnvironment.dbl">
-      <Link>ConfigureEnvironment.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\Counters.dbl">
-      <Link>Counters.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\DatabaseConnect.dbl">
-      <Link>DatabaseConnect.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\DatabaseDisconnect.dbl">
-      <Link>DatabaseDisconnect.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\DatabaseReconnect.dbl">
-      <Link>DatabaseReconnect.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\GetSettings.dbl">
-      <Link>GetSettings.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\Logger.dbl">
-      <Link>Logger.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\OpenQueueFile.dbl">
-      <Link>OpenQueueFile.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\ReOpenQueueFile.dbl">
-      <Link>ReOpenQueueFile.dbl</Link>
-    </Compile>
     <Compile Include="..\..\SRC\REPLICATOR\replicator.dbl">
       <Link>replicator.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\ReplicatorShutdown.dbl">
-      <Link>ReplicatorShutdown.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\SendEmail.dbl">
-      <Link>SendEmail.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\REPLICATOR\TimeNow.dbl">
-      <Link>TimeNow.dbl</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup>

@@ -11,8 +11,8 @@
 ;;*****************************************************************************
 ;;
 
-import Replicator
 import ReplicationLibrary
+import System.Collections
 
 function ConfigureEnvironment, boolean
 
@@ -22,6 +22,7 @@ function ConfigureEnvironment, boolean
         ok,         boolean
         length,     int
         status,     int
+        errorMessage, string
     endrecord
 proc
 
@@ -31,9 +32,9 @@ proc
 
     xcall flags(7004020,1)
 
-    ;;Initialize the settings to default values
+    ;;Get settings from environment
 
-    Settings.Initialize()
+    ok = %GetSettings(errorMessage)
 
     ;;Running on terminal?
 
@@ -48,9 +49,83 @@ proc
         writes(Settings.TerminalChannel,"SQL Replicator Log")
     end
 
-    ;;Get settings from environment
+    if (!ok)
+    begin
+        ;GetSettings returned a failure!
+        Logger.ErrorLog(errorMessage)
+        freturn false
+    end
 
-    ok = %GetSettings
+    ;;Report the instance name
+
+    Logger.Log("Instance name " + Settings.InstanceName)
+
+    ;;Report the queue type
+
+    if (Settings.QueueType == MessageQueueType.IsamFile) then
+        Logger.Log("Queue type ISAM")
+    else
+        Logger.Log("Queue type KAFKA")
+
+    ;;Report the connection mode
+
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        Logger.Log("Connection mode SQL Connection")
+    (DatabaseConnectionMode.SqlClient),
+        Logger.Log("Connection mode SQL Client")
+    endusing
+
+    ;Report the sleep interval
+
+    Logger.Log("Processing interval is " + %string(Settings.SleepTime) + " seconds.")
+
+    ;;-----------------------------------------------------------
+    ;;Check that none of our tables exceed the configured maximum
+    ;;Added by Steve Ives, 1/31/2024
+
+    begin
+        data tables, @ArrayList
+        data table, string
+        data columns = 0
+        data highestColumns = 0
+        data problemTables = 0
+
+        xcall GetReplicatedTables(Settings.InstanceName,tables)
+
+        foreach table in tables
+        begin
+            columns=%xsubr(table+"Cols")
+
+            if (columns > highestColumns)
+                highestColumns = columns
+
+            if (columns > Settings.MaxColumns)
+                problemTables += 1
+        end
+
+        Logger.Log("Max columns found: " + %string(highestColumns))
+
+        if (problemTables > 0)
+        begin
+            if (highestColumns <= 1024) then
+            begin
+                Logger.Log("WARNING: Max columns raised from " + %string(Settings.MaxColumns) + " to " + %string(highestColumns))
+                Settings.MaxColumns = highestColumns
+            end
+            else
+            begin
+                Logger.ErrorLog("One or more tables exceed the maximum supported column count of 1024")
+                ok = false
+            end
+        end
+    end
+
+
+
+
+
+
 
     ;;Open the queue file, crating it if it does not exist
 
@@ -191,7 +266,7 @@ proc
         begin
             data tmpmsg, string, "Replicator " + Settings.InstanceName + " started" + %char(13) + %char(10)
             tmpmsg += "Database connect string is " + Settings.DatabaseConnectString + %char(13) + %char(10)
-            tmpmsg += "Transaction file is " + Settings.TransactionFile + %char(13) + %char(10)
+            tmpmsg += "Transaction file is " + Settings.QueueFileName + %char(13) + %char(10)
             tmpmsg += "Log file is " + Settings.LogFileName + %char(13) + %char(10)
             tmpmsg += "Sleep interval is " + %string(Settings.SleepTime) + " seconds. " + %char(13) + %char(10)
 

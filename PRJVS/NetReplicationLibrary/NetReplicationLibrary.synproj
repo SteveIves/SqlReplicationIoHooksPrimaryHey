@@ -34,6 +34,9 @@
     <TargetRuntimeLevel>12010100</TargetRuntimeLevel>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Confluent.Kafka">
+      <Version>2.3.0</Version>
+    </PackageReference>
     <PackageReference Include="Synergex.SynergyDE.Build" Version="23.*" />
     <PackageReference Include="Synergex.SynergyDE.synrnt" Version="12.*" />
     <PackageReference Include="System.Data.SqlClient">
@@ -45,8 +48,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\SRC\LIBRARY\CommandLineParser.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\ConfigureEnvironment.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ConfigureReplication.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\Counters.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseCommunicationException.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseConnect.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseDisconnect.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseReconnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Department_SqlIO.dbl" />
@@ -60,6 +68,7 @@
     <Compile Include="..\..\SRC\LIBRARY\GetDateTimeString.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\GetInstanceNames.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\GetReplicatedTables.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\GetSettings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IndexExists.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Index_Exists.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\InstanceInfo.dbl" />
@@ -72,18 +81,28 @@
     <Compile Include="..\..\SRC\LIBRARY\IsTime.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Json.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\KafkaAPI.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\KafkaClient.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\LastRecordCache.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\Logger.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\MakeDateForCsv.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\MakeDecimalForCsv.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\MakeTimeForCsv.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\OpenKafkaQueue.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\OpenOrCreateQueueFile.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\OpenQueueFile.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\PopulateReplicationKey.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\ReOpenQueueFile.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Replicate.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\ReplicatorShutdown.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\SendEmail.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Settings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SmtpMail.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\SqlClientConnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringDictionary.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringTools.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ThrowOnCommunicationError.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\TimeNow.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\ValidateBasicEnvironment.dbl" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="..\..\SRC\LIBRARY\IOHooksKAFKA.def">

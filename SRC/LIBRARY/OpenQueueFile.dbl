@@ -11,7 +11,6 @@
 ;;*****************************************************************************
 ;;
 
-import Replicator
 import ReplicationLibrary
 import Synergex.SynergyDE
 
@@ -25,7 +24,7 @@ proc
         begin
             ;;Open the instruction queue file
             data tmpchn, i4, 0
-            open(tmpchn,U:I,Settings.TransactionFile)
+            open(tmpchn,U:I,Settings.QueueFileName)
             Settings.InstructionChannel = tmpchn
             freturn true
         end
@@ -42,14 +41,14 @@ proc
 .ifdef D_VMS
                 xcall isamc(Settings.TransactionFile + ", FIXED", 32054, 1, "START=1, LENGTH=20, TYPE=ALPHA, NAME=TRANSACTION_ID, DENSITY=100")
 .else
-                xcall isamc(Settings.TransactionFile + ", FIXED, COMPRESS, PAGE=1024, TBYTE", 65042, 1, "START=1, LENGTH=8, TYPE=SEQUENCE, NAME=TRANSACTION_ID, DENSITY=100")
+                xcall isamc(Settings.QueueFileName + ", FIXED, COMPRESS, PAGE=1024, TBYTE", 65042, 1, "START=1, LENGTH=8, TYPE=SEQUENCE, NAME=TRANSACTION_ID, DENSITY=100")
 .endc
                 nextloop
             end
             catch (ex, @Exception)
             begin
                 ;;We can't create the file, we're dead!
-                Logger.ErrorLog("Failed to create transaction log file " + Settings.TransactionFile + " - Error was: " + e.Message)
+                Logger.ErrorLog("Failed to create transaction log file " + Settings.QueueFileName + " - Error was: " + e.Message)
                 freturn false
             end
             endtry
@@ -57,7 +56,7 @@ proc
         catch (e, @Exception)
         begin
             ;;The file is present but we can't open it. We're dead!
-            Logger.ErrorLog("Failed to open transaction log file " + Settings.TransactionFile + " - Error was: " + e.Message)
+            Logger.ErrorLog("Failed to open transaction log file " + Settings.QueueFileName + " - Error was: " + e.Message)
             freturn false
         end
         endtry

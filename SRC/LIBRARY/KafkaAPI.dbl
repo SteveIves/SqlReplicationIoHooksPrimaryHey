@@ -5,7 +5,7 @@
 ;; Description: DBL wrappers for the C API to Kafka for use on Windows and Linux
 ;;              (On OpenVMS the C functions are called directly from IoHooksKAFKA)
 ;;
-;; Author:      Steve Ives, Synergex Professional Services Group
+;; Author:      Jeff Greene, Synergex
 ;;
 ;;*****************************************************************************
 ;;
@@ -36,246 +36,185 @@
 ;;
 ;;*****************************************************************************
 
+import ReplicationLibrary
+
+namespace ReplicationLibrary
+
+    public class HookDllState
+        public static DLLHandle, D_ADDR, 0 
+    endclass
+
+endnamespace
+
 .ifndef OS_VMS
 
-.ifdef D_GUI
-.define D_KAFKA_LIBRARY "kafka_api.dll"
-.endc
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Connect
+;;; </summary>
+;;; <param name="brokers">String containing list of broker URL's (for compatibility with VMS/ZMQ)</param>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
 
-.ifdef OS_UNIX
-.define D_KAFKA_LIBRARY "kafka_api.so"
-.endc
+function rep_startup_zmq, i4
+    in brokers, a
+proc
+    if(HookDllState.DLLHandle == 0)
+    begin
+        data systemType, i4
+        xcall envrn(systemType)
+        if(systemType == 8) then
+            HookDllState.DLLHandle = %dll_open("libdbl_replicator_hooks.so")
+        else
+            HookDllState.DLLHandle = %dll_open("dbl_replicator_hooks.dll")
+    end
+    freturn %dll_call(HookDllState.DLLHandle, DLL_TYPE_C, "rep_startup")
+endfunction
 
 ;;-----------------------------------------------------------------------------
 ;;; <summary>
-;;; Connects to the broker
+;;; Disconnect
 ;;; </summary>
-;;; <param name="aBrokers">String containing list of broker URL's</param>
 ;;; <returns>Returns 0 on success, otherwise an error number</returns>
 
-function rep_startup_zmq, i
-    aBrokers, a
-    stack record
-        status, i4
-    endrecord
-    global common
-        rep_dll_handle, D_ADDR
-    endcommon
+function rep_shutdown_zmq, i4
 proc
-    ;Open the DLL/SO
-    try
-    begin
-        rep_dll_handle = %dll_open(D_KAFKA_LIBRARY)
-    end
-    catch (e, @Exception)
-    begin
+    if(HookDllState.DLLHandle == 0)
         freturn -1
-    end
-    endtry
 
-    ;Call rep_startup_zmq
-.ifdef DBLNET
-    data args = new object[1]
-    args[1] = (object)aBrokers
-    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_startup_zmq",args)
-.else
-    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_startup_zmq",aBrokers)
-.endc
-
-    freturn status
-
+    freturn %dll_call(HookDllState.DLLHandle, DLL_TYPE_C, "rep_shutdown")
 endfunction
 
 ;;-----------------------------------------------------------------------------
 ;;; <summary>
-;;; Disconnects from the broker
+;;; Indicates that a file is being opened
 ;;; </summary>
+;;; <param name="filename">Name of table associated with the file being opened</param>
+;;; <param name="handle">Returned file handle</param>
 ;;; <returns>Returns 0 on success, otherwise an error number</returns>
 
-function rep_shutdown_zmq, i
-    stack record
-        status, i4
-    endrecord
-    external common
-        rep_dll_handle, D_ADDR
-    endcommon
+function rep_start_file, i4
+    in filename, a
+    out handle, i4
 proc
-.ifdef DBLNET
-    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_shutdown_zmq")
-.else
-    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_shutdown_zmq")
-.endc
-    try
+    if(HookDllState.DLLHandle == 0)
+        freturn -1
+     
+    freturn %dll_call(HookDllState.DLLHandle, DLL_TYPE_C, "rep_start_file", %addr(filename), (i4)%size(filename), %addr(handle))
+endfunction
+
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Indicates that a file is being closed
+;;; </summary>
+;;; <param name="handle">File handle obtained from rep_start_file</param>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
+
+function rep_stop_file, i4
+    in handle, i4
+proc
+    if(HookDllState.DLLHandle == 0)
+        freturn -1
+     
+    freturn %dll_call(HookDllState.DLLHandle, DLL_TYPE_C, "rep_stop_file", handle)
+endfunction
+
+;;-----------------------------------------------------------------------------
+;;; <summary>
+;;; Write a instruction
+;;; </summary>
+;;; <param name="fileHandle">File handle obtained from rep_start_file</param>
+;;; <param name="opType"></param>
+;;; <param name="keyData"></param>
+;;; <param name="recordData"></param>
+;;; <param name="originalData"></param>
+;;; <param name="txn"></param>
+;;; <returns>Returns 0 on success, otherwise an error number</returns>
+
+function rep_write_op, i4
+    in fileHandle, i4
+    in opType, i4
+    in keyData, a
+    in recordData, a
+    optional in originalData, a
+    optional in txn, i4
+    stack record
+        originalDataPtr, D_ADDR
+        originalDataLength, i4
+        cleanTxn, i4
+    endrecord
+proc
+    if(HookDllState.DLLHandle == 0)
+        freturn -1
+    
+    if(^passed(originalData)) then
     begin
-        data dllCloseStatus, i4, %dll_close(rep_dll_handle)
+        originalDataPtr = %addr(originalData)
+        originalDataLength = %size(originalData)
     end
-    catch (e, @Exception)
+    else
     begin
-       nop 
+        originalDataPtr = 0
+        originalDataLength = 0
     end
-    endtry
-    freturn status
+
+    if(^passed(txn)) then
+        cleanTxn = txn
+    else
+        cleanTxn = 0
+
+    freturn %dll_call(HookDllState.DLLHandle, DLL_TYPE_C, "rep_write_op", fileHandle, opType, %addr(keyData), (i4)%size(keyData), 
+    &   %addr(recordData), (i4)%size(recordData), originalDataPtr, originalDataLength, cleanTxn)
+
 endfunction
 
 ;;-----------------------------------------------------------------------------
 ;;; <summary>
-;;; Tells the broker that a file is being opened
+;;; Start a transaction
 ;;; </summary>
-;;; <param name="aTableName">Name of table associated with the file being opened</param>
-;;; <param name="aFileHandle">Returned file handle</param>
+;;; <param name="handle">Returned transaction handle</param>
 ;;; <returns>Returns 0 on success, otherwise an error number</returns>
 
-function rep_start_file, i
-    aTableName, a
-    aFileHandle, i
-    stack record
-        status, i4
-    endrecord
-    external common
-        rep_dll_handle, D_ADDR
-    endcommon
+function rep_start_txn, i4
+    out handle, i4
 proc
-.ifdef DBLNET
-    data args = new object[2]
-    args[1] = (object)aTableName
-    args[2] = (object)aFileHandle
-    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_start_file",args)
-.else
-    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_start_file",aTableName,aFileHandle)
-.endc
-    freturn status
+    if(HookDllState.DLLHandle == 0)
+        freturn -1
+    
+    freturn %dll_call(HookDllState.DLLHandle, DLL_TYPE_C, "rep_start_txn", %addr(handle))
 endfunction
 
 ;;-----------------------------------------------------------------------------
 ;;; <summary>
-;;; Tells the broker that a file is being closed
+;;; End a transaction
 ;;; </summary>
-;;; <param name="aFileHandle">File handle obtained from rep_start_file</param>
+;;; <param name="handle">Transaction handle obtained from rep_start_txn</param>
 ;;; <returns>Returns 0 on success, otherwise an error number</returns>
 
-function rep_stop_file, i
-    aFileHandle, i
-    stack record
-        status, i4
-    endrecord
-    external common
-        rep_dll_handle, D_ADDR
-    endcommon
+function rep_stop_txn, i4
+    in handle, i4
 proc
-.ifdef DBLNET
-    data args = new object[1]
-    args[1] = (object)aFileHandle
-    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_stop_file",args)
-.else
-    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_stop_file",aFileHandle)
-.endc
-    freturn status
+    if(HookDllState.DLLHandle == 0)
+        freturn -1
+    
+    freturn %dll_call(HookDllState.DLLHandle, DLL_TYPE_C, "rep_stop_txn", handle)
 endfunction
-
-;;-----------------------------------------------------------------------------
-;;; <summary>
-;;; Tells the broker to write an instruction to the Kafka queue
-;;; </summary>
-;;; <param name="aFileHandle">File handle obtained from rep_start_file</param>
-;;; <param name="aOperation"></param>
-;;; <param name="aKeyValue"></param>
-;;; <param name="aRecord"></param>
-;;; <param name="aOldRecord"></param>
-;;; <param name="aSomethingElse"></param>
-;;; <returns>Returns 0 on success, otherwise an error number</returns>
-
-function rep_write_op, i
-    aFileHandle, i
-    aOperation, i
-    aKeyValue, a
-    aRecord, a
-    aOldRecord, a
-    aSomethingElse, a
-    stack record
-        status, i4
-    endrecord
-    external common
-        rep_dll_handle, D_ADDR
-    endcommon
-proc
-.ifdef DBLNET
-    data args = new object[6]
-    args[1] = (object)aFileHandle
-    args[2] = (object)aOperation
-    args[3] = (object)aKeyValue
-    args[4] = (object)aRecord
-    args[5] = (object)aOldRecord
-    args[6] = (object)aSomethingElse
-    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_write_op",args)
-.else
-    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_write_op",aFileHandle,aOperation,aKeyValue,aRecord,aOldRecord,aSomethingElse)
-.endc
-    freturn status
-endfunction
-
-;;-----------------------------------------------------------------------------
-
-;function rep_start_txn, i
-;    stack record
-;        status, i4
-;    endrecord
-;    external common
-;        rep_dll_handle, D_ADDR
-;    endcommon
-;proc
-;.ifdef DBLNET
-;    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_start_txn",args)
-;.else
-;    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_start_txn",args)
-;.endc
-;    freturn 1
-;endfunction
-
-;;-----------------------------------------------------------------------------
-
-;function rep_stop_txn, i
-;    stack record
-;        status, i4
-;    endrecord
-;    external common
-;        rep_dll_handle, D_ADDR
-;    endcommon
-;proc
-;.ifdef DBLNET
-;    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_stop_txn",args)
-;.else
-;    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_stop_txn",args)
-;.endc
-;    freturn 1
-;endfunction
 
 ;;-----------------------------------------------------------------------------
 ;;; <summary>
 ;;; Get the error text associated wiht the most recent failure
 ;;; </summary>
-;;; <param name="aStatus">Status code returned by previous failing routine</param>
-;;; <param name="aErrorMessage">Associated error message</param>
+;;; <param name="error">Status code returned by previous failing routine</param>
+;;; <param name="text">Associated error message</param>
 ;;; <returns>Returns 0 on success, otherwise an error number</returns>
 
-function rep_get_error, i
-    aStatus, i
-    aErrorMessage, a
-    stack record
-        status, i4
-    endrecord
-    external common
-        rep_dll_handle, D_ADDR
-    endcommon
+function rep_get_error, i4
+    in error, i4
+    out text, a
 proc
-.ifdef DBLNET
-    data args = new object[2]
-    args[1] = (object)aStatus
-    args[2] = (object)aErrorMessage
-    status = %dll_netcall(rep_dll_handle,DLL_TYPE_C,"rep_get_error",args)
-.else
-    status = %dll_call(rep_dll_handle,DLL_TYPE_C,"rep_get_error",aStatus,aErrorMessage)
-.endc
-    freturn status
+    if(HookDllState.DLLHandle == 0)
+        freturn -1
+     
+    freturn %dll_call(HookDllState.DLLHandle, DLL_TYPE_C, "rep_get_error", error, %addr(text), (i4)%size(text))
 endfunction
 
 .endc

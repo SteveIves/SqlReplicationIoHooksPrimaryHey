@@ -36,7 +36,6 @@
 ;;
 ;;*****************************************************************************
 
-import replicator
 import ReplicationLibrary
 import System.Collections
 .ifdef DBLNET
@@ -83,6 +82,22 @@ main replicator
     endexternal
 
 proc
+    ;Check that we have data and log directories, a config file, and an instance name
+    begin
+        data errorMessage, string
+        if (!%ValidateBasicEnvironment(errorMessage))
+        begin
+            Console.WriteLine("Basic environment not established. " + errorMessage)
+            stop
+        end
+    end
+
+    ;If we get here then logging is active, and the following settings are already in place:
+    ;   Settings.InstanceName
+    ;   Settings.QueueFileName
+    ;   Settings.LogFileName
+    ;   Settings.KafkaTopicName
+    ;   Default values for all other settings
 
     if (ok = %ConfigureEnvironment)
     begin

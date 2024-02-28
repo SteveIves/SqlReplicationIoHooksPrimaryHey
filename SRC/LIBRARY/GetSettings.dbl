@@ -1,0 +1,866 @@
+;;*****************************************************************************
+;;
+;; Routine:     GetSettings
+;;
+;; Description: Get settings from enmvironment variables and command line options.
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;
+;; Created:     30th December 2019
+;;
+;;*****************************************************************************
+;;
+
+import ReplicationLibrary
+import System.Collections
+import System.Text
+import System.Text.Json
+
+function GetSettings,   boolean
+    required out errorMessage, string
+    stack record
+        ok,             boolean
+        clValues,       @ArrayList
+        length,         int
+        envval,         a1024
+        envlen,         i4
+        doc,            @JsonDocument
+        root,           @JsonElement
+        instances,      @JsonElement
+        instance,       @JsonElement
+        setting,        @JsonElement
+    endrecord
+    external function
+        xsubr,  ^val
+    endexternal
+proc
+    ok = true
+    errorMessage = ""
+
+    ;Parse the JSON configuration file
+
+    try
+    begin
+        doc = Settings.ParseConfigFile()
+    end
+    catch (e, @Exception)
+    begin
+        errorMessage = "Failed to parse configuration file!"
+        ok = false
+    end
+    endtry
+
+    ;Get the root element
+
+    if (ok)
+    begin
+        root = doc.RootElement
+        if (root == ^null)
+        begin
+            errorMessage = "Configuration file has no root element!"
+            ok = false
+        end
+    end
+
+    ;Validate the instances property
+
+    if (ok)
+    begin
+        instances = root.GetProperty("Instances")
+        if (instances == ^null) then
+        begin
+            errorMessage = "Configuration file does not have a root Instances property!"
+            ok = false
+        end
+        else if (instances.ValueKind != JsonValueKind.Array) then
+        begin
+            errorMessage = "Configuration file instances property is not an array!"
+            ok = false
+        end
+        else if (instances.GetArrayLength() == 0)
+        begin
+            errorMessage = "Configuration file instances property is an empty array!"
+            ok = false
+        end
+    end
+
+    ;Find the instance configuration for our instance name
+
+    if (ok)
+    begin
+        data instanceCount = instances.GetArrayLength()
+        data instanceNumber, int
+
+        for instanceNumber from 0 thru instanceCount - 1
+        begin
+            instance = instances[instanceNumber]
+            ;Is it our settings?
+            setting = instance.GetProperty("InstanceName")
+            if (setting == ^null) then
+            begin
+                errorMessage = "Instance " + %string(instanceNumber) + " has no InstanceName property!"
+                ok = false
+            end
+            else if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "Instance " + %string(instanceNumber) + "'s InstanceName property is not a string!"
+                ok = false
+            end
+            else if (setting.GetString().ToUpper() != Settings.InstanceName) 
+            begin
+                ;Not the one we're looking for
+                nextloop
+            end
+        end
+    end
+
+    ;We found the settings for our instance. Now process all the settings.
+
+    ;BulkLoadBatchSize
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("BulkLoadBatchSize")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's BulkLoadBatchSize property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1000) then
+            begin
+                errorMessage = "The instance's BulkLoadBatchSize property may not be less than 1000!"
+                ok = false
+            end
+            else
+            begin
+                Settings.BulkLoadBatchSize = setting.GetInt32()
+            end
+        end
+    end
+
+    ;BulkLoadTimeout
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("BulkLoadTimeout")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's BulkLoadTimeout property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 60) then
+            begin
+                errorMessage = "The instance's BulkLoadTimeout property may not be less than 60!"
+                ok = false
+            end
+            else
+            begin
+                Settings.BulkLoadTimeout = setting.GetInt32()
+            end
+        end
+    end
+
+    ;CommitBatchSize
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("CommitBatchSize")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's CommitBatchSize property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 100) then
+            begin
+                errorMessage = "The instance's CommitBatchSize property may not be less than 100!"
+                ok = false
+            end
+            else
+            begin
+                Settings.CommitBatchSize = setting.GetInt32()
+            end
+        end
+    end
+
+    ;DatabaseCommitMode
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("DatabaseCommitMode")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's DatabaseCommitMode property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                using setting.GetString().ToUpper() select
+                ("AUTOMATIC"),
+                begin
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Automatic
+                end
+                ("BATCH"),
+                begin
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Batch
+                end
+                ("MANUAL"),
+                begin
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.Manual
+                end
+                (),
+                begin
+                    errorMessage = "The instance's DatabaseCommitMode property must be set to Automatic, Batch or Manual!"
+                    ok = false
+                end
+                endusing
+            end
+        end
+    end
+
+    ;DatabaseConnectMode
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("DatabaseConnectMode")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's DatabaseConnectMode property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                using setting.GetString().ToUpper() select
+                ("SQLCONNECTION"),
+                begin
+                    Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlConnection
+                end
+                ("SQLCLIENT"),
+                begin
+.ifdef DBLNET
+                    Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlClient
+.else
+                    errorMessage = "Connection mode " + setting.GetString() + " is only valid when running the .NET version of replicator."
+                    ok = false
+.endc
+                end
+                (),
+                begin
+                    errorMessage = "The instance's DatabaseConnectMode property must be set to SqlConnection, SqlClient!"
+                    ok = false
+                end
+                endusing
+            end
+        end
+    end
+
+    ;DatabaseConnectString
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("DatabaseConnectString")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's DatabaseConnectString property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.DatabaseConnectString = setting.GetString()
+
+                if (String.IsNullOrWhitespace(Settings.DatabaseConnectString))
+                begin
+                    errorMessage = "The instance's DatabaseConnectString property contains no information!"
+                    ok = false
+                end
+            end
+        end
+    end
+
+    ;DatabaseRetryDelay
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("DatabaseRetryDelay")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's DatabaseRetryDelay property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's DatabaseRetryDelay property may not be less than 1!"
+                ok = false
+            end
+            else
+            begin
+                Settings.DatabaseRetryDelay = setting.GetInt32()
+            end
+        end
+    end
+
+    ;DatabaseRetryMax
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("DatabaseRetryMax")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's DatabaseRetryMax property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's DatabaseRetryMax property may not be less than 1!"
+                ok = false
+            end
+            else
+            begin
+                Settings.DatabaseRetryMax = setting.GetInt32()
+            end
+        end
+    end
+
+    ;DatabaseTimeout
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("DatabaseTimeout")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's DatabaseTimeout property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's DatabaseTimeout property may not be less than 1!"
+                ok = false
+            end
+            else
+            begin
+                Settings.DatabaseTimeout = setting.GetInt32()
+            end
+        end
+    end
+
+    ;DataCompressionMode
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("DataCompressionMode")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's DataCompressionMode property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                using setting.GetString().ToUpper() select
+                ("NONE"),
+                begin
+                    Settings.DataCompressionMode = DatabaseDataCompression.None
+                end
+                ("PAGE"),
+                begin
+                    Settings.DataCompressionMode = DatabaseDataCompression.Page
+                end
+                ("ROW"),
+                begin
+                    Settings.DataCompressionMode = DatabaseDataCompression.Row
+                end
+                (),
+                begin
+                    errorMessage = "The instance's DataCompressionMode property must be set to None, Page or Row!"
+                    ok = false
+                end
+                endusing
+            end
+        end
+    end
+
+    ;EmailSender
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("EmailSender")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's EmailSender property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.EmailSender = setting.GetString()
+
+                if (String.IsNullOrWhitespace(Settings.EmailSender))
+                begin
+                    errorMessage = "The instance's EmailSender property contains no information!"
+                    ok = false
+                end
+            end
+        end
+    end
+
+    ;EmailServer
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("EmailServer")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's EmailServer property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.EmailServer = setting.GetString()
+
+                if (String.IsNullOrWhitespace(Settings.EmailServer))
+                begin
+                    errorMessage = "The instance's EmailServer property contains no information!"
+                    ok = false
+                end
+            end
+        end
+    end
+
+    ;Enabled
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("Enabled")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            begin
+                errorMessage = "The instance's Enabled property is not a boolean!"
+                ok = false
+            end
+            else
+            begin
+                Settings.Enabled = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;ErrorEmail
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("ErrorEmail")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's ErrorEmail property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.ErrorEmail = setting.GetString()
+
+                if (String.IsNullOrWhitespace(Settings.ErrorEmail))
+                begin
+                    errorMessage = "The instance's ErrorEmail property contains no information!"
+                    ok = false
+                end
+            end
+        end
+    end
+
+    ;ErrorSleepTime
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("ErrorSleepTime")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's ErrorSleepTime property is not a number!"
+                ok = false
+            end
+            else if (setting.GetDecimal() <= 0) then
+            begin
+                errorMessage = "The instance's ErrorSleepTime property may not be less than or equal to zero!"
+                ok = false
+            end
+            else
+            begin
+                Settings.ErrorSleepTime = setting.GetDecimal()
+            end
+        end
+    end
+
+    ;FileServiceHost
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("FileServiceHost")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's FileServiceHost property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.FileServiceHost = setting.GetString()
+
+                if (String.IsNullOrWhitespace(Settings.FileServiceHost))
+                begin
+                    errorMessage = "The instance's FileServiceHost property contains no information!"
+                    ok = false
+                end
+            end
+        end
+    end
+
+    ;FileServicePort
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("FileServicePort")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's FileServicePort property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() <= 0) then
+            begin
+                errorMessage = "The instance's FileServicePort property may not be less than or equal to zero!"
+                ok = false
+            end
+            else
+            begin
+                Settings.FileServicePort = setting.GetInt32()
+            end
+        end
+    end
+
+    ;LocalExportPath
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("LocalExportPath")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's LocalExportPath property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.LocalExportPath = setting.GetString()
+
+                if (String.IsNullOrWhitespace(Settings.LocalExportPath))
+                begin
+                    errorMessage = "The instance's LocalExportPath property contains no information!"
+                    ok = false
+                end
+            end
+        end
+    end
+
+    ;LogBulkLoadExceptions
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("LogBulkLoadExceptions")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            begin
+                errorMessage = "The instance's LogBulkLoadExceptions property is not a boolean!"
+                ok = false
+            end
+            else
+            begin
+                Settings.LogBulkLoadExceptions = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;LogKeyValues
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("LogKeyValues")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            begin
+                errorMessage = "The instance's LogKeyValues property is not a boolean!"
+                ok = false
+            end
+            else
+            begin
+                Settings.LogKeyValues = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;LogLoadProgress
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("LogLoadProgress")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            begin
+                errorMessage = "The instance's LogLoadProgress property is not a boolean!"
+                ok = false
+            end
+            else
+            begin
+                Settings.LogLoadProgress = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;MaxColumns
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("MaxColumns")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's MaxColumns property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's MaxColumns property may not be less than 1!"
+                ok = false
+            end
+            else
+            begin
+                Settings.MaxColumns = setting.GetInt32()
+            end
+        end
+    end
+
+    ;MaxCursors
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("MaxCursors")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's MaxCursors property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's MaxCursors property may not be less than 1!"
+                ok = false
+            end
+            else
+            begin
+                Settings.MaxCursors = setting.GetInt32()
+            end
+        end
+    end
+
+    ;QueueReconnectAttempts
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("QueueReconnectAttempts")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's QueueReconnectAttempts property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's QueueReconnectAttempts property may not be less than 1!"
+                ok = false
+            end
+            else
+            begin
+                Settings.QueueReconnectAttempts = setting.GetInt32()
+            end
+        end
+    end
+
+    ;QueueReconnectDelay
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("QueueReconnectDelay")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's QueueReconnectDelay property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's QueueReconnectDelay property may not be less than 1!"
+                ok = false
+            end
+            else
+            begin
+                Settings.QueueReconnectDelay = setting.GetInt32()
+            end
+        end
+    end
+
+    ;QueueType
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("QueueType")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's QueueType property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                using setting.GetString().ToUpper() select
+                ("ISAMFILE"),
+                begin
+                    Settings.QueueType = MessageQueueType.IsamFile
+                end
+                ("KAFKA"),
+                begin
+.ifdef DBLNET
+                    Settings.QueueType = MessageQueueType.Kafka
+.else
+                    errorMessage = "Queue type " + setting.GetString() + " is only valid when running the .NET version of replicator."
+                    ok = false
+.endc
+                end
+                (),
+                begin
+                    errorMessage = "The instance's QueueType property must be set to IsamFile or Kafka!"
+                    ok = false
+                end
+                endusing
+            end
+        end
+    end
+
+    ;SleepTime
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("SleepTime")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's SleepTime property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's SleepTime property may not be less than 1!"
+                ok = false
+            end
+            else
+            begin
+                Settings.SleepTime = setting.GetInt32()
+            end
+        end
+    end
+
+    ;StopOnError
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("StopOnError")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            begin
+                errorMessage = "The instance's StopOnError property is not a boolean!"
+                ok = false
+            end
+            else
+            begin
+                Settings.StopOnError = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;SystemLogging
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("SystemLogging")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            begin
+                errorMessage = "The instance's SystemLogging property is not a boolean!"
+                ok = false
+            end
+            else
+            begin
+                Settings.SystemLogging = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;VerboseLogging
+
+    if (ok)
+    begin
+        setting = instance.GetProperty("VerboseLogging")
+        if (setting != ^null)
+        begin
+            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            begin
+                errorMessage = "The instance's VerboseLogging property is not a boolean!"
+                ok = false
+            end
+            else
+            begin
+                Settings.VerboseLogging = setting.GetBoolean()
+            end
+        end
+    end
+
+    freturn ok
+
+endfunction

@@ -99,11 +99,26 @@
     <Compile Include="..\..\SRC\LIBRARY\CommandLineParser.dbl">
       <Link>CommandLineParser.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\ConfigureEnvironment.dbl">
+      <Link>ConfigureEnvironment.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\ConfigureReplication.dbl">
       <Link>ConfigureReplication.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\Counters.dbl">
+      <Link>Counters.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\DatabaseCommunicationException.dbl">
       <Link>DatabaseCommunicationException.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseConnect.dbl">
+      <Link>DatabaseConnect.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseDisconnect.dbl">
+      <Link>DatabaseDisconnect.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseReconnect.dbl">
+      <Link>DatabaseReconnect.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl">
       <Link>DataConversionTools.dbl</Link>
@@ -137,6 +152,9 @@
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\GetReplicatedTables.dbl">
       <Link>GetReplicatedTables.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\GetSettings.dbl">
+      <Link>GetSettings.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\IndexExists.dbl">
       <Link>IndexExists.dbl</Link>
@@ -174,6 +192,9 @@
     <Compile Include="..\..\SRC\LIBRARY\LastRecordCache.dbl">
       <Link>LastRecordCache.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\Logger.dbl">
+      <Link>Logger.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\MakeDateForCsv.dbl">
       <Link>MakeDateForCsv.dbl</Link>
     </Compile>
@@ -186,11 +207,23 @@
     <Compile Include="..\..\SRC\LIBRARY\OpenOrCreateQueueFile.dbl">
       <Link>OpenOrCreateQueueFile.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\OpenQueueFile.dbl">
+      <Link>OpenQueueFile.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\PopulateReplicationKey.dbl">
       <Link>PopulateReplicationKey.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\ReOpenQueueFile.dbl">
+      <Link>ReOpenQueueFile.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\Replicate.dbl">
       <Link>Replicate.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\ReplicatorShutdown.dbl">
+      <Link>ReplicatorShutdown.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\SendEmail.dbl">
+      <Link>SendEmail.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\Settings.dbl">
       <Link>Settings.dbl</Link>
@@ -206,6 +239,12 @@
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\ThrowOnCommunicationError.dbl">
       <Link>ThrowOnCommunicationError.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\TimeNow.dbl">
+      <Link>TimeNow.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\ValidateBasicEnvironment.dbl">
+      <Link>ValidateBasicEnvironment.dbl</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup>

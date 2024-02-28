@@ -11,7 +11,7 @@
 ;;*****************************************************************************
 ;;
 
-namespace replicator
+namespace ReplicationLibrary
 
     public class Counters
 

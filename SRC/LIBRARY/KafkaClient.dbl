@@ -1,3 +1,17 @@
+;;*****************************************************************************
+;;
+;; Routine:     SqlClientConnect
+;;
+;; Description: Use SqlClient to connect to the database and configure the database environment.
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;
+;; Created:     29th January 2024
+;;
+;;*****************************************************************************
+;;
+
+.ifdef DBLNET
 
 import Confluent.Kafka
 import System.Threading
@@ -106,3 +120,5 @@ namespace replicator
     endclass
 
 endnamespace
+
+.endc

@@ -13,7 +13,7 @@
 
 .ifdef DBLNET
 
-import replicator
+import ReplicationLibrary
 import Synergex.SynergyDE
 
 function OpenKafkaQueue, boolean

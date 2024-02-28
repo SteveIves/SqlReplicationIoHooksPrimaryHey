@@ -11,7 +11,6 @@
 ;;*****************************************************************************
 ;;
 
-import Replicator
 import ReplicationLibrary
 
 subroutine DatabaseDisconnect
@@ -25,12 +24,12 @@ proc
             Logger.Log(" - Attempting to close database channel")
             dbstatus = %ssc_release(Settings.DatabaseChannel)
         end
+.ifdef DBLNET
         (DatabaseConnectionMode.SqlClient),
         begin
-.ifdef DBLNET
             Settings.DatabaseConnection.Close()
-.endc
         end
+.endc
         endusing
     end
     catch (e, @Exception)

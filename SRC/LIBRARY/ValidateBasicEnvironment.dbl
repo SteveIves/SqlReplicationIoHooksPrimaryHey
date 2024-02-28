@@ -1,0 +1,251 @@
+;;*****************************************************************************
+;;
+;; Routine:     ValidateBasicEnvironment
+;;
+;; Description: Check we have exe, data and log directories, an instance name,
+;;              and a configuration file.
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;
+;; Created:     26th February 2024
+;;
+;;*****************************************************************************
+;;
+
+import ReplicationLibrary
+import System.Collections
+import System.Text
+
+function ValidateBasicEnvironment, boolean
+    required out errorMessage, string
+    stack record
+        ok,             boolean
+        clValues,       @ArrayList
+        envval,         a1024
+        envlen,         i4
+
+        dataDirectory,  string
+        logDirectory,   string
+        instanceName,   string
+    endrecord
+proc
+    ok = true
+    errorMessage = ""
+
+    ;Is REPLICATOR_EXE defined
+
+    xcall getlog("REPLICATOR_EXE",envval,envlen)
+    if (!envlen)
+    begin
+        errorMessage = "Environment variable REPLICATOR_EXE is not defined"
+        ok = false
+    end
+
+    ;Is -datadir is specified?
+
+    if (ok)
+    begin
+        if (CommandLineParser.Parse("datadir",clValues))
+        begin
+            using clValues.Count select
+            (1),
+            begin
+                xcall setlog("REPLICATOR_DATA",(string)clValues[0],envlen)
+            end
+            (0),
+            begin
+                errorMessage = "Missing value after the -datadir option"
+                ok = false
+            end
+            (),
+            begin
+                errorMessage = "Only one value may follow the -datadir option"
+                ok = false
+            end
+            endusing
+        end
+    end
+
+    ; Is REPLICATOR_DATA: defined?
+
+    if (ok)
+    begin
+        xcall getlog("REPLICATOR_DATA",envval,envlen)
+        if (envlen) then
+        begin
+            dataDirectory = envval(1,envlen)
+        end
+        else
+        begin
+            errorMessage = "Pass -datadir or set environment variable REPLICATOR_DATA"
+            ok = false
+        end
+    end
+
+    ; Is REPLICATOR_DATA:ReplicatorConfig.json present?
+
+    if (ok)
+    begin
+        data tmpch, i4
+        try
+        begin
+            open(tmpch=0,i,"REPLICATOR_DATA:ReplicatorConfig.json")
+        end
+        catch (ex)
+        begin
+            errorMessage = "REPLICATOR_DATA:ReplicatorConfig.json was not found!"
+            ok = false
+        end
+        finally
+        begin
+            if (tmpch && %chopen(tmpch))
+            begin
+                close tmpch
+            end
+        end
+        endtry
+    end
+
+    ;Is -logdir is specified?
+
+    if (CommandLineParser.Parse("logdir",clValues))
+    begin
+        using clValues.Count select
+        (1),
+        begin
+            xcall setlog("REPLICATOR_LOGDIR",(string)clValues[0],envlen)
+        end
+        (0),
+        begin
+            errorMessage = "Missing value after the -logdir option"
+            ok = false
+        end
+        (),
+        begin
+            errorMessage = "Only one value may follow the -logdir option"
+            ok = false
+        end
+        endusing
+    end
+
+    ; Is REPLICATOR_LOGDIR: defined?
+
+    if (ok)
+    begin
+        xcall getlog("REPLICATOR_LOGDIR",envval,envlen)
+        if (envlen) then
+        begin
+            logDirectory = envval(1,envlen)
+        end
+        else
+        begin
+            errorMessage = "Pass -logdir or set environment variable REPLICATOR_LOGDIR"
+            ok = false
+        end
+    end
+
+    ; Does REPLICATOR_LOGDIR point to an actual directory where we can create files?
+
+    if (ok)
+    begin
+        data tmpch, i4
+        try
+        begin
+            open(tmpch=0,o:s,"REPLICATOR_LOGDIR:tmp.tmp")
+        end
+        catch (e, @Exception)
+        begin
+            errorMessage = "Can't create files in REPLICATOR_LOGDIR:"
+            ok = false
+        end
+        finally
+        begin
+            if (tmpch && %chopen(tmpch))
+            begin
+                close tmpch
+            end
+        end
+        endtry
+    end
+
+    ; Delete the temp file we just created
+
+    if (ok)
+    begin
+        try
+        begin
+            xcall delet("REPLICATOR_LOGDIR:tmp.tmp")
+        end
+        catch (e, @Exception)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    ; Check we have an instance name on the command line
+
+    if (ok)
+    begin
+        if (CommandLineParser.Parse("instance",clValues))
+        begin
+            using clValues.Count select
+            (1),
+            begin
+                xcall setlog("REPLICATOR_INSTANCE",(string)clValues[0],envlen)
+            end
+            (0),
+            begin
+                Logger.ErrorLog("Missing value after the -instance option")
+                ok = false
+            end
+            (),
+            begin
+                Logger.ErrorLog("Only one value may follow the -instance option")
+                ok = false
+            end
+            endusing
+        end
+    end
+
+    ; If not on the command line the instance name can also come from REPLICATOR_INSTANCE
+
+    if (ok)
+    begin
+        xcall getlog("REPLICATOR_INSTANCE",envval,envlen)
+        if (envlen) then
+        begin
+            instanceName = ((string)envval(1,envlen)).ToUpper()
+        end
+        else
+        begin
+            instanceName = "DEFAULT"
+        end
+    end
+
+    ; Initialize the settings object and set the instance name. This also sets the following:
+    ;   Settings.QueueFileName
+    ;   Settings.LogFileName
+    ;   Settings.KafkaTopicName
+    ;   Default values for all other properties
+
+    if (ok)
+    begin
+        Settings.Initialize()
+        Settings.InstanceName = instanceName
+    end
+
+    ; Get logging up and running
+
+    if (ok)
+    begin
+        if (!Logger.OpenLog())
+        begin
+            errorMessage = "Failed to initiate logging"
+            ok = false
+        end
+    end
+
+    freturn ok
+
+endfunction

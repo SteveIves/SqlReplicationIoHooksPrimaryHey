@@ -13,7 +13,6 @@
 
 .ifdef DBLNET
 
-import replicator
 import ReplicationLibrary
 import System.Data.SqlClient
 

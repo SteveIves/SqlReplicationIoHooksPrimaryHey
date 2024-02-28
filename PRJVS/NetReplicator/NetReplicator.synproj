@@ -51,22 +51,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\SRC\REPLICATOR\ConfigureEnvironment.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\Counters.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\DatabaseConnect.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\DatabaseDisconnect.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\DatabaseReconnect.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\GetSettings.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\KafkaClient.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\Logger.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\OpenKafkaQueue.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\OpenQueueFile.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\ReOpenQueueFile.dbl" />
     <Compile Include="..\..\SRC\REPLICATOR\replicator.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\ReplicatorShutdown.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\SendEmail.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\SqlClientConnect.dbl" />
-    <Compile Include="..\..\SRC\REPLICATOR\TimeNow.dbl" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties" />
