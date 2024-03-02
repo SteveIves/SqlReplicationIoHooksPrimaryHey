@@ -9,7 +9,7 @@
     <RootNamespace>FileService</RootNamespace>
     <AssemblyName>FileService</AssemblyName>
     <MainFile>Program.dbl</MainFile>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
     <DBL_qWarnLevel>3</DBL_qWarnLevel>
