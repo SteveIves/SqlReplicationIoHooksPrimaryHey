@@ -1,10 +1,12 @@
 ;;*****************************************************************************
 ;;
-;; File:        IoHooksKAFKA.def
+;; File:        ThrowOnSqlClientError.dbl
 ;;
-;; Description: Defines and external function references used by IoHooksKAFKA
+;; Description: Throw a DatabaseCommunicationException when one of a set of
+;;              recognized exceptions is en countered. This will in turn cause
+;;              replicator to initiate re-connect processing.
 ;;
-;; Author:      Steve Ives, Synergex Professional Services Group
+;; Author:      Steve Ives (Synergex Professional Services Group)
 ;;
 ;;*****************************************************************************
 ;;
@@ -35,28 +37,28 @@
 ;;
 ;;*****************************************************************************
 
+import ReplicationLibrary
 
-;Non transaction operations (auto-commit):
+;;; <summary>
+;;; This routine should be called after a SqlClient exception has been encountered.
+;;; It looks for specific errors that indicate the SQL Server is no longer accessible
+;;; for some reason, and in those cases throws a DatabaseCommunicationException.
+;;; The replicator process has specific code that traps this exception and causes it
+;;; to attempt to disconnect and reconnect to the database. If the database error is
+;;; anything other than the specific errors processed by this routine then the error
+;;; will continue to "bubble up" back into the replicator code, and will cause an error
+;;; message to be logged. Replicator will then either ignore the error and continue,
+;;; or terminate processing, based on its configuration settings.
+;;; </summary>
+;;; <param name="ex">Exception caught during database operation</param>
+;;; <param name="errtxt">Error message from code</param>
+subroutine ThrowOnSqlClientError
+    required in errorMessage, string
+    required in ex, @Exception
+proc
 
-.define OP_TYPE_INSERT_AC	2
-.define OP_TYPE_UPDATE_AC	4
-.define OP_TYPE_DELETE_AC	6
+    ;TODO: * * * FIGURE OUT WHAT TO DO HERE * * *
 
-;Transactional operations:
+    xreturn
 
-.define OP_TYPE_INSERT		1
-.define OP_TYPE_UPDATE		3
-.define OP_TYPE_DELETE		5
-.define OP_TYPE_START_TXN	7
-.define OP_TYPE_COMMIT		8
-
-external function
-    rep_startup,            i4
-    rep_shutdown,           i4
-    rep_get_error,          i4
-    rep_start_file,         i4
-    rep_stop_file,          i4
-    rep_start_txn,          i4
-    rep_stop_txn,           i4
-    rep_write_op,           i4
-endexternal
+endsubroutine

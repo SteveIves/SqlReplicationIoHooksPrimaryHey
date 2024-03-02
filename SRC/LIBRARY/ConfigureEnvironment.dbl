@@ -121,13 +121,7 @@ proc
         end
     end
 
-
-
-
-
-
-
-    ;;Open the queue file, crating it if it does not exist
+    ;;Open the queue file, creting it if it does not exist
 
     if (ok)
     begin

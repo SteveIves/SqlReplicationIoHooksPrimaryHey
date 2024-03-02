@@ -99,6 +99,9 @@
     <Compile Include="..\..\SRC\LIBRARY\CommandLineParser.dbl">
       <Link>CommandLineParser.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\CommitTransactionSqlConnection.dbl">
+      <Link>CommitTransactionSqlConnection.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\ConfigureEnvironment.dbl">
       <Link>ConfigureEnvironment.dbl</Link>
     </Compile>
@@ -222,6 +225,9 @@
     <Compile Include="..\..\SRC\LIBRARY\ReplicatorShutdown.dbl">
       <Link>ReplicatorShutdown.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\RollbackTransactionSqlConnection.dbl">
+      <Link>RollbackTransactionSqlConnection.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\SendEmail.dbl">
       <Link>SendEmail.dbl</Link>
     </Compile>
@@ -230,6 +236,9 @@
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\SmtpMail.dbl">
       <Link>SmtpMail.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlConnection.dbl">
+      <Link>StartTransactionSqlConnection.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\StringDictionary.dbl">
       <Link>StringDictionary.dbl</Link>

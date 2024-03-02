@@ -105,6 +105,27 @@ proc
         if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         begin
             uncommittedInstructions = new ArrayList()
+
+.ifdef DBLNET
+            if (Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlClient)
+            begin
+                ;;Start a transaction
+                try
+                begin
+                    disposable data command = new SqlCommand("START TRANSACTION",Settings.DatabaseConnection) { 
+                    &    CommandTimeout = Settings.DatabaseTimeout
+                    &    }
+                    command.ExecuteNonQuery()
+                end
+                catch (ex, @SqlException)
+                begin
+                    ;TODO: ENHANCEMENT: START TRANSACTION failed - now what?
+
+
+                end
+                endtry
+            end
+.endc
         end
 
         ;;Main processing loop
@@ -597,6 +618,8 @@ CommitTransaction,
     begin
         if (%ssc_commit(Settings.DatabaseChannel,SSQL_TXON)==SSQL_NORMAL) then
         begin
+            ;TODO: This code is duplicated below but can't be turned into an internal subroutine because of "label"
+
             ;;Delete all of the associated instructions from the queue file.
             foreach boxedRfa in uncommittedInstructions
             begin
@@ -647,6 +670,40 @@ CommitTransaction,
             &    CommandTimeout = Settings.DatabaseTimeout
             &    }
             command.ExecuteNonQuery()
+
+            ;;Delete all of the associated instructions from the queue file.
+            foreach boxedRfa in uncommittedInstructions
+            begin
+                unboxedRfa = (a)boxedRfa
+                try
+                begin
+                    read(Settings.InstructionChannel,instruction,,LOCK:Q_AUTO_LOCK,RFA:unboxedRfa)
+                    delete(Settings.InstructionChannel)
+                end
+                catch (ex, @NetworkException); $ERR_NETPROB (320)
+                begin
+                    if (%ReOpenQueueFile) nextloop
+                end
+                catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
+                begin
+                    if (%ReOpenQueueFile) nextloop
+                end
+                catch (e, @Exception)
+                begin
+                    ;;This can happen from time to time, because some "special"
+                    ;;instructions like "change interval" and "cycle log" are deleted
+                    ;;from the queue immediately even though the rfa has already been
+                    ;;recorded. Just ignore it.
+                    nop
+                end
+                endtry
+            end
+
+            uncommittedInstructions.Clear()
+
+            Logger.VerboseLog(" - Start transaction")
+            Counters.BatchCommits += 1
+            Counters.BatchCounter = 0
         end
         catch (ex, @SqlException)
         begin

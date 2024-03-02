@@ -202,7 +202,7 @@ function <StructureName>Create, ^val
         dberror     ,int        ;;Database error number
         cursor      ,int        ;;Database cursor
         length      ,int        ;;Length of a string
-        transaction ,int        ;;Transaction in process
+        transaction ,boolean    ;;Transaction in process
         errtxt      ,a512       ;;Returned error message text
         sql         ,string     ;;SQL statement
     endrecord
@@ -212,19 +212,11 @@ proc
     init local_data
     ok = true
 
-    ;;Start a database transaction
+    ;;If we're in manual commit mode, start a transaction
 
     if (a_commit_mode==3)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction=1
-        else
-        begin
-            ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
     ;;Create the database table and primary key constraint
@@ -300,31 +292,19 @@ proc
         end
     end
 
-    ;;Commit or rollback the transaction
+    ;;If we're in manual commit mode, commit or rollback the transaction
 
     if ((a_commit_mode==3) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -412,34 +392,26 @@ function <StructureName>Index, ^val
 
     .align
     stack record local_data
-        ok                  ,boolean    ;;Return status
-        dberror             ,int        ;;Database error number
-        cursor              ,int        ;;Database cursor
-        length              ,int        ;;Length of a string
-        transaction         ,int        ;;Transaction in process
-        keycount            ,int        ;;Total number of keys
-        errtxt              ,a512       ;;Returned error message text
-        now                 ,a20        ;;Current date and time
-        sql                 ,string     ;;SQL statement
+        ok,             boolean    ;;Return status
+        dberror,        int        ;;Database error number
+        cursor,         int        ;;Database cursor
+        length,         int        ;;Length of a string
+        transaction,    boolean    ;;Transaction in process
+        keycount,       int        ;;Total number of keys
+        errtxt,         a512       ;;Returned error message text
+        now,            a20        ;;Current date and time
+        sql,            string     ;;SQL statement
     endrecord
 
 proc
     init local_data
     ok = true
 
-    ;;Start a database transaction
+    ;;If we're in manual commit mode, start a transaction
 
     if (a_commit_mode==3)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction=1
-        else
-        begin
-            ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
     ;;Set the SQL statement execution timeout to the bulk load value
@@ -529,31 +501,19 @@ proc
 
   </ALTERNATE_KEY_LOOP>
 
-    ;;Commit or rollback the transaction
+    ;;If we're in manual commit mode, commit or rollback the transaction
 
     if ((a_commit_mode==3) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -643,7 +603,7 @@ function <StructureName>UnIndex, ^val
         dberror     ,int        ;;Database error number
         cursor      ,int        ;;Database cursor
         length      ,int        ;;Length of a string
-        transaction ,int        ;;Transaction in process
+        transaction ,boolean    ;;Transaction in process
         keycount    ,int        ;;Total number of keys
         errtxt      ,a512       ;;Returned error message text
         sql         ,string     ;;SQL statement
@@ -653,25 +613,16 @@ proc
     init local_data
     ok = true
 
-    ;;Start a database transaction
+    ;;If we're in manual commit mode, start a transaction
 
     if (a_commit_mode==3)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction=1
-        else
-        begin
-            ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
     if (ok)
     begin
-;// Note: IF EXISTS only works for SQL Server 2016 and later. Remove it for earlier databases.
         sql = '<PRIMARY_KEY>DROP INDEX IF EXISTS IX_<StructureName>_<KeyName></PRIMARY_KEY> ON "<StructureName>"'
 
         call open_cursor
@@ -689,7 +640,6 @@ proc
 
     if (ok)
     begin
-;// Note: IF EXISTS only works for SQL Server 2016 and later. Remove it for earlier databases.
         sql = 'DROP INDEX IF EXISTS IX_<StructureName>_<KeyName> ON "<StructureName>"'
 
         call open_cursor
@@ -702,31 +652,19 @@ proc
     end
 
   </ALTERNATE_KEY_LOOP>
-    ;;Commit or rollback the transaction
+    ;;If we're in manual commit mode, commit or rollback the transaction
 
     if ((a_commit_mode==3) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -824,7 +762,7 @@ function <StructureName>Insert, ^val
         openAndBind ,boolean    ;;Should we open the cursor and bind data this time?
         sts         ,int        ;;Return status
         dberror     ,int        ;;Database error number
-        transaction ,int        ;;Transaction in progress
+        transaction ,boolean    ;;Transaction in progress
         length      ,int        ;;Length of a string
         errtxt      ,a512       ;;Error message text
 <IF STRUCTURE_RELATIVE>
@@ -878,7 +816,6 @@ function <StructureName>Insert, ^val
     endcommon
 
 proc
-
     init local_data
     ok = true
     sts = 1
@@ -887,20 +824,11 @@ proc
 </IF STRUCTURE_RELATIVE>
     openAndBind = (c1<StructureName> == 0)
 
-    ;;Start a database transaction
+    ;;If we're in manual commit mode, start a transaction
 
     if (a_commit_mode==3)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction=1
-        else
-        begin
-            ok = false
-            sts = 0
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
     ;;Open a cursor for the INSERT statement
@@ -1093,32 +1021,19 @@ proc
         end
     end
 
-    ;;Commit or rollback the transaction
+    ;;If we're in manual commit mode, commit or rollback the transaction
 
     if ((a_commit_mode==3) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                sts = 0
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -1173,7 +1088,7 @@ function <StructureName>InsertRows, ^val
         openAndBind ,boolean    ;;Should we open the cursor and bind data this time?
         dberror     ,int        ;;Database error number
         rows        ,int        ;;Number of rows to insert
-        transaction ,int        ;;Transaction in progress
+        transaction ,boolean    ;;Transaction in progress
         length      ,int        ;;Length of a string
         ex_ms       ,int        ;;Size of exception array
         ex_mc       ,int        ;;Items in exception array
@@ -1186,19 +1101,19 @@ function <StructureName>InsertRows, ^val
 
 <COUNTER_1_RESET>
     literal
-        sql         ,a*, "INSERT INTO <StructureName> ("
+        sql,a*, "INSERT INTO <StructureName> ("
 <IF STRUCTURE_RELATIVE>
   <COUNTER_1_INCREMENT>
-        & +              '"RecordNumber",' ;#<COUNTER_1_VALUE>
+        & + '"RecordNumber",'
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <COUNTER_1_INCREMENT>
-        & +              '"<FieldSqlName>"<,>' ;#<COUNTER_1_VALUE>
+        & + '"<FieldSqlName>"<,>'
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 <COUNTER_1_RESET>
-        & +              ") VALUES(<IF STRUCTURE_RELATIVE>:1,<COUNTER_1_INCREMENT></IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><COUNTER_1_INCREMENT><IF USERTIMESTAMP>CONVERT(DATETIME2,:<COUNTER_1_VALUE>,21)<,><ELSE>:<COUNTER_1_VALUE><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
+        & + ") VALUES(<IF STRUCTURE_RELATIVE>:1,<COUNTER_1_INCREMENT></IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><COUNTER_1_INCREMENT><IF USERTIMESTAMP>CONVERT(DATETIME2,:<COUNTER_1_VALUE>,21)<,><ELSE>:<COUNTER_1_VALUE><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
     endliteral
 
 <IF STRUCTURE_ISAM>
@@ -1235,7 +1150,6 @@ function <StructureName>InsertRows, ^val
     endcommon
 
 proc
-
     init local_data
     ok = true
 
@@ -1265,15 +1179,7 @@ proc
 
     if (ok)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction=1
-        else
-        begin
-            ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
     ;;Open a cursor for the INSERT statement
@@ -1485,24 +1391,12 @@ proc
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -1628,7 +1522,6 @@ function <StructureName>Update, ^val
         c3<StructureName>, i4
     endcommon
 proc
-
     init local_data
     ok = true
 
@@ -1639,25 +1532,17 @@ proc
 
     ;;Load the data into the bound record
 
-    <IF STRUCTURE_MAPPED>
+<IF STRUCTURE_MAPPED>
     <structure_name> = %<structure_name>_map(a_data)
-    <ELSE>
+<ELSE>
     <structure_name> = a_data
-    </IF STRUCTURE_MAPPED>
+</IF STRUCTURE_MAPPED>
 
-    ;;Start a database transaction
+    ;;If we're in manual commit mode, start a transaction
 
     if (a_commit_mode==3)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction = true
-        else
-        begin
-            ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
     ;;Open a cursor for the UPDATE statement
@@ -1820,31 +1705,19 @@ proc
         end
     end
 
-    ;;Commit or rollback the transaction
+    ;;If we're in manual commit mode, commit or rollback the transaction
 
     if ((a_commit_mode==3) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -1896,7 +1769,7 @@ function <StructureName>Delete, ^val
         dberror     ,int        ;;Database error number
         cursor      ,int        ;;Database cursor
         length      ,int        ;;Length of a string
-        transaction ,int        ;;Transaction in progress
+        transaction ,boolean    ;;Transaction in progress
         errtxt      ,a512       ;;Error message text
         sql         ,string     ;;SQL statement
     endrecord
@@ -1910,19 +1783,11 @@ proc
 
     <structureName> = %<StructureName>KeyToRecord(a_key)
 
-    ;;Start a database transaction
+    ;;If we're in manual commit mode, start a transaction
 
     if (a_commit_mode==3)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction=1
-        else
-        begin
-            ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
     ;;Open a cursor for the DELETE statement
@@ -1979,31 +1844,19 @@ proc
         end
     end
 
-    ;;Commit or rollback the transaction
+    ;;If we're in manual commit mode, commit or rollback the transaction
 
     if ((a_commit_mode==3) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -2045,7 +1898,7 @@ function <StructureName>Clear, ^val
         dberror     ,int        ;;Database error number
         cursor      ,int        ;;Database cursor
         length      ,int        ;;Length of a string
-        transaction ,int        ;;Transaction in process
+        transaction ,boolean    ;;Transaction in process
         errtxt      ,a512       ;;Returned error message text
         sql         ,string     ;;SQL statement
     endrecord
@@ -2055,19 +1908,11 @@ proc
     init local_data
     ok = true
 
-    ;;Start a database transaction
+    ;;If we're in manual commit mode, start a transaction
 
     if (a_commit_mode==3)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction=1
-        else
-        begin
-            ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
     ;;Open cursor for the SQL statement
@@ -2113,29 +1958,17 @@ proc
 
     ;;Commit or rollback the transaction
 
-    if ((a_commit_mode==3) && transaction)
+    ;;If we're in manual commit mode, commit or rollback the transaction
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -2176,7 +2009,7 @@ function <StructureName>Drop, ^val
         dberror     ,int        ;;Database error number
         cursor      ,int        ;;Database cursor
         length      ,int        ;;Length of a string
-        transaction ,int        ;;Transaction in progress
+        transaction ,boolean    ;;Transaction in progress
         errtxt      ,a512       ;;Returned error message text
     endrecord
 
@@ -2189,19 +2022,11 @@ proc
 
     xcall <StructureName>Close(a_dbchn)
 
-    ;;Start a database transaction
+    ;;If we're in manual commit mode, start a transaction
 
     if (a_commit_mode==3)
     begin
-        if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-            transaction=1
-        else
-        begin
-            ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                errtxt="Failed to start transaction"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
-        end
+        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
     end
 
     ;;Open cursor for DROP TABLE statement
@@ -2254,31 +2079,19 @@ proc
         end
     end
 
-    ;;Commit or rollback the transaction
+    ;;If we're in manual commit mode, commit or rollback the transaction
 
     if ((a_commit_mode==3) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to commit transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to rollback transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
         end
     end
 
@@ -2732,22 +2545,13 @@ proc
     begin
         ;;Bulk load the database table
 
-        ;;Start a database transaction
+        ;;If we're in manual commit mode, start a transaction
 
         if (a_commit_mode==3)
         begin
             now = %datetime
             writelog("Starting transaction")
-
-            if (%ssc_commit(a_dbchn,SSQL_TXON)==SSQL_NORMAL) then
-                transaction = true
-            else
-            begin
-                ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to start transaction"
-                xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
+            ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
         end
 
         ;;Open a cursor for the statement
@@ -2858,7 +2662,7 @@ proc
 ;            end
         end
 
-        ;;Commit or rollback the transaction
+        ;;If we're in manual commit mode, commit or rollback the transaction
 
         if ((a_commit_mode==3) && transaction)
         begin
@@ -2867,13 +2671,7 @@ proc
                 now = %datetime
                 writelog("COMMIT")
                 writett("COMMIT")
-                if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
-                begin
-                    if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                        errtxt="Failed to commit transaction"
-                    ok = false
-                    xcall ThrowOnCommunicationError(dberror,errtxt)
-                end
+                ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
             end
             else
             begin
@@ -2881,13 +2679,7 @@ proc
                 now = %datetime
                 writelog("ROLLBACK")
                 writett("ROLLBACK")
-                if (%ssc_rollback(a_dbchn,SSQL_TXOFF) == SSQL_FAILURE)
-                begin
-                    ok = false
-                    if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
-                        errtxt="Failed to rollback transaction"
-                    xcall ThrowOnCommunicationError(dberror,errtxt)
-                end
+                ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
             end
         end
 

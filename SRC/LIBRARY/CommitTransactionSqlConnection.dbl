@@ -1,8 +1,8 @@
 ;;*****************************************************************************
 ;;
-;; File:        IoHooksKAFKA.def
+;; File:        CommitTransactionSqlConnection.dbl
 ;;
-;; Description: Defines and external function references used by IoHooksKAFKA
+;; Description: Commits a database transaction (SQL Connection mode)
 ;;
 ;; Author:      Steve Ives, Synergex Professional Services Group
 ;;
@@ -35,28 +35,31 @@
 ;;
 ;;*****************************************************************************
 
+import ReplicationLibrary
 
-;Non transaction operations (auto-commit):
+function CommitTransactionSqlConnection, ^val
+    required in  a_dbchn,  i
+    required out errtxt, a
 
-.define OP_TYPE_INSERT_AC	2
-.define OP_TYPE_UPDATE_AC	4
-.define OP_TYPE_DELETE_AC	6
+    .include "CONNECTDIR:ssql.def"
 
-;Transactional operations:
+    stack record
+        ok, boolean
+        length, int
+        dberror, int
+    endrecord
+proc
+    ok = true
+    errtxt = ""
 
-.define OP_TYPE_INSERT		1
-.define OP_TYPE_UPDATE		3
-.define OP_TYPE_DELETE		5
-.define OP_TYPE_START_TXN	7
-.define OP_TYPE_COMMIT		8
+    if (%ssc_commit(a_dbchn,SSQL_TXOFF)==SSQL_FAILURE)
+    begin
+        ok = false
+        if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            errtxt="Failed to commit transaction"
+        xcall ThrowOnCommunicationError(dberror,errtxt)
+    end
 
-external function
-    rep_startup,            i4
-    rep_shutdown,           i4
-    rep_get_error,          i4
-    rep_start_file,         i4
-    rep_stop_file,          i4
-    rep_start_txn,          i4
-    rep_stop_txn,           i4
-    rep_write_op,           i4
-endexternal
+    freturn ok
+
+endfunction

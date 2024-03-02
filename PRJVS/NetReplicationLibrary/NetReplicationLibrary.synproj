@@ -48,6 +48,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\SRC\LIBRARY\CommandLineParser.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\CommitTransactionSqlClient.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\CommitTransactionSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ConfigureEnvironment.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ConfigureReplication.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Counters.dbl" />
@@ -94,13 +96,18 @@
     <Compile Include="..\..\SRC\LIBRARY\ReOpenQueueFile.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Replicate.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ReplicatorShutdown.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\RollbackTransactionSqlClient.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\RollbackTransactionSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SendEmail.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Settings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SmtpMail.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SqlClientConnect.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlClient.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringDictionary.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringTools.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ThrowOnCommunicationError.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\ThrowOnSqlClientError.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\TimeNow.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ValidateBasicEnvironment.dbl" />
   </ItemGroup>

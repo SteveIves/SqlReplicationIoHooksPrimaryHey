@@ -56,16 +56,16 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ;// POSSIBILITY OF SUCH DAMAGE.
 ;//
-;;*****************************************************************************
-;;
-;; File:        <StructureName>_SqlIO.dbl
-;;
-;; Description: Various functions that performs SQL I/O for <STRUCTURE_NAME>
-;;
-;;*****************************************************************************
-;; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
-;;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
-;;*****************************************************************************
+;*****************************************************************************
+;
+; File:        <StructureName>_SqlIO.dbl
+;
+; Description: Various functions that performs SQL I/O for <STRUCTURE_NAME>
+;
+;*****************************************************************************
+; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
+;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
+;*****************************************************************************
 
 .ifndef DBLNET
  ;This code was generated from the SqlClientIO template and can only be used
@@ -83,7 +83,7 @@ import System.Data.SqlClient
 .define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
 .define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX ") + x)
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Determines if the <StructureName> table exists in the database.
 ;;; </summary>
@@ -91,8 +91,8 @@ import System.Data.SqlClient
 ;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
 function <StructureName>_Exists, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
+
     stack record
         error, int
         errorMessage, string
@@ -109,7 +109,7 @@ proc
         disposable data reader = command.ExecuteReader()
         if (reader.Read()) then
         begin
-            ; Table exists
+            ;Table exists
             error = 1
         end
         else
@@ -122,21 +122,18 @@ proc
     begin
         errorMessage = ex.Message
         error = -1
+        xcall ThrowOnSqlClientError(errorMessage,ex)
     end
     endtry
 
-    if (^passed(aErrorMessage) && error)
-    begin
-        aErrorMessage = errorMessage
-    end
-
-    ;TODO: Old code included xcall ThrowOnCommunicationError(dberror,errtxt)
+    ;Return any error message to the calling routine
+    aErrorMessage = error == 1 ? String.Empty : errorMessage
 
     freturn error
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Creates the <StructureName> table in the database.
 ;;; </summary>
@@ -144,12 +141,12 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_Create, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
     stack record
         ok, boolean
+        transaction, boolean
         errorMessage, string
     endrecord
     static record
@@ -157,11 +154,19 @@ function <StructureName>_Create, ^val
     endrecord
 proc
     ok = true
+    transaction = false
     errorMessage = String.Empty
+
+    ;If we're in manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
 
     ;Define the CREATE TABLE statement
 
-    if (createTableCommand == ^null)
+    if (ok && createTableCommand == ^null)
     begin
         createTableCommand = 'CREATE TABLE "<StructureName>" ('
 ;//
@@ -209,7 +214,7 @@ proc
         endusing
     end
 
-    ;;Create the database table and primary key constraint
+    ;Create the database table and primary key constraint
 
     try
     begin
@@ -225,7 +230,7 @@ proc
     end
     endtry 
 
-    ;;Grant access permissions
+    ;Grant access permissions
 
     if (ok)
     begin
@@ -244,64 +249,31 @@ proc
         endtry
     end
 
-    ;;Commit or rollback the transaction
+    ;Commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
-
-    if (^passed(aErrorMessage))
-    begin
-        if (ok) then
-            clear aErrorMessage
-        else
-            aErrorMessage = errorMessage
-    end
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
 <IF STRUCTURE_ISAM>
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Add alternate key indexes to the <StructureName> table if they do not exist.
 ;;; </summary>
@@ -309,22 +281,30 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_Index, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
     stack record
         ok, boolean
+        transaction, boolean
         errorMessage, string
         now, a20
     endrecord
 
 proc
-    ok = false
+    ok = true
+    transaction = false
     errorMessage = String.Empty
 
+    ;If we're in manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
-;    ;;The structure has no unique primary key, so no primary key constraint was added to the table. Create an index instead.
+;   ;The structure has no unique primary key, so no primary key constraint was added to the table. Create an index instead.
 ;
     if (ok && !%Index_Exists("IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>"))
     begin
@@ -352,7 +332,6 @@ proc
         endtry 
 
         now = %datetime
-
         if (ok) then
         begin
             writelog(" - Added index IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>")
@@ -366,7 +345,7 @@ proc
 
   </IF STRUCTURE_HAS_UNIQUE_PK>
   <ALTERNATE_KEY_LOOP>
-    ;;Create index <KEY_NUMBER> (<KEY_DESCRIPTION>)
+    ;Create index <KEY_NUMBER> (<KEY_DESCRIPTION>)
 
     if (ok && !%Index_Exists("IX_<StructureName>_<KeyName>"))
     begin
@@ -407,58 +386,30 @@ proc
     end
 
   </ALTERNATE_KEY_LOOP>
-    ;;Commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
         end
     end
 
-    if (^passed(aErrorMessage) && !ok)
-    begin
-        aErrorMessage = errorMessage
-    end
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Removes alternate key indexes from the <StructureName> table in the database.
 ;;; </summary>
@@ -466,34 +417,92 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_UnIndex, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
     stack record
         ok, boolean
+        transaction, boolean
         errorMessage, string
     endrecord
 
 proc
-    ok = false
+    ok = true
+    transaction = false
     errorMessage = String.Empty
 
+    ;If we're in manual commit mode, start a transaction
 
-
-
-
-    if (!ok && ^passed(aErrorMessage))
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        aErrorMessage = errorMessage
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
+
+  <IF NOT STRUCTURE_HAS_UNIQUE_PK>
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('<PRIMARY_KEY>DROP INDEX IF EXISTS IX_<StructureName>_<KeyName></PRIMARY_KEY> ON "<StructureName>"',Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_<PRIMARY_KEY><StructureName>_<KeyName></PRIMARY_KEY>. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+  </IF STRUCTURE_HAS_UNIQUE_PK>
+  <ALTERNATE_KEY_LOOP>
+    ;Drop index <KEY_NUMBER> (<KEY_DESCRIPTION>)
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('DROP INDEX IF EXISTS IX_<StructureName>_<KeyName> ON "<StructureName>"',Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_<StructureName>_<KeyName>. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+  </ALTERNATE_KEY_LOOP>
+    ;If we're in manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
 </IF STRUCTURE_ISAM>
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Insert a row into the <StructureName> table.
 ;;; </summary>
@@ -509,31 +518,247 @@ function <StructureName>_Insert, ^val
     required in  a_recnum, n
 </IF STRUCTURE_RELATIVE>
     required in  a_data,   a
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
+<IF DEFINED_ASA_TIREMAX>
+    external function
+        TmJulianToYYYYMMDD, a
+    endexternal
+
+</IF DEFINED_ASA_TIREMAX>
     .align
-    stack record
-        ok, boolean
-        errorMessage, string
-        sts, int
+    stack record local_data
+        ok          ,boolean    ;OK to continue
+        sts         ,int        ;Return status
+        transaction ,boolean    ;Transaction in progress
+        errorMessage,string     ;Error message text
+<IF STRUCTURE_RELATIVE>
+        recordNumber,d28        ;Relative record number
+</IF STRUCTURE_RELATIVE>
+    endrecord
+
+    literal
+        sql, string, "INSERT INTO <StructureName> ("
+<COUNTER_1_RESET>
+<IF STRUCTURE_RELATIVE>
+        & + '"RecordNumber",'
+<COUNTER_1_INCREMENT>
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        & + '"<FieldSqlName>"<,>'
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+        & + ") VALUES(<IF STRUCTURE_RELATIVE>@1,</IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><COUNTER_1_INCREMENT><IF USERTIMESTAMP>CONVERT(DATETIME2,@<COUNTER_1_VALUE>,21)<,><ELSE>@<COUNTER_1_VALUE><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
+    endliteral
+
+    static record
+        <structure_name>, str<StructureName>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+        tmp<FieldSqlName>, a26     ;Storage for user-defined timestamp field
+    <ELSE>
+      <IF TIME_HHMM>
+        tmp<FieldSqlName>, a5      ;Storage for HH:MM time field
+      </IF TIME_HHMM>
+      <IF TIME_HHMMSS>
+        tmp<FieldSqlName>, a8      ;Storage for HH:MM:SS time field
+      </IF TIME_HHMMSS>
+      <IF DEFINED_ASA_TIREMAX>
+        <IF USER>
+        tmp<FieldSqlName>, a8      ;Storage for user defined JJJJJJ date field
+        </IF USER>
+      </IF DEFINED_ASA_TIREMAX>
+      <IF CUSTOM_DBL_TYPE>
+        tmp<FieldSqlName>, <FIELD_CUSTOM_DBL_TYPE>
+      </IF CUSTOM_DBL_TYPE>
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
     endrecord
 
 proc
-    ok = false
-    errorMessage = String.Empty
+    init local_data
+    ok = true
+    sts = 1
+<IF STRUCTURE_RELATIVE>
+    recordNumber = a_recnum
+</IF STRUCTURE_RELATIVE>
 
-
-    if (!ok && ^passed(aErrorMessage))
+    if (ok)
     begin
-        aErrorMessage = errorMessage
+<IF STRUCTURE_MAPPED>
+        ;Map the file data into the table data record
+
+        <structure_name> = %<structure_name>_map(a_data)
+<ELSE>
+        ;Load the data into the bound record
+
+        <structure_name> = a_data
+</IF STRUCTURE_MAPPED>
+
+<IF DEFINED_CLEAN_DATA>
+        ;Clean up any alpha fields
+
+  <FIELD_LOOP>
+    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+      <IF NOT FIRST_UNIQUE_KEY_SEGMENT>
+        <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
+      </IF FIRST_UNIQUE_KEY_SEGMENT>
+    </IF ALPHA>
+  </FIELD_LOOP>
+
+        ;Clean up any decimal fields
+
+  <FIELD_LOOP>
+    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
+            clear <structure_name>.<field_original_name_modified>
+    </IF DECIMAL>
+  </FIELD_LOOP>
+
+        ;Clean up any date fields
+
+  <FIELD_LOOP>
+    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
+      <IF FIRST_UNIQUE_KEY_SEGMENT>
+            ^a(<structure_name>.<field_original_name_modified>) = "17530101"
+      <ELSE>
+            ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
+      </IF FIRST_UNIQUE_KEY_SEGMENT>
+    </IF DATE>
+  </FIELD_LOOP>
+
+        ;Clean up any time fields
+
+  <FIELD_LOOP>
+    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
+            ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
+    </IF TIME>
+  </FIELD_LOOP>
+
+</IF DEFINED_CLEAN_DATA>
+        ;Assign data to any temporary time or user-defined timestamp fields
+
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+        tmp<FieldSqlName> = %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX")
+    <ELSE TIME_HHMM>
+        tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX")
+    <ELSE TIME_HHMMSS>
+        tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX:XX")
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+        tmp<FieldSqlName> = %TmJulianToYYYYMMDD(<field_path>)
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+
+        ;Assign values to temp fields for any fields with custom data types
+
+<FIELD_LOOP>
+  <IF CUSTOM_DBL_TYPE>
+        tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
+  </IF CUSTOM_DBL_TYPE>
+</FIELD_LOOP>
     end
+
+    ;If we're in manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+
+<IF STRUCTURE_RELATIVE>
+            command.Parameters.AddWithValue("@1",recordNumber)
+</IF STRUCTURE_RELATIVE>
+<COUNTER_1_RESET>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <COUNTER_1_INCREMENT>
+    <IF CUSTOM_DBL_TYPE>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    <ELSE ALPHA>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE DECIMAL>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE INTEGER>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE DATE>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",^a(<structure_name>.<field_original_name_modified>))
+    <ELSE TIME>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    <ELSE USER AND USERTIMESTAMP>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    <ELSE USER AND NOT USERTIMESTAMP>
+      <IF DEFINED_ASA_TIREMAX>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+      <ELSE>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+      </IF DEFINED_ASA_TIREMAX>
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            sts = 0
+            using ex.ErrorCode Select
+            (-2627),    ;TODO: * * * MAY NOT BE THE CORRECT ERROR NUMBER FOR DUPLICATE KEY
+            begin
+                ;Duplicate key
+                errorMessage = "Duplicate key detected in database!"
+                sts = 2
+            end
+            (),
+            begin
+                errorMessage = "Failed to insert row into <StructureName>. Error was: " + ex.Message
+            end
+            endusing
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn sts
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Inserts multiple rows into the <StructureName> table.
 ;;; </summary>
@@ -545,34 +770,331 @@ endfunction
 
 function <StructureName>_InsertRows, ^val
     required in  a_data, i
-    optional out aErrorMessage, a
+    required out aErrorMessage, a
     optional out a_exception, i
     optional in  a_terminal, i
-    endparams
 
-    .align
-    stack record
-        ok, boolean
-        errorMessage, string
+<IF DEFINED_ASA_TIREMAX>
+    external function
+        TmJulianToYYYYMMDD, a
+    endexternal
+
+</IF DEFINED_ASA_TIREMAX>
+    .define EXCEPTION_BUFSZ 100
+
+    stack record local_data
+        ok,             boolean     ;Return status
+        rows,           int         ;Number of rows to insert
+        transaction,    boolean     ;Transaction in progress
+        length,         int         ;Length of a string
+        ex_ms,          int         ;Size of exception array
+        ex_mc,          int         ;Items in exception array
+        continue,       int         ;Continue after an error
+        errorMessage,   string      ;Error message text
+<IF STRUCTURE_RELATIVE>
+        recordNumber,d28
+</IF STRUCTURE_RELATIVE>
     endrecord
 
+<COUNTER_1_RESET>
+    literal
+        sql, string, "INSERT INTO <StructureName> ("
+<IF STRUCTURE_RELATIVE>
+  <COUNTER_1_INCREMENT>
+        & + '"RecordNumber",'
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <COUNTER_1_INCREMENT>
+        & + '"<FieldSqlName>"<,>'
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+<COUNTER_1_RESET>
+        & + ") VALUES(<IF STRUCTURE_RELATIVE>@1,<COUNTER_1_INCREMENT></IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><COUNTER_1_INCREMENT><IF USERTIMESTAMP>CONVERT(DATETIME2,@<COUNTER_1_VALUE>,21)<,><ELSE>@<COUNTER_1_VALUE><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
+    endliteral
+
+<IF STRUCTURE_ISAM>
+    .include "<STRUCTURE_NOALIAS>" repository, structure="inpbuf", nofields, end
+<ELSE STRUCTURE_RELATIVE>
+    structure inpbuf
+        recnum, d28
+        .include "<STRUCTURE_NOALIAS>" repository, group="inprec", nofields
+    endstructure
+</IF STRUCTURE_ISAM>
+    .include "<STRUCTURE_NOALIAS>" repository, static record="<structure_name>", end
+
+    static record
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        tmp<FieldSqlName>, <FIELD_CUSTOM_DBL_TYPE>
+    <ELSE USERTIMESTAMP>
+        tmp<FieldSqlName>, a26      ;Storage for user-defined timestamp field
+    <ELSE TIME_HHMM>
+        tmp<FieldSqlName>, a5       ;Storage for HH:MM time field
+    <ELSE TIME_HHMMSS>
+        tmp<FieldSqlName>, a8       ;Storage for HH:MM:SS time field
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+        tmp<FieldSqlName>, a8       ;Storage for user defined JJJJJJ date field
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+        , a1                        ;In case there are no user timestamp, date or JJJJJJ date fields
+    endrecord
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
+    if (^passed(a_exception) && a_exception)
+        clear a_exception
 
+    ;Figure out how many rows to insert
 
+    rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
-    if (!ok && ^passed(aErrorMessage))
+    ;If enabled, disable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
     begin
-        aErrorMessage = errorMessage
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
     end
+
+    ;Start a database transaction
+
+    if (ok)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    ;Insert the rows into the database
+
+    if (ok)
+    begin
+        data cnt, int
+        for cnt from 1 thru rows
+        begin
+            ;Load data into bound record
+
+<IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
+            <structure_name> = %<structure_name>_map(^m(inpbuf[cnt],a_data))
+<ELSE STRUCTURE_ISAM AND NOT STRUCTURE_MAPPED>
+            <structure_name> = ^m(inpbuf[cnt],a_data)
+<ELSE STRUCTURE_RELATIVE AND STRUCTURE_MAPPED>
+            recordNumber = ^m(inpbuf[cnt].recnum,a_data)
+            <structure_name> = %<structure_name>_map(^m(inpbuf[cnt].inprec,a_data))
+<ELSE STRUCTURE_RELATIVE AND NOT STRUCTURE_MAPPED>
+            recordNumber = ^m(inpbuf[cnt].recnum,a_data)
+            <structure_name> = ^m(inpbuf[cnt].inprec,a_data)
+</IF STRUCTURE_ISAM>
+
+<IF DEFINED_CLEAN_DATA>
+            ;Clean up any alpha variables
+
+  <FIELD_LOOP>
+    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
+            <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
+    </IF ALPHA>
+  </FIELD_LOOP>
+
+            ;Clean up any decimal variables
+
+  <FIELD_LOOP>
+    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+            if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
+                clear <structure_name>.<field_original_name_modified>
+    </IF DECIMAL>
+  </FIELD_LOOP>
+
+            ;Clean up any date variables
+
+  <FIELD_LOOP>
+    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+            if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
+      <IF FIRST_UNIQUE_KEY_SEGMENT>
+                ^a(<structure_name>.<field_original_name_modified>) = "17530101"
+      <ELSE>
+                ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
+      </IF FIRST_UNIQUE_KEY_SEGMENT>
+    </IF DATE>
+  </FIELD_LOOP>
+
+            ;Clean up any time variables
+
+  <FIELD_LOOP>
+    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+            if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
+                ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
+    </IF TIME>
+  </FIELD_LOOP>
+
+</IF DEFINED_CLEAN_DATA>
+            ;Assign any time or user-defined timestamp fields
+
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+            tmp<FieldSqlName> = %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX")
+    <ELSE TIME_HHMM>
+            tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX")
+    <ELSE TIME_HHMMSS>
+            tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX:XX")
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+            tmp<FieldSqlName> = %TmJulianToYYYYMMDD(<field_path>)
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+
+            ;Assign values to temp fields for any fields with custom data types
+
+<FIELD_LOOP>
+  <IF CUSTOM_DBL_TYPE>
+            tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
+  </IF CUSTOM_DBL_TYPE>
+</FIELD_LOOP>
+
+            try
+            begin
+                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+                &    CommandTimeout = Settings.DatabaseTimeout
+                &    }
+
+                ;Bind the host variables for data to be inserted
+
+<COUNTER_1_RESET>
+<IF STRUCTURE_RELATIVE>
+<COUNTER_1_INCREMENT>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",recordNumber)
+
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <COUNTER_1_INCREMENT>
+    <IF CUSTOM_DBL_TYPE>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    <ELSE ALPHA>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE DECIMAL>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE INTEGER>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE DATE>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",^a(<structure_name>.<field_original_name_modified>))
+    <ELSE TIME>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    <ELSE USER AND USERTIMESTAMP>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+
+                command.ExecuteNonQuery()
+                errorMessage = ""
+            end
+            catch (ex, @SqlException)
+            begin
+                errorMessage = "Failed to insert row. Error was: " + ex.Message
+                xcall ThrowOnSqlClientError(errorMessage,ex)
+
+                clear continue
+
+                ;Are we logging errors?
+                if (^passed(a_terminal) && a_terminal)
+                begin
+                    writes(a_terminal,errorMessage)
+                    continue=1
+                end
+
+                ;Are we processing exceptions?
+                if (^passed(a_exception))
+                begin
+                    if (ex_mc==ex_ms)
+                    begin
+                        if (!a_exception) then
+                            a_exception = %mem_proc(DM_ALLOC|DM_STATIC,^size(inpbuf)*(ex_ms=EXCEPTION_BUFSZ))
+                        else
+                            a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),a_exception)
+                    end
+                    ^m(inpbuf[ex_mc+=1],a_exception)=<structure_name>
+                    continue=1
+                end
+
+                if (continue) then
+                    nextloop
+                else
+                begin
+                    ok = false
+                    exitloop
+                end
+            end
+            endtry
+        end
+    end
+
+    ;Commit or rollback the transaction
+
+    if (transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;If necessary, re-enable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
+    end
+
+    ;If we're returning exceptions then resize the buffer to the correct size
+
+    if (^passed(a_exception) && a_exception)
+        a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*ex_mc,a_exception)
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Updates a row in the <StructureName> table.
 ;;; </summary>
@@ -590,33 +1112,230 @@ function <StructureName>_Update, ^val
 </IF STRUCTURE_RELATIVE>
     required in  a_data,   a
     optional out a_rows,   i
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
-    .align
-    stack record
-        ok, boolean
-        errorMessage, string
+<IF DEFINED_ASA_TIREMAX>
+    external function
+        TmJulianToYYYYMMDD, a
+    endexternal
+
+</IF DEFINED_ASA_TIREMAX>
+    stack record local_data
+        ok,             boolean     ;OK to continue
+        transaction,    boolean     ;Transaction in progress
+        length,         int         ;Length of a string
+        rows,           int         ;Number of rows updated
+        errorMessage,   string      ;Error message text
+    endrecord
+
+    literal
+        sql, string, 'UPDATE <StructureName> SET '
+<COUNTER_1_RESET>
+<COUNTER_2_RESET>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <COUNTER_1_INCREMENT>
+    <COUNTER_2_INCREMENT>
+    <IF USERTIMESTAMP>
+        & + '"<FieldSqlName>"=CONVERT(DATETIME2,@<COUNTER_1_VALUE>,21)<,>'
+    <ELSE>
+        & + '"<FieldSqlName>"=@<COUNTER_1_VALUE><,>'
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+<IF STRUCTURE_ISAM>
+        & + ' WHERE <UNIQUE_KEY><SEGMENT_LOOP><COUNTER_1_INCREMENT>"<FieldSqlName>"=:<COUNTER_1_VALUE> <AND> </SEGMENT_LOOP></UNIQUE_KEY>'
+<ELSE STRUCTURE_RELATIVE>
+        & + ' WHERE "RecordNumber"=@<COUNTER_1_INCREMENT><COUNTER_1_VALUE>'
+</IF STRUCTURE_ISAM>
+    endliteral
+
+    static record
+        <structure_name>, str<StructureName>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        tmp<FieldSqlName>, <FIELD_CUSTOM_DBL_TYPE>
+    <ELSE USERTIMESTAMP>
+        tmp<FieldSqlName>, a26     ;Storage for user-defined timestamp field
+    <ELSE TIME_HHMM>
+        tmp<FieldSqlName>, a5      ;Storage for HH:MM time field
+    <ELSE TIME_HHMMSS>
+        tmp<FieldSqlName>, a8      ;Storage for HH:MM:SS time field
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+        tmp<FieldSqlName>, a8      ;Storage for user defined JJJJJJ date field
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
     endrecord
 
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
+    if (^passed(a_rows))
+        clear a_rows
 
+    ;Load the data into the bound record
+<IF STRUCTURE_MAPPED>
+    <structure_name> = %<structure_name>_map(a_data)
+<ELSE>
+    <structure_name> = a_data
+</IF STRUCTURE_MAPPED>
 
+<IF DEFINED_CLEAN_DATA>
+    ;Clean up alpha fields
+  <FIELD_LOOP>
+    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
+    </IF ALPHA>
+  </FIELD_LOOP>
 
-    if (!ok && ^passed(aErrorMessage))
+    ;Clean up decimal fields
+  <FIELD_LOOP>
+    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
+        clear <structure_name>.<field_original_name_modified>
+    </IF DECIMAL>
+  </FIELD_LOOP>
+
+    ;Clean up date fields
+  <FIELD_LOOP>
+    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
+      <IF FIRST_UNIQUE_KEY_SEGMENT>
+        ^a(<structure_name>.<field_original_name_modified>) = "17530101"
+      <ELSE>
+        ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
+      </IF FIRST_UNIQUE_KEY_SEGMENT>
+    </IF DATE>
+  </FIELD_LOOP>
+
+    ;Clean up time fields
+  <FIELD_LOOP>
+    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
+        ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
+    </IF TIME>
+  </FIELD_LOOP>
+
+</IF DEFINED_CLEAN_DATA>
+    ;Assign time and user-defined timestamp fields
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+    tmp<FieldSqlName> = %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX")
+    <ELSE TIME_HHMM>
+    tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX")
+    <ELSE TIME_HHMMSS>
+    tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX:XX")
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+    tmp<FieldSqlName> = %TmJulianToYYYYMMDD(<field_path>)
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+
+    ;Assign values to temp fields for any fields with custom data types
+<FIELD_LOOP>
+  <IF CUSTOM_DBL_TYPE>
+    tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
+  </IF CUSTOM_DBL_TYPE>
+</FIELD_LOOP>
+
+    ;If we're in manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        aErrorMessage = errorMessage
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("ROLLBACK TRANSACTION",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+
+            ;Bind the host variables for data to be updated
+<COUNTER_1_RESET>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <COUNTER_1_INCREMENT>
+    <IF CUSTOM_DBL_TYPE>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    <ELSE ALPHA>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE DECIMAL>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE INTEGER>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE DATE>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",^a(<structure_name>.<field_original_name_modified>))
+    <ELSE TIME>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    <ELSE USER AND USERTIMESTAMP>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+
+            ;Bind the host variables for the key segments / WHERE clause
+<IF STRUCTURE_ISAM>
+  <UNIQUE_KEY>
+    <SEGMENT_LOOP>
+      <COUNTER_1_INCREMENT>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<IF DATEORTIME>^a(</IF DATEORTIME><structure_name>.<segment_name><IF DATEORTIME>)</IF DATEORTIME>)
+    </SEGMENT_LOOP>
+  </UNIQUE_KEY>
+<ELSE STRUCTURE_RELATIVE>
+<COUNTER_1_INCREMENT>
+            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",a_recnum)
+</IF STRUCTURE_ISAM>
+
+            rows = command.ExecuteNonQuery()
+
+            if (^passed(a_rows))
+                a_rows = rows
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to update row. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
 <IF STRUCTURE_ISAM>
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Deletes a row from the <StructureName> table.
 ;;; </summary>
@@ -626,34 +1345,99 @@ endfunction
 
 function <StructureName>_Delete, ^val
     required in  a_key,    a
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
+
+    .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>"
+
+    external function
+        <StructureName>KeyToRecord, a
+<IF DEFINED_ASA_TIREMAX>
+        TmJulianToYYYYMMDD, a
+</IF DEFINED_ASA_TIREMAX>
+    endexternal
 
     .align
-    stack record
-        ok, boolean
-        errorMessage, string
+    stack record local_data
+        ok,             boolean     ;Return status
+        cursor,         int         ;Database cursor
+        transaction,    boolean     ;Transaction in progress
+        errorMessage,   string      ;Error message
+        sql,            string      ;SQL statement
     endrecord
 
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
+    ;Put the unique key value into the record
+    <structureName> = %<StructureName>KeyToRecord(a_key)
 
-
-
-
-    if (!ok && ^passed(aErrorMessage))
+    ;If we're in manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        aErrorMessage = errorMessage
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
+
+    ;;Delete the row
+    if (ok)
+    begin
+        sql = 'DELETE FROM "<StructureName>" WHERE'
+<UNIQUE_KEY>
+  <SEGMENT_LOOP>
+    <IF ALPHA>
+        & + ' "<FieldSqlName>"=' + "'" + %atrim(<structureName>.<segment_name>) + "' <AND>"
+    <ELSE NOT DEFINED_ASA_TIREMAX>
+        &    + ' "<FieldSqlName>"=' + "'" + %string(<structureName>.<segment_name>) + "' <AND>"
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+        &    + " <SegmentName>='" + %TmJulianToYYYYMMDD(<structureName>.<segment_name>) + "' <AND>"
+    <ELSE DEFINED_ASA_TIREMAX AND NOT USER>
+        &    + ' "<FieldSqlName>"=' + "'" + %string(<structureName>.<segment_name>) + "' <AND>"
+    </IF>
+  </SEGMENT_LOOP>
+</UNIQUE_KEY>
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to delete row. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
 </IF STRUCTURE_ISAM>
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Deletes all rows from the <StructureName> table.
 ;;; </summary>
@@ -661,34 +1445,68 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_Clear, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
-    stack record
-        ok, boolean
-        errorMessage, string
+    stack record local_data
+        ok,             boolean ;Return status
+        transaction,    boolean ;Transaction in process
+        errorMessage,   string  ;Returned error message text
     endrecord
 
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
-
-
-
-
-
-    if (!ok && ^passed(aErrorMessage))
+    ;If we're in manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        aErrorMessage = errorMessage
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
+
+    ;;Truncate the table
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('TRUNCATE TABLE "<StructureName>"',Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to truncate table. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Deletes the <StructureName> table from the database.
 ;;; </summary>
@@ -696,21 +1514,27 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_Drop, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
     stack record
         ok, boolean
+        transaction, boolean
         errorMessage, string
     endrecord
 
 proc
     ok = true
+    transaction = false
     errorMessage = String.Empty
 
-    ;;Drop the database table and primary key constraint
+    ;If we're in manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
 
+    ;Drop the database table and primary key constraint
     try
     begin
         disposable data command = new SqlCommand("DROP TABLE <StructureName>",Settings.DatabaseConnection) { 
@@ -726,69 +1550,37 @@ proc
         (),
         begin
             errorMessage = "Failed to drop table. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
             ok = false
         end
         endusing
     end
     endtry 
 
-    ;;Commit or rollback the transaction
+    ;Commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
-
-    if (^passed(aErrorMessage))
-    begin
-        if (ok) then
-            clear aErrorMessage
-        else
-            aErrorMessage = errorMessage
-    end
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
 ;;; </summary>
@@ -798,10 +1590,9 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_Load, ^val
-    optional out   aErrorMessage, a
+    required out   aErrorMessage, a
     optional inout a_added, n
     optional out   a_failed, n
-    endparams
 
     .align
     stack record
@@ -820,16 +1611,14 @@ proc
 
 
 
-    if (!ok && ^passed(aErrorMessage))
-    begin
-        aErrorMessage = errorMessage
-    end
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
 ;;; </summary>
@@ -860,7 +1649,6 @@ function <StructureName>_BulkLoad, ^val
     optional out a_records,    n
     optional out a_exceptions, n
     optional out a_errtxt,     a
-    endparams
 
     .align
     stack record local_data
@@ -875,7 +1663,7 @@ proc
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Close cursors associated with the <StructureName> table.
 ;;; </summary>
@@ -884,15 +1672,13 @@ endfunction
 
 subroutine <StructureName>_Close
     required in a_connection, @SqlConnection
-    endparams
-
 proc
 
     xreturn
 
 endsubroutine
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> to a CSV file.
 ;;; </summary>
@@ -904,19 +1690,26 @@ endsubroutine
 function <StructureName>_Csv, boolean
     required in    fileSpec, a
     optional inout recordCount, n
-    optional out   errorMessage, a
-    endparams
+    required out   aErrorMessage, a
 
     .include "<STRUCTURE_NOALIAS>" repository, record="<structure_name>", end
 
     .align
     stack record local_data
-        ok,                             boolean     ;;Return status
+        ok,             boolean     ;Return status
+        errorMessage,   string
     endrecord
 
 proc
     init local_data
-    ok = false
+    ok = true
+    errorMessage = String.Empty
+
+
+
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 

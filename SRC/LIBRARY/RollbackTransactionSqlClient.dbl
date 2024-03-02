@@ -1,8 +1,8 @@
 ;;*****************************************************************************
 ;;
-;; File:        IoHooksKAFKA.def
+;; File:        RollbackTransactionSqlClient.dbl
 ;;
-;; Description: Defines and external function references used by IoHooksKAFKA
+;; Description: Rolls back a database transaction (SqlClient mode)
 ;;
 ;; Author:      Steve Ives, Synergex Professional Services Group
 ;;
@@ -35,28 +35,30 @@
 ;;
 ;;*****************************************************************************
 
+.ifdef DBLNET
 
-;Non transaction operations (auto-commit):
+import ReplicationLibrary
+import System.Data.SqlClient
 
-.define OP_TYPE_INSERT_AC	2
-.define OP_TYPE_UPDATE_AC	4
-.define OP_TYPE_DELETE_AC	6
+function RollbackTransactionSqlClient, boolean
+    required out errorMessage, string
+proc
+    try
+    begin
+        disposable data command = new SqlCommand("ROLLBACK TRANSACTION",Settings.DatabaseConnection) { 
+        &    CommandTimeout = Settings.DatabaseTimeout
+        &    }
+        command.ExecuteNonQuery()
+        errorMessage = ""
+        freturn true
+    end
+    catch (ex, @SqlException)
+    begin
+        errorMessage = "Failed to rollback transaction. Error was: " + ex.Message
+        xcall ThrowOnSqlClientError(errorMessage,ex)
+        freturn false
+    end
+    endtry
+endfunction
 
-;Transactional operations:
-
-.define OP_TYPE_INSERT		1
-.define OP_TYPE_UPDATE		3
-.define OP_TYPE_DELETE		5
-.define OP_TYPE_START_TXN	7
-.define OP_TYPE_COMMIT		8
-
-external function
-    rep_startup,            i4
-    rep_shutdown,           i4
-    rep_get_error,          i4
-    rep_start_file,         i4
-    rep_stop_file,          i4
-    rep_start_txn,          i4
-    rep_stop_txn,           i4
-    rep_write_op,           i4
-endexternal
+.endc

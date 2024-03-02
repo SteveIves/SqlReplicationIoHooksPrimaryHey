@@ -236,7 +236,7 @@ namespace ReplicationLibrary
 
                     ;Connect to a broker
                     MaybeVerboseLog("Connecting to broker")
-                    if (IsError(%rep_startup_zmq((a)mBrokers)))
+                    if (IsError(%rep_startup((a)mBrokers)))
                     begin
                         MaybeErrorLog("rep_startup_zmq returned an error status!")
                         mActive = false
@@ -291,7 +291,7 @@ namespace ReplicationLibrary
                 data shutdownStatus, i4
                 ;Disconnect from the broker
                 MaybeVerboseLog("Disconnecting from broker")
-                if (shutdownStatus = %rep_shutdown_zmq())
+                if (shutdownStatus = %rep_shutdown)
                 begin
                     MaybeErrorLog("rep_shutdown_zmq returned error status: " + %string(shutdownStatus))
                 end

@@ -55,7 +55,7 @@ endnamespace
 ;;; <param name="brokers">String containing list of broker URL's (for compatibility with VMS/ZMQ)</param>
 ;;; <returns>Returns 0 on success, otherwise an error number</returns>
 
-function rep_startup_zmq, i4
+function rep_startup, i4
     in brokers, a
 proc
     if(HookDllState.DLLHandle == 0)
@@ -76,7 +76,7 @@ endfunction
 ;;; </summary>
 ;;; <returns>Returns 0 on success, otherwise an error number</returns>
 
-function rep_shutdown_zmq, i4
+function rep_shutdown, i4
 proc
     if(HookDllState.DLLHandle == 0)
         freturn -1

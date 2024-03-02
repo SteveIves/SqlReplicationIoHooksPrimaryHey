@@ -25,10 +25,15 @@ function GetSettings,   boolean
         envval,         a1024
         envlen,         i4
         doc,            @JsonDocument
-        root,           @JsonElement
+.ifdef DBLNET
+        instances,      JsonElement
+        instance,       JsonElement
+        setting,        JsonElement
+.else
         instances,      @JsonElement
         instance,       @JsonElement
         setting,        @JsonElement
+.endc
     endrecord
     external function
         xsubr,  ^val
@@ -52,22 +57,11 @@ proc
 
     ;Get the root element
 
-    if (ok)
-    begin
-        root = doc.RootElement
-        if (root == ^null)
-        begin
-            errorMessage = "Configuration file has no root element!"
-            ok = false
-        end
-    end
-
     ;Validate the instances property
 
     if (ok)
     begin
-        instances = root.GetProperty("Instances")
-        if (instances == ^null) then
+        if (!doc.RootElement.TryGetProperty("Instances",instances)) then
         begin
             errorMessage = "Configuration file does not have a root Instances property!"
             ok = false
@@ -95,8 +89,7 @@ proc
         begin
             instance = instances[instanceNumber]
             ;Is it our settings?
-            setting = instance.GetProperty("InstanceName")
-            if (setting == ^null) then
+            if (!instance.TryGetProperty("InstanceName",setting)) then
             begin
                 errorMessage = "Instance " + %string(instanceNumber) + " has no InstanceName property!"
                 ok = false
@@ -120,8 +113,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("BulkLoadBatchSize")
-        if (setting != ^null)
+        if (instance.TryGetProperty("BulkLoadBatchSize",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -144,8 +136,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("BulkLoadTimeout")
-        if (setting != ^null)
+        if (instance.TryGetProperty("BulkLoadTimeout",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -168,8 +159,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("CommitBatchSize")
-        if (setting != ^null)
+        if (instance.TryGetProperty("CommitBatchSize",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -192,12 +182,16 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("DatabaseCommitMode")
-        if (setting != ^null)
+        if (instance.TryGetProperty("DatabaseCommitMode",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's DatabaseCommitMode property is not a string!"
+                ok = false
+            end
+            else if (String.IsNullOrWhitespace(setting.GetString())) then
+            begin
+                errorMessage = "The instance's DatabaseCommitMode property is blank!"
                 ok = false
             end
             else
@@ -229,12 +223,16 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("DatabaseConnectMode")
-        if (setting != ^null)
+        if (instance.TryGetProperty("DatabaseConnectMode",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's DatabaseConnectMode property is not a string!"
+                ok = false
+            end
+            else if (String.IsNullOrWhitespace(setting.GetString())) then
+            begin
+                errorMessage = "The instance's DatabaseConnectMode property is blank!"
                 ok = false
             end
             else
@@ -267,23 +265,21 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("DatabaseConnectString")
-        if (setting != ^null)
+        if (instance.TryGetProperty("DatabaseConnectString",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's DatabaseConnectString property is not a string!"
                 ok = false
             end
+            else if (String.IsNullOrWhitespace(setting.GetString())) then
+            begin
+                errorMessage = "The instance's DatabaseConnectString property is blank!"
+                ok = false
+            end
             else
             begin
                 Settings.DatabaseConnectString = setting.GetString()
-
-                if (String.IsNullOrWhitespace(Settings.DatabaseConnectString))
-                begin
-                    errorMessage = "The instance's DatabaseConnectString property contains no information!"
-                    ok = false
-                end
             end
         end
     end
@@ -292,8 +288,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("DatabaseRetryDelay")
-        if (setting != ^null)
+        if (instance.TryGetProperty("DatabaseRetryDelay",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -316,8 +311,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("DatabaseRetryMax")
-        if (setting != ^null)
+        if (instance.TryGetProperty("DatabaseRetryMax",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -340,8 +334,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("DatabaseTimeout")
-        if (setting != ^null)
+        if (instance.TryGetProperty("DatabaseTimeout",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -364,12 +357,16 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("DataCompressionMode")
-        if (setting != ^null)
+        if (instance.TryGetProperty("DataCompressionMode",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's DataCompressionMode property is not a string!"
+                ok = false
+            end
+            else if (String.IsNullOrWhitespace(setting.GetString())) then
+            begin
+                errorMessage = "The instance's DataCompressionMode property is blank!"
                 ok = false
             end
             else
@@ -401,23 +398,16 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("EmailSender")
-        if (setting != ^null)
+        if (instance.TryGetProperty("EmailSender",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's EmailSender property is not a string!"
                 ok = false
             end
-            else
+            else if (!String.IsNullOrWhitespace(setting.GetString()))
             begin
                 Settings.EmailSender = setting.GetString()
-
-                if (String.IsNullOrWhitespace(Settings.EmailSender))
-                begin
-                    errorMessage = "The instance's EmailSender property contains no information!"
-                    ok = false
-                end
             end
         end
     end
@@ -426,23 +416,16 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("EmailServer")
-        if (setting != ^null)
+        if (instance.TryGetProperty("EmailServer",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's EmailServer property is not a string!"
                 ok = false
             end
-            else
+            else if (!String.IsNullOrWhitespace(setting.GetString()))
             begin
                 Settings.EmailServer = setting.GetString()
-
-                if (String.IsNullOrWhitespace(Settings.EmailServer))
-                begin
-                    errorMessage = "The instance's EmailServer property contains no information!"
-                    ok = false
-                end
             end
         end
     end
@@ -451,8 +434,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("Enabled")
-        if (setting != ^null)
+        if (instance.TryGetProperty("Enabled",setting))
         begin
             if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
             begin
@@ -470,23 +452,16 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("ErrorEmail")
-        if (setting != ^null)
+        if (instance.TryGetProperty("ErrorEmail",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's ErrorEmail property is not a string!"
                 ok = false
             end
-            else
+            else if (!String.IsNullOrWhitespace(setting.GetString()))
             begin
                 Settings.ErrorEmail = setting.GetString()
-
-                if (String.IsNullOrWhitespace(Settings.ErrorEmail))
-                begin
-                    errorMessage = "The instance's ErrorEmail property contains no information!"
-                    ok = false
-                end
             end
         end
     end
@@ -495,8 +470,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("ErrorSleepTime")
-        if (setting != ^null)
+        if (instance.TryGetProperty("ErrorSleepTime",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -519,23 +493,16 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("FileServiceHost")
-        if (setting != ^null)
+        if (instance.TryGetProperty("FileServiceHost",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's FileServiceHost property is not a string!"
                 ok = false
             end
-            else
+            else if (!String.IsNullOrWhitespace(setting.GetString()))
             begin
                 Settings.FileServiceHost = setting.GetString()
-
-                if (String.IsNullOrWhitespace(Settings.FileServiceHost))
-                begin
-                    errorMessage = "The instance's FileServiceHost property contains no information!"
-                    ok = false
-                end
             end
         end
     end
@@ -544,8 +511,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("FileServicePort")
-        if (setting != ^null)
+        if (instance.TryGetProperty("FileServicePort",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -568,23 +534,34 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("LocalExportPath")
-        if (setting != ^null)
+        if (instance.TryGetProperty("LocalExportPath",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's LocalExportPath property is not a string!"
                 ok = false
             end
-            else
+            else if (!String.IsNullOrWhitespace(setting.GetString()))
             begin
-                Settings.LocalExportPath = setting.GetString()
-
-                if (String.IsNullOrWhitespace(Settings.LocalExportPath))
+                ;Check that we can create a file in the directory
+                data tmpch, i4
+                try
                 begin
-                    errorMessage = "The instance's LocalExportPath property contains no information!"
+                    data tmpfile = setting.GetString() + %datetime + ".tmp"
+                    open(tmpch=0,o,tmpfile)
+                    Settings.LocalExportPath = setting.GetString()
+                end
+                catch (e, @Exception)
+                begin
+                    errorMessage = "The instance's LocalExportPath property is invalid!"
                     ok = false
                 end
+                finally
+                begin
+                    if (tmpch && %chopen(tmpch))
+                        close tmpch
+                end
+                endtry
             end
         end
     end
@@ -593,8 +570,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("LogBulkLoadExceptions")
-        if (setting != ^null)
+        if (instance.TryGetProperty("LogBulkLoadExceptions",setting))
         begin
             if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
             begin
@@ -612,8 +588,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("LogKeyValues")
-        if (setting != ^null)
+        if (instance.TryGetProperty("LogKeyValues",setting))
         begin
             if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
             begin
@@ -631,8 +606,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("LogLoadProgress")
-        if (setting != ^null)
+        if (instance.TryGetProperty("LogLoadProgress",setting))
         begin
             if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
             begin
@@ -650,8 +624,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("MaxColumns")
-        if (setting != ^null)
+        if (instance.TryGetProperty("MaxColumns",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -674,8 +647,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("MaxCursors")
-        if (setting != ^null)
+        if (instance.TryGetProperty("MaxCursors",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -698,8 +670,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("QueueReconnectAttempts")
-        if (setting != ^null)
+        if (instance.TryGetProperty("QueueReconnectAttempts",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -722,8 +693,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("QueueReconnectDelay")
-        if (setting != ^null)
+        if (instance.TryGetProperty("QueueReconnectDelay",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -746,12 +716,16 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("QueueType")
-        if (setting != ^null)
+        if (instance.TryGetProperty("QueueType",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
                 errorMessage = "The instance's QueueType property is not a string!"
+                ok = false
+            end
+            else if (String.IsNullOrWhitespace(setting.GetString())) then
+            begin
+                errorMessage = "The instance's QueueType property is blank!"
                 ok = false
             end
             else
@@ -784,8 +758,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("SleepTime")
-        if (setting != ^null)
+        if (instance.TryGetProperty("SleepTime",setting))
         begin
             if (setting.ValueKind != JsonValueKind.Number) then
             begin
@@ -808,8 +781,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("StopOnError")
-        if (setting != ^null)
+        if (instance.TryGetProperty("StopOnError",setting))
         begin
             if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
             begin
@@ -827,8 +799,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("SystemLogging")
-        if (setting != ^null)
+        if (instance.TryGetProperty("SystemLogging",setting))
         begin
             if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
             begin
@@ -846,8 +817,7 @@ proc
 
     if (ok)
     begin
-        setting = instance.GetProperty("VerboseLogging")
-        if (setting != ^null)
+        if (instance.TryGetProperty("VerboseLogging",setting))
         begin
             if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
             begin

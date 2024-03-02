@@ -1,13 +1,13 @@
-;;*****************************************************************************
-;;
-;; File:        Employee_SqlIO.dbl
-;;
-;; Description: Various functions that performs SQL I/O for EMPLOYEE
-;;
-;;*****************************************************************************
-;; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
-;;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
-;;*****************************************************************************
+;*****************************************************************************
+;
+; File:        Employee_SqlIO.dbl
+;
+; Description: Various functions that performs SQL I/O for EMPLOYEE
+;
+;*****************************************************************************
+; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
+;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
+;*****************************************************************************
 
 .ifndef DBLNET
  ;This code was generated from the SqlClientIO template and can only be used
@@ -25,7 +25,7 @@ import System.Data.SqlClient
 .define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
 .define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX ") + x)
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Determines if the Employee table exists in the database.
 ;;; </summary>
@@ -33,8 +33,8 @@ import System.Data.SqlClient
 ;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
 function Employee_Exists, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
+
     stack record
         error, int
         errorMessage, string
@@ -51,7 +51,7 @@ proc
         disposable data reader = command.ExecuteReader()
         if (reader.Read()) then
         begin
-            ; Table exists
+            ;Table exists
             error = 1
         end
         else
@@ -64,21 +64,18 @@ proc
     begin
         errorMessage = ex.Message
         error = -1
+        xcall ThrowOnSqlClientError(errorMessage,ex)
     end
     endtry
 
-    if (^passed(aErrorMessage) && error)
-    begin
-        aErrorMessage = errorMessage
-    end
-
-    ;TODO: Old code included xcall ThrowOnCommunicationError(dberror,errtxt)
+    ;Return any error message to the calling routine
+    aErrorMessage = error == 1 ? String.Empty : errorMessage
 
     freturn error
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Creates the Employee table in the database.
 ;;; </summary>
@@ -86,12 +83,12 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_Create, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
     stack record
         ok, boolean
+        transaction, boolean
         errorMessage, string
     endrecord
     static record
@@ -99,11 +96,19 @@ function Employee_Create, ^val
     endrecord
 proc
     ok = true
+    transaction = false
     errorMessage = String.Empty
+
+    ;If we're in manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
 
     ;Define the CREATE TABLE statement
 
-    if (createTableCommand == ^null)
+    if (ok && createTableCommand == ^null)
     begin
         createTableCommand = 'CREATE TABLE "Employee" ('
         & + '"EmpId" DECIMAL(6) NOT NULL,'
@@ -132,7 +137,7 @@ proc
         endusing
     end
 
-    ;;Create the database table and primary key constraint
+    ;Create the database table and primary key constraint
 
     try
     begin
@@ -148,7 +153,7 @@ proc
     end
     endtry 
 
-    ;;Grant access permissions
+    ;Grant access permissions
 
     if (ok)
     begin
@@ -167,63 +172,30 @@ proc
         endtry
     end
 
-    ;;Commit or rollback the transaction
+    ;Commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
-
-    if (^passed(aErrorMessage))
-    begin
-        if (ok) then
-            clear aErrorMessage
-        else
-            aErrorMessage = errorMessage
-    end
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Add alternate key indexes to the Employee table if they do not exist.
 ;;; </summary>
@@ -231,21 +203,29 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_Index, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
     stack record
         ok, boolean
+        transaction, boolean
         errorMessage, string
         now, a20
     endrecord
 
 proc
-    ok = false
+    ok = true
+    transaction = false
     errorMessage = String.Empty
 
-    ;;Create index 1 (Department ID)
+    ;If we're in manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    ;Create index 1 (Department ID)
 
     if (ok && !%Index_Exists("IX_Employee_EmpDept"))
     begin
@@ -285,7 +265,7 @@ proc
         end
     end
 
-    ;;Create index 2 (Last name)
+    ;Create index 2 (Last name)
 
     if (ok && !%Index_Exists("IX_Employee_EmpLastName"))
     begin
@@ -325,7 +305,7 @@ proc
         end
     end
 
-    ;;Create index 3 (State)
+    ;Create index 3 (State)
 
     if (ok && !%Index_Exists("IX_Employee_StateCode"))
     begin
@@ -365,7 +345,7 @@ proc
         end
     end
 
-    ;;Create index 4 (Zip code)
+    ;Create index 4 (Zip code)
 
     if (ok && !%Index_Exists("IX_Employee_ZipCode"))
     begin
@@ -405,58 +385,30 @@ proc
         end
     end
 
-    ;;Commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
         end
     end
 
-    if (^passed(aErrorMessage) && !ok)
-    begin
-        aErrorMessage = errorMessage
-    end
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Removes alternate key indexes from the Employee table in the database.
 ;;; </summary>
@@ -464,33 +416,127 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_UnIndex, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
     stack record
         ok, boolean
+        transaction, boolean
         errorMessage, string
     endrecord
 
 proc
-    ok = false
+    ok = true
+    transaction = false
     errorMessage = String.Empty
 
+    ;If we're in manual commit mode, start a transaction
 
-
-
-
-    if (!ok && ^passed(aErrorMessage))
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        aErrorMessage = errorMessage
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
+
+    ;Drop index 1 (Department ID)
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('DROP INDEX IF EXISTS IX_Employee_EmpDept ON "Employee"',Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_Employee_EmpDept. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;Drop index 2 (Last name)
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('DROP INDEX IF EXISTS IX_Employee_EmpLastName ON "Employee"',Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_Employee_EmpLastName. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;Drop index 3 (State)
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('DROP INDEX IF EXISTS IX_Employee_StateCode ON "Employee"',Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_Employee_StateCode. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;Drop index 4 (Zip code)
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('DROP INDEX IF EXISTS IX_Employee_ZipCode ON "Employee"',Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_Employee_ZipCode. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Insert a row into the Employee table.
 ;;; </summary>
@@ -500,31 +546,171 @@ endfunction
 
 function Employee_Insert, ^val
     required in  a_data,   a
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
-    stack record
-        ok, boolean
-        errorMessage, string
-        sts, int
+    stack record local_data
+        ok          ,boolean    ;OK to continue
+        sts         ,int        ;Return status
+        transaction ,boolean    ;Transaction in progress
+        errorMessage,string     ;Error message text
+    endrecord
+
+    literal
+        sql, string, "INSERT INTO Employee ("
+        & + '"EmpId",'
+        & + '"EmpFirstName",'
+        & + '"EmpLastName",'
+        & + '"EmpDept",'
+        & + '"EmpHireDate",'
+        & + '"EmpPhoneWork",'
+        & + '"EmpPhoneCell",'
+        & + '"EmpPaid",'
+        & + '"EmpDateOfBirth",'
+        & + '"EmpHireTime",'
+        & + '"EmpEmail",'
+        & + '"EmpAddressStreet",'
+        & + '"EmpAddressCity",'
+        & + '"EmpAddressState",'
+        & + '"EmpAddressZip"'
+        & + ") VALUES(@1,@2,@3,@4,@5,@6,@7,@8,@9,@10,@11,@12,@13,@14,@15)"
+    endliteral
+
+    static record
+        employee, strEmployee
+        tmpEmpHireTime, a5      ;Storage for HH:MM time field
     endrecord
 
 proc
-    ok = false
-    errorMessage = String.Empty
+    init local_data
+    ok = true
+    sts = 1
 
-
-    if (!ok && ^passed(aErrorMessage))
+    if (ok)
     begin
-        aErrorMessage = errorMessage
+        ;Load the data into the bound record
+
+        employee = a_data
+
+        ;Clean up any alpha fields
+
+        employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
+        employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
+        employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
+        employee.emp_phone_work = %atrim(employee.emp_phone_work)+%char(0)
+        employee.emp_phone_cell = %atrim(employee.emp_phone_cell)+%char(0)
+        employee.emp_email = %atrim(employee.emp_email)+%char(0)
+        employee.emp_address_street = %atrim(employee.emp_address_street)+%char(0)
+        employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
+        employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
+
+        ;Clean up any decimal fields
+
+        if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
+            clear employee.emp_id
+        if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
+            clear employee.emp_paid
+        if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
+            clear employee.emp_address_zip
+
+        ;Clean up any date fields
+
+        if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
+            ^a(employee.emp_hire_date(1:1)) = %char(0)
+        if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
+            ^a(employee.emp_date_of_birth(1:1)) = %char(0)
+
+        ;Clean up any time fields
+
+        if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
+            ^a(employee.emp_hire_time(1:1))=%char(0)
+
+        ;Assign data to any temporary time or user-defined timestamp fields
+
+        tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
+
+        ;Assign values to temp fields for any fields with custom data types
+
     end
+
+    ;If we're in manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+            &   CommandTimeout = Settings.DatabaseTimeout
+            & }
+
+            command.Parameters.AddWithValue("@1",employee.emp_id)
+            command.Parameters.AddWithValue("@2",employee.emp_first_name)
+            command.Parameters.AddWithValue("@3",employee.emp_last_name)
+            command.Parameters.AddWithValue("@4",employee.emp_dept)
+            command.Parameters.AddWithValue("@5",^a(employee.emp_hire_date))
+            command.Parameters.AddWithValue("@6",employee.emp_phone_work)
+            command.Parameters.AddWithValue("@7",employee.emp_phone_cell)
+            command.Parameters.AddWithValue("@8",employee.emp_paid)
+            command.Parameters.AddWithValue("@9",^a(employee.emp_date_of_birth))
+            command.Parameters.AddWithValue("@10",tmpEmpHireTime)
+            command.Parameters.AddWithValue("@11",employee.emp_email)
+            command.Parameters.AddWithValue("@12",employee.emp_address_street)
+            command.Parameters.AddWithValue("@13",employee.emp_address_city)
+            command.Parameters.AddWithValue("@14",employee.emp_address_state)
+            command.Parameters.AddWithValue("@15",employee.emp_address_zip)
+
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            sts = 0
+            using ex.ErrorCode Select
+            (-2627),    ;TODO: * * * MAY NOT BE THE CORRECT ERROR NUMBER FOR DUPLICATE KEY
+            begin
+                ;Duplicate key
+                errorMessage = "Duplicate key detected in database!"
+                sts = 2
+            end
+            (),
+            begin
+                errorMessage = "Failed to insert row into Employee. Error was: " + ex.Message
+            end
+            endusing
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn sts
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Inserts multiple rows into the Employee table.
 ;;; </summary>
@@ -536,34 +722,254 @@ endfunction
 
 function Employee_InsertRows, ^val
     required in  a_data, i
-    optional out aErrorMessage, a
+    required out aErrorMessage, a
     optional out a_exception, i
     optional in  a_terminal, i
-    endparams
 
-    .align
-    stack record
-        ok, boolean
-        errorMessage, string
+    .define EXCEPTION_BUFSZ 100
+
+    stack record local_data
+        ok,             boolean     ;Return status
+        rows,           int         ;Number of rows to insert
+        transaction,    boolean     ;Transaction in progress
+        length,         int         ;Length of a string
+        ex_ms,          int         ;Size of exception array
+        ex_mc,          int         ;Items in exception array
+        continue,       int         ;Continue after an error
+        errorMessage,   string      ;Error message text
     endrecord
 
+    literal
+        sql, string, "INSERT INTO Employee ("
+        & + '"EmpId",'
+        & + '"EmpFirstName",'
+        & + '"EmpLastName",'
+        & + '"EmpDept",'
+        & + '"EmpHireDate",'
+        & + '"EmpPhoneWork",'
+        & + '"EmpPhoneCell",'
+        & + '"EmpPaid",'
+        & + '"EmpDateOfBirth",'
+        & + '"EmpHireTime",'
+        & + '"EmpEmail",'
+        & + '"EmpAddressStreet",'
+        & + '"EmpAddressCity",'
+        & + '"EmpAddressState",'
+        & + '"EmpAddressZip"'
+        & + ") VALUES(@1,@2,@3,@4,@5,@6,@7,@8,@9,@10,@11,@12,@13,@14,@15)"
+    endliteral
+
+    .include "EMPLOYEE" repository, structure="inpbuf", nofields, end
+    .include "EMPLOYEE" repository, static record="employee", end
+
+    static record
+        tmpEmpHireTime, a5       ;Storage for HH:MM time field
+        , a1                        ;In case there are no user timestamp, date or JJJJJJ date fields
+    endrecord
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
+    if (^passed(a_exception) && a_exception)
+        clear a_exception
 
+    ;Figure out how many rows to insert
 
+    rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
-    if (!ok && ^passed(aErrorMessage))
+    ;If enabled, disable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
     begin
-        aErrorMessage = errorMessage
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
     end
+
+    ;Start a database transaction
+
+    if (ok)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    ;Insert the rows into the database
+
+    if (ok)
+    begin
+        data cnt, int
+        for cnt from 1 thru rows
+        begin
+            ;Load data into bound record
+
+            employee = ^m(inpbuf[cnt],a_data)
+
+            ;Clean up any alpha variables
+
+            employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
+            employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
+            employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
+            employee.emp_phone_work = %atrim(employee.emp_phone_work)+%char(0)
+            employee.emp_phone_cell = %atrim(employee.emp_phone_cell)+%char(0)
+            employee.emp_email = %atrim(employee.emp_email)+%char(0)
+            employee.emp_address_street = %atrim(employee.emp_address_street)+%char(0)
+            employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
+            employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
+
+            ;Clean up any decimal variables
+
+            if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
+                clear employee.emp_id
+            if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
+                clear employee.emp_paid
+            if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
+                clear employee.emp_address_zip
+
+            ;Clean up any date variables
+
+            if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
+                ^a(employee.emp_hire_date(1:1))=%char(0)
+            if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
+                ^a(employee.emp_date_of_birth(1:1))=%char(0)
+
+            ;Clean up any time variables
+
+            if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
+                ^a(employee.emp_hire_time(1:1))=%char(0)
+
+            ;Assign any time or user-defined timestamp fields
+
+            tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
+
+            ;Assign values to temp fields for any fields with custom data types
+
+
+            try
+            begin
+                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+                &    CommandTimeout = Settings.DatabaseTimeout
+                &    }
+
+                ;Bind the host variables for data to be inserted
+
+                command.Parameters.AddWithValue("@1",employee.emp_id)
+                command.Parameters.AddWithValue("@2",employee.emp_first_name)
+                command.Parameters.AddWithValue("@3",employee.emp_last_name)
+                command.Parameters.AddWithValue("@4",employee.emp_dept)
+                command.Parameters.AddWithValue("@5",^a(employee.emp_hire_date))
+                command.Parameters.AddWithValue("@6",employee.emp_phone_work)
+                command.Parameters.AddWithValue("@7",employee.emp_phone_cell)
+                command.Parameters.AddWithValue("@8",employee.emp_paid)
+                command.Parameters.AddWithValue("@9",^a(employee.emp_date_of_birth))
+                command.Parameters.AddWithValue("@10",tmpEmpHireTime)
+                command.Parameters.AddWithValue("@11",employee.emp_email)
+                command.Parameters.AddWithValue("@12",employee.emp_address_street)
+                command.Parameters.AddWithValue("@13",employee.emp_address_city)
+                command.Parameters.AddWithValue("@14",employee.emp_address_state)
+                command.Parameters.AddWithValue("@15",employee.emp_address_zip)
+
+                command.ExecuteNonQuery()
+                errorMessage = ""
+            end
+            catch (ex, @SqlException)
+            begin
+                errorMessage = "Failed to insert row. Error was: " + ex.Message
+                xcall ThrowOnSqlClientError(errorMessage,ex)
+
+                clear continue
+
+                ;Are we logging errors?
+                if (^passed(a_terminal) && a_terminal)
+                begin
+                    writes(a_terminal,errorMessage)
+                    continue=1
+                end
+
+                ;Are we processing exceptions?
+                if (^passed(a_exception))
+                begin
+                    if (ex_mc==ex_ms)
+                    begin
+                        if (!a_exception) then
+                            a_exception = %mem_proc(DM_ALLOC|DM_STATIC,^size(inpbuf)*(ex_ms=EXCEPTION_BUFSZ))
+                        else
+                            a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),a_exception)
+                    end
+                    ^m(inpbuf[ex_mc+=1],a_exception)=employee
+                    continue=1
+                end
+
+                if (continue) then
+                    nextloop
+                else
+                begin
+                    ok = false
+                    exitloop
+                end
+            end
+            endtry
+        end
+    end
+
+    ;Commit or rollback the transaction
+
+    if (transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;If necessary, re-enable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
+    end
+
+    ;If we're returning exceptions then resize the buffer to the correct size
+
+    if (^passed(a_exception) && a_exception)
+        a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*ex_mc,a_exception)
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Updates a row in the Employee table.
 ;;; </summary>
@@ -575,32 +981,158 @@ endfunction
 function Employee_Update, ^val
     required in  a_data,   a
     optional out a_rows,   i
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
-    .align
-    stack record
-        ok, boolean
-        errorMessage, string
+    stack record local_data
+        ok,             boolean     ;OK to continue
+        transaction,    boolean     ;Transaction in progress
+        length,         int         ;Length of a string
+        rows,           int         ;Number of rows updated
+        errorMessage,   string      ;Error message text
+    endrecord
+
+    literal
+        sql, string, 'UPDATE Employee SET '
+        & + '"EmpId"=@1,'
+        & + '"EmpFirstName"=@2,'
+        & + '"EmpLastName"=@3,'
+        & + '"EmpDept"=@4,'
+        & + '"EmpHireDate"=@5,'
+        & + '"EmpPhoneWork"=@6,'
+        & + '"EmpPhoneCell"=@7,'
+        & + '"EmpPaid"=@8,'
+        & + '"EmpDateOfBirth"=@9,'
+        & + '"EmpHireTime"=@10,'
+        & + '"EmpEmail"=@11,'
+        & + '"EmpAddressStreet"=@12,'
+        & + '"EmpAddressCity"=@13,'
+        & + '"EmpAddressState"=@14,'
+        & + '"EmpAddressZip"=@15'
+        & + ' WHERE "EmpId"=:16  '
+    endliteral
+
+    static record
+        employee, strEmployee
+        tmpEmpHireTime, a5      ;Storage for HH:MM time field
     endrecord
 
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
+    if (^passed(a_rows))
+        clear a_rows
 
+    ;Load the data into the bound record
+    employee = a_data
 
+    ;Clean up alpha fields
+    employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
+    employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
+    employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
+    employee.emp_phone_work = %atrim(employee.emp_phone_work)+%char(0)
+    employee.emp_phone_cell = %atrim(employee.emp_phone_cell)+%char(0)
+    employee.emp_email = %atrim(employee.emp_email)+%char(0)
+    employee.emp_address_street = %atrim(employee.emp_address_street)+%char(0)
+    employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
+    employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
 
-    if (!ok && ^passed(aErrorMessage))
+    ;Clean up decimal fields
+    if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
+        clear employee.emp_id
+    if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
+        clear employee.emp_paid
+    if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
+        clear employee.emp_address_zip
+
+    ;Clean up date fields
+    if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
+        ^a(employee.emp_hire_date(1:1)) = %char(0)
+    if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
+        ^a(employee.emp_date_of_birth(1:1)) = %char(0)
+
+    ;Clean up time fields
+    if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
+        ^a(employee.emp_hire_time(1:1)) = %char(0)
+
+    ;Assign time and user-defined timestamp fields
+    tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
+
+    ;Assign values to temp fields for any fields with custom data types
+
+    ;If we're in manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        aErrorMessage = errorMessage
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("ROLLBACK TRANSACTION",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+
+            ;Bind the host variables for data to be updated
+            command.Parameters.AddWithValue("@1",employee.emp_id)
+            command.Parameters.AddWithValue("@2",employee.emp_first_name)
+            command.Parameters.AddWithValue("@3",employee.emp_last_name)
+            command.Parameters.AddWithValue("@4",employee.emp_dept)
+            command.Parameters.AddWithValue("@5",^a(employee.emp_hire_date))
+            command.Parameters.AddWithValue("@6",employee.emp_phone_work)
+            command.Parameters.AddWithValue("@7",employee.emp_phone_cell)
+            command.Parameters.AddWithValue("@8",employee.emp_paid)
+            command.Parameters.AddWithValue("@9",^a(employee.emp_date_of_birth))
+            command.Parameters.AddWithValue("@10",tmpEmpHireTime)
+            command.Parameters.AddWithValue("@11",employee.emp_email)
+            command.Parameters.AddWithValue("@12",employee.emp_address_street)
+            command.Parameters.AddWithValue("@13",employee.emp_address_city)
+            command.Parameters.AddWithValue("@14",employee.emp_address_state)
+            command.Parameters.AddWithValue("@15",employee.emp_address_zip)
+
+            ;Bind the host variables for the key segments / WHERE clause
+            command.Parameters.AddWithValue("@16",employee.emp_id)
+
+            rows = command.ExecuteNonQuery()
+
+            if (^passed(a_rows))
+                a_rows = rows
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to update row. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Deletes a row from the Employee table.
 ;;; </summary>
@@ -610,33 +1142,83 @@ endfunction
 
 function Employee_Delete, ^val
     required in  a_key,    a
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
+
+    .include "EMPLOYEE" repository, stack record="employee"
+
+    external function
+        EmployeeKeyToRecord, a
+    endexternal
 
     .align
-    stack record
-        ok, boolean
-        errorMessage, string
+    stack record local_data
+        ok,             boolean     ;Return status
+        cursor,         int         ;Database cursor
+        transaction,    boolean     ;Transaction in progress
+        errorMessage,   string      ;Error message
+        sql,            string      ;SQL statement
     endrecord
 
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
+    ;Put the unique key value into the record
+    employee = %EmployeeKeyToRecord(a_key)
 
-
-
-
-    if (!ok && ^passed(aErrorMessage))
+    ;If we're in manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        aErrorMessage = errorMessage
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
+
+    ;;Delete the row
+    if (ok)
+    begin
+        sql = 'DELETE FROM "Employee" WHERE'
+        &    + ' "EmpId"=' + "'" + %string(employee.emp_id) + "' "
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to delete row. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Deletes all rows from the Employee table.
 ;;; </summary>
@@ -644,34 +1226,68 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_Clear, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
-    stack record
-        ok, boolean
-        errorMessage, string
+    stack record local_data
+        ok,             boolean ;Return status
+        transaction,    boolean ;Transaction in process
+        errorMessage,   string  ;Returned error message text
     endrecord
 
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
-
-
-
-
-
-    if (!ok && ^passed(aErrorMessage))
+    ;If we're in manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        aErrorMessage = errorMessage
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
+
+    ;;Truncate the table
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand('TRUNCATE TABLE "Employee"',Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to truncate table. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Deletes the Employee table from the database.
 ;;; </summary>
@@ -679,21 +1295,27 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_Drop, ^val
-    optional out aErrorMessage, a
-    endparams
+    required out aErrorMessage, a
 
     .align
     stack record
         ok, boolean
+        transaction, boolean
         errorMessage, string
     endrecord
 
 proc
     ok = true
+    transaction = false
     errorMessage = String.Empty
 
-    ;;Drop the database table and primary key constraint
+    ;If we're in manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
 
+    ;Drop the database table and primary key constraint
     try
     begin
         disposable data command = new SqlCommand("DROP TABLE Employee",Settings.DatabaseConnection) { 
@@ -709,69 +1331,37 @@ proc
         (),
         begin
             errorMessage = "Failed to drop table. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
             ok = false
         end
         endusing
     end
     endtry 
 
-    ;;Commit or rollback the transaction
+    ;Commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to commit transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;Success, commit the transaction
+            ok = %CommitTransactionSqlClient(errorMessage)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
-            try
-            begin
-                disposable data command = new SqlCommand("ROLLBACK",Settings.DatabaseConnection) { 
-                &   CommandTimeout = Settings.DatabaseTimeout
-                & }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ok = false
-                errorMessage = "Failed to roll back transaction. Error was: " + ex.Message
-                ;TODO: xcall ThrowOnCommunicationError(dberror,errtxt)
-            end
-            endtry
+            ;There was an error, rollback the transaction
+            ok = %RollbackTransactionSqlClient(errorMessage)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
-
-    if (^passed(aErrorMessage))
-    begin
-        if (ok) then
-            clear aErrorMessage
-        else
-            aErrorMessage = errorMessage
-    end
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Load all data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table.
 ;;; </summary>
@@ -781,10 +1371,9 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_Load, ^val
-    optional out   aErrorMessage, a
+    required out   aErrorMessage, a
     optional inout a_added, n
     optional out   a_failed, n
-    endparams
 
     .align
     stack record
@@ -803,16 +1392,14 @@ proc
 
 
 
-    if (!ok && ^passed(aErrorMessage))
-    begin
-        aErrorMessage = errorMessage
-    end
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Bulk load data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a CSV file.
 ;;; </summary>
@@ -843,7 +1430,6 @@ function Employee_BulkLoad, ^val
     optional out a_records,    n
     optional out a_exceptions, n
     optional out a_errtxt,     a
-    endparams
 
     .align
     stack record local_data
@@ -858,7 +1444,7 @@ proc
 
 endfunction
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Close cursors associated with the Employee table.
 ;;; </summary>
@@ -867,15 +1453,13 @@ endfunction
 
 subroutine Employee_Close
     required in a_connection, @SqlConnection
-    endparams
-
 proc
 
     xreturn
 
 endsubroutine
 
-;;*****************************************************************************
+;*****************************************************************************
 ;;; <summary>
 ;;; Exports REPLICATOR_DATA:EMPLOYEE.ISM to a CSV file.
 ;;; </summary>
@@ -887,19 +1471,26 @@ endsubroutine
 function Employee_Csv, boolean
     required in    fileSpec, a
     optional inout recordCount, n
-    optional out   errorMessage, a
-    endparams
+    required out   aErrorMessage, a
 
     .include "EMPLOYEE" repository, record="employee", end
 
     .align
     stack record local_data
-        ok,                             boolean     ;;Return status
+        ok,             boolean     ;Return status
+        errorMessage,   string
     endrecord
 
 proc
     init local_data
-    ok = false
+    ok = true
+    errorMessage = String.Empty
+
+
+
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
 
