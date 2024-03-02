@@ -27,7 +27,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;//              whose columns match the fields defined in a Synergy
 ;//              repository structure.
 ;//
-;//              The code produced by this template uses the .NET System.Data.SqlClient classes
+;//              The code uses the System.Data.SqlClient classes
 ;//
 ;// Author:      Steve Ives, Synergex Professional Services Group
 ;//
@@ -765,14 +765,12 @@ endfunction
 ;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <param name="a_exception">Memory handle to load exception data records into.</param>
-;;; <param name="a_terminal">Terminal number channel to log errors on.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_InsertRows, ^val
     required in  a_data, i
     required out aErrorMessage, a
     optional out a_exception, i
-    optional in  a_terminal, i
 
 <IF DEFINED_ASA_TIREMAX>
     external function
@@ -1015,9 +1013,9 @@ proc
                 clear continue
 
                 ;Are we logging errors?
-                if (^passed(a_terminal) && a_terminal)
+                if (Settings.TerminalChannel)
                 begin
-                    writes(a_terminal,errorMessage)
+                    writes(Settings.TerminalChannel,errorMessage)
                     continue=1
                 end
 
@@ -1590,31 +1588,254 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_Load, ^val
-    required out   aErrorMessage, a
-    optional inout a_added, n
-    optional out   a_failed, n
+    required in  a_maxrows, n
+    required out a_added, n
+    required out a_failed, n
+    required out aErrorMessage, a
 
-    .align
-    stack record
-        ok, boolean
-        errorMessage, string
+<IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
+    .include "<MAPPED_STRUCTURE>" repository, structure="inpbuf", end
+<ELSE STRUCTURE_ISAM AND NOT STRUCTURE_MAPPED>
+    .include "<STRUCTURE_NOALIAS>" repository, structure="inpbuf", end
+<ELSE STRUCTURE_RELATIVE AND STRUCTURE_MAPPED>
+    structure inpbuf
+        recnum, d28
+        .include "<MAPPED_STRUCTURE>" repository, group="inprec"
+<ELSE STRUCTURE_RELATIVE AND NOT STRUCTURE_MAPPED>
+    structure inpbuf
+        recnum, d28
+        .include "<STRUCTURE_NOALIAS>" repository, group="inprec"
+    endstructure
+    .include "<STRUCTURE_NOALIAS>" repository, structure="<STRUCTURE_NAME>", end
+</IF STRUCTURE_ISAM>
+<IF STRUCTURE_MAPPED>
+    .include "<MAPPED_STRUCTURE>" repository, stack record="tmprec", end
+<ELSE>
+    .include "<STRUCTURE_NOALIAS>" repository, stack record="tmprec", end
+</IF STRUCTURE_MAPPED>
+
+    .define BUFFER_ROWS     1000
+    .define EXCEPTION_BUFSZ 100
+
+    stack record local_data
+        ok,             boolean     ;Return status
+        firstRecord,    boolean     ;Is this the first record?
+        filechn,        int         ;Data file channel
+        mh,             D_HANDLE    ;Memory handle containing data to insert
+        ms,             int         ;Size of memory buffer in rows
+        mc,             int         ;Memory buffer rows currently used
+        ex_mh,          D_HANDLE    ;Memory buffer for exception records
+        ex_mc,          int         ;Number of records in returned exception array
+        ex_ch,          int         ;Exception log file channel
+        attempted,      int         ;Rows being attempted
+        done_records,   int         ;Records loaded
+        max_records,    int         ;Maximum records to load
+        ttl_added,      int         ;Total rows added
+        ttl_failed,     int         ;Total failed inserts
+        errnum,         int         ;Error number
+        tmperrmsg,      a512        ;Temporary error message
+        errorMessage,   string      ;Error message text
+<IF STRUCTURE_RELATIVE>
+        recordNumber,   d28
+</IF STRUCTURE_RELATIVE>
     endrecord
 
 proc
-    ok = false
+    init local_data
+    ok = true
     errorMessage = String.Empty
 
+    ;If we are logging exceptions, delete any existing exceptions file.
+    if (Settings.LogBulkLoadExceptions)
+    begin
+        xcall delet("REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
+    end
 
+    ;Open the data file associated with the structure
+    if (!(filechn = %<StructureName>OpenInput))
+    begin
+        ok = false
+        errorMessage = "Failed to open data file!"
+    end
 
+    if (ok)
+    begin
+        ;Were we passed a max # records to load
+        max_records = a_maxrows > 0 ? a_maxrows : 0
+        done_records = 0
 
+        ;Allocate memory buffer for the database rows
+        mh = %mem_proc(DM_ALLOC,^size(inpbuf)*(ms=BUFFER_ROWS))
 
+        ;Read records from the input file
+        firstRecord = true
+        repeat
+        begin
+            ;Get the next record from the input file
+            try
+            begin
+;//
+;// First record processing
+;//
+                if (firstRecord) then
+                begin
+<IF STRUCTURE_TAGS>
+                    find(filechn,,^FIRST)
+                    repeat
+                    begin
+                        reads(filechn,tmprec)
+                        if (<TAG_LOOP><TAGLOOP_CONNECTOR_C>tmprec.<TAGLOOP_FIELD_NAME><TAGLOOP_OPERATOR_C><TAGLOOP_TAG_VALUE></TAG_LOOP>)
+                            exitloop
+                    end
+<ELSE>
+                    read(filechn,tmprec,^FIRST)
+</IF STRUCTURE_TAGS>
+                    firstRecord = false
+                end
+;//
+;// Subsequent record processing
+;//
+                else
+                begin
+<IF STRUCTURE_TAGS>
+                    repeat
+                    begin
+                        reads(filechn,tmprec)
+                        if (<TAG_LOOP><TAGLOOP_CONNECTOR_C>tmprec.<TAGLOOP_FIELD_NAME><TAGLOOP_OPERATOR_C><TAGLOOP_TAG_VALUE></TAG_LOOP>)
+                            exitloop
+                    end
+<ELSE>
+                    reads(filechn,tmprec)
+</IF STRUCTURE_TAGS>
+                end
+            end
+            catch (ex, @EndOfFileException)
+            begin
+                exitloop
+            end
+            catch (ex, @Exception)
+            begin
+                ok = false
+                errorMessage = "Unexpected error while reading data file: " + ex.Message
+                exitloop
+            end
+            endtry
 
+            ;Got one, load it into or buffer
+<IF STRUCTURE_ISAM>
+            ^m(inpbuf[mc+=1],mh) = tmprec
+<ELSE STRUCTURE_RELATIVE>
+            ^m(inpbuf[mc+=1].recnum,mh) = recordNumber += 1
+            ^m(inpbuf[mc].inprec,mh) = tmprec
+</IF STRUCTURE_ISAM>
 
+            incr done_records
+
+            ;If the buffer is full, write it to the database
+            if (mc==ms)
+            begin
+                call insert_data
+            end
+
+            if (max_records && (done_records == max_records))
+            begin
+                exitloop
+            end
+        end
+
+        if (mc)
+        begin
+            mh = %mem_proc(DM_RESIZ,^size(inpbuf)*mc,mh)
+            call insert_data
+        end
+
+        ;;Deallocate memory buffer
+        mh = %mem_proc(DM_FREE,mh)
+    end
+
+    ;Close the file
+    if (filechn && %chopen(filechn))
+        close filechn
+
+    ;Close the exceptions log file
+    if (ex_ch && %chopen(ex_ch))
+        close ex_ch
+
+    ;Return totals
+    a_added = ttl_added
+    a_failed = ttl_failed
 
     ;Return any error message to the calling routine
     aErrorMessage = ok ? String.Empty : errorMessage
 
     freturn ok
+
+insert_data,
+
+    attempted = (%mem_proc(DM_GETSIZE,mh)/^size(inpbuf))
+
+    if (!%<StructureName>_InsertRows(mh,tmperrmsg,ex_mh)) then
+    begin
+        errorMessage = %atrimtostring(tmperrmsg)
+    end
+    else
+    begin
+        ;;Any exceptions?
+        if (ex_mh) then
+        begin
+            ;How many exceptions to log?
+            ex_mc = %mem_proc(DM_GETSIZE,ex_mh) / ^size(inpbuf)
+
+            ;Update totals
+            ttl_failed += ex_mc
+            ttl_added += (attempted-ex_mc)
+
+            ;Are we logging exceptions?
+            if (Settings.LogBulkLoadExceptions) then
+            begin
+                data cnt, int
+
+                ;Open the log file
+                if (!ex_ch)
+                begin
+                    open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
+                end
+
+                ;Log the exceptions
+                for cnt from 1 thru ex_mc
+                begin
+                    writes(ex_ch,^m(inpbuf[cnt],ex_mh))
+                end
+
+                ;And maybe show them on the terminal
+                if (Settings.TerminalChannel)
+                begin
+                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
+                end
+            end
+            else
+            begin
+                ;No, report and error
+                ok = false
+            end
+
+            ;Release the exception buffer
+            ex_mh = %mem_proc(DM_FREE,ex_mh)
+        end
+        else
+        begin
+            ;No exceptions
+            ttl_added += attempted
+            if (Settings.TerminalChannel && Settings.LogLoadProgress)
+            begin
+                writes(Settings.TerminalChannel," - " + %string(ttl_added) + " rows inserted")
+            end
+        end
+    end
+
+    clear mc
+
+    return
 
 endfunction
 

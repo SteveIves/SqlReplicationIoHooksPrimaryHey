@@ -944,7 +944,7 @@ LoadTable,
 
         try
         begin
-            data successCount,  int,maxRowsToLoad
+            data successCount,  int
             data failCount,     int,0
 
             using Settings.DatabaseConnectMode select
@@ -953,17 +953,17 @@ LoadTable,
                 functionName = %atrim(instruction.structure_name) + "Load"
                 if (Settings.RunningOnTerminal) then
                 begin
-                    status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt,Settings.LogBulkLoadExceptions,Settings.TerminalChannel,successCount,failCount,Settings.LogLoadProgress)
+                    status = %xsubr(functionName,(i)(Settings.DatabaseChannel),maxRowsToLoad,(i)(Settings.DatabaseCommitMode),dberrtxt,Settings.LogBulkLoadExceptions,Settings.TerminalChannel,successCount,failCount,Settings.LogLoadProgress)
                 end
                 else
                 begin
-                    status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt,Settings.LogBulkLoadExceptions,,successCount,failCount)
+                    status = %xsubr(functionName,(i)(Settings.DatabaseChannel),maxRowsToLoad,(i)(Settings.DatabaseCommitMode),dberrtxt,Settings.LogBulkLoadExceptions,,successCount,failCount)
                 end
             end
             (DatabaseConnectionMode.SqlClient),
             begin
                 functionName = %atrim(instruction.structure_name) + "_Load"
-                status = %xsubr(functionName,dberrtxt,successCount,failCount)
+                status = %xsubr(functionName,maxRowsToLoad,successCount,failCount,dberrtxt)
             end
             endusing
 

@@ -27,7 +27,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;//              whose columns match the fields defined in a Synergy
 ;//              repository structure.
 ;//
-;//              The code produced by this template uses Synergy SQL Connection
+;//              The code uses the Synergy SQL Connection API
 ;//
 ;// Author:      Steve Ives, Synergex Professional Services Group
 ;//
@@ -2126,6 +2126,7 @@ endfunction
 function <StructureName>Load, ^val
 
     required in    a_dbchn,         i
+    required in    a_maxrows,       n
     required in    a_commit_mode,   i
     optional out   a_errtxt,        a
     optional in    a_logex,	        i
@@ -2183,7 +2184,6 @@ function <StructureName>Load, ^val
     endrecord
 
 proc
-
     init local_data
     ok = true
 <IF STRUCTURE_RELATIVE>
@@ -2206,7 +2206,7 @@ proc
 
     ;;Were we passed a max # records to load
 
-    max_records = (^passed(a_added) && a_added > 0) ? a_added : 0
+    max_records = a_maxrows > 0 ? a_maxrows : 0
     done_records = 0
 
     if (ok)
