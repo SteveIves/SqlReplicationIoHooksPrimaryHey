@@ -69,6 +69,9 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
+.ifdef DBLNET
+import System.IO
+.endc
 
 .ifndef str<StructureName>
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
@@ -2396,7 +2399,6 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>BulkLoad, ^val
-
     required in  a_dbchn,      i
     required in  a_commit_mode,i
     required in  a_localpath,  a
@@ -2521,7 +2523,7 @@ proc
         writelog("Exporting delimited file")
         writett("Exporting delimited file")
 
-        ok = %<StructureName>Csv(localCsvFile,recordCount,errtxt)
+        ok = %<StructureName>Csv(localCsvFile,0,recordCount,errtxt)
     end
 
     if (ok)
@@ -2946,62 +2948,57 @@ endsubroutine
 
 ;;*****************************************************************************
 ;;; <summary>
-;;; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> to a CSV file.
+;;; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> to a CSV file.
 ;;; </summary>
 ;;; <param name="fileSpec">File to create</param>
-;;; <param name="recordCount">Passed number of records to export, returned number of records exported.</param>
+;;; <param name="maxRecords">Mumber of records to export.</param>
+;;; <param name="recordCount">Returned number of records exported.</param>
 ;;; <param name="errorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Csv, boolean
-    required in    fileSpec, a
-    optional inout recordCount, n
-    optional out   errorMessage, a
+    required in  fileSpec, a
+    required in  maxRecords, n
+    required out recordCount, n
+    required out errorMessage, a
 
     .include "<STRUCTURE_NOALIAS>" repository, record="<structure_name>", end
 
     .define EXCEPTION_BUFSZ 100
 
     external function
-        IsDecimalNo,                    boolean
+        IsDecimalNo, boolean
 <IF NOT_DEFINED_DBLV11>
-        MakeDateForCsv,                 a
-</IF NOT_DEFINED_DBLV11>
-        MakeDecimalForCsvNegatives,     a
-        MakeDecimalForCsvNoNegatives,   a
-        MakeTimeForCsv,                 a
+        MakeDateForCsv, a
+</IF>
+        MakeDecimalForCsvNegatives, a
+        MakeDecimalForCsvNoNegatives, a
+        MakeTimeForCsv, a
 <IF DEFINED_ASA_TIREMAX>
-        TmJulianToYYYYMMDD,             a
-        TmJulianToCsvDate,              a
-</IF DEFINED_ASA_TIREMAX>
+        TmJulianToYYYYMMDD, a
+        TmJulianToCsvDate, a
+</IF>
     endexternal
 
+    .align
     stack record local_data
-.align
-        ok,                             boolean     ;;Return status
-.align
-        filechn,                        int         ;;Data file channel
-.align
-        outchn,                         int         ;;CSV file channel
-.align
-        outrec,                         string      ;;A CSV file record
-.align
-        records,                        int         ;;Number of records exported
-.align
-        pos,                            int         ;;Position in a string
-.align
-        recordsMax,                     int         ;;Max # or records to export
-.align
-        errtxt,                         a512        ;;Error message text
+        ok,         boolean ;;Return status
+        filechn,    int     ;;Data file channel
+        outchn,     int     ;;CSV file channel
+        outrec,     string  ;;A CSV file record
+        records,    int     ;;Number of records exported
+        pos,        int     ;;Position in a string
+        recordsMax, int     ;;Max # or records to export
+        errtxt,     a512    ;;Error message text
     endrecord
-proc
 
+proc
     ok = true
     clear records, errtxt
 
     ;;Were we given a max # or records to export?
 
-    recordsMax = (^passed(recordCount) && recordCount > 0) ? recordCount : 0
+    recordsMax = maxRecords > 0 ? maxRecords : 0
 
     ;;Open the data file associated with the structure
 
@@ -3015,25 +3012,25 @@ proc
 
     if (ok)
     begin
-        .ifdef OS_WINDOWS7
+.ifdef OS_WINDOWS7
         open(outchn=0,o:s,fileSpec)
-        .endc
-        .ifdef OS_UNIX
+.endc
+.ifdef OS_UNIX
         open(outchn=0,o,fileSpec)
-        .endc
-        .ifdef OS_VMS
+.endc
+.ifdef OS_VMS
         open(outchn=0,o,fileSpec,OPTIONS:"/stream")
-        .endc
+.endc
 
         ;;Add a row of column headers
-        .ifdef OS_WINDOWS7
-        writes(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF MORE></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>")
-        .else
-        puts(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF MORE></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>" + %char(13) + %char(10))
-        .endc
+.ifdef OS_WINDOWS7
+        writes(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF></IF></FIELD_LOOP>")
+.else
+        puts(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF></IF></FIELD_LOOP>" + %char(13) + %char(10))
+.endc
 
         ;;Read and add data file records
-        foreach <structure_name> in new Select(new From(filechn,Q_NO_GRFA,0,<structure_name>)<IF STRUCTURE_TAGS>,(Where)(<TAG_LOOP><TAGLOOP_CONNECTOR_C>(<structure_name>.<tagloop_field_name><TAGLOOP_OPERATOR_DBL><TAGLOOP_TAG_VALUE>)</TAG_LOOP>)</IF STRUCTURE_TAGS>)
+        foreach <structure_name> in new Select(new From(filechn,Q_NO_GRFA,0,<structure_name>)<IF STRUCTURE_TAGS>,(Where)(<TAG_LOOP><TAGLOOP_CONNECTOR_C>(<structure_name>.<tagloop_field_name><TAGLOOP_OPERATOR_DBL><TAGLOOP_TAG_VALUE>)</TAG_LOOP>)</IF>)
         begin
             ;;Make sure there are no | characters in the data
             while (pos = %instr(1,<structure_name>,"|"))
@@ -3050,81 +3047,81 @@ proc
             end
 
             outrec = ""
-  <FIELD_LOOP>
-    <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-      <IF STRUCTURE_RELATIVE>
-            &   + %string(records) + "|"
-      </IF STRUCTURE_RELATIVE>
-      <IF CUSTOM_DBL_TYPE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF STRUCTURE_RELATIVE>
+            & + %string(records) + "|"
+    </IF>
+    <IF CUSTOM_DBL_TYPE>
 ;//
 ;// CUSTOM FIELDS
 ;//
-            &    + %<FIELD_CUSTOM_STRING_FUNCTION>(<structure_name>.<field_original_name_modified>,<structure_name>) + "<IF MORE>|</IF MORE>"
+            & + %<FIELD_CUSTOM_STRING_FUNCTION>(<structure_name>.<field_original_name_modified>,<structure_name>) + "<IF MORE>|</IF MORE>"
 ;//
 ;// ALPHA
 ;//
-      <ELSE ALPHA>
-        <IF DEFINED_DBLV11>
-            &    + (<structure_name>.<field_original_name_modified> ? %atrim(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF MORE> : "<IF MORE>|</IF MORE>")
-        <ELSE>
-            &    + %atrim(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF MORE>"
-        </IF DEFINED_DBLV11>
+    <ELSE ALPHA>
+      <IF DEFINED_DBLV11>
+            & + (<structure_name>.<field_original_name_modified> ? %atrim(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+      <ELSE>
+            & + %atrim(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+      </IF>
 ;//
 ;// DECIMAL
 ;//
-      <ELSE DECIMAL>
-        <IF DEFINED_DBLV11>
-            &    + (<structure_name>.<field_original_name_modified> ? <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF MORE> : "<IF MORE>0|</IF MORE>")
-        <ELSE>
-            &    + <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF MORE>"
-        </IF DEFINED_DBLV11>
+    <ELSE DECIMAL>
+      <IF DEFINED_DBLV11>
+            & + (<structure_name>.<field_original_name_modified> ? <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>0|</IF>")
+      <ELSE>
+            & + <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+      </IF>
 ;//
 ;// DATE
 ;//
-      <ELSE DATE>
-        <IF DEFINED_DBLV11>
-            &    + (<structure_name>.<field_original_name_modified> ? %string(<structure_name>.<field_original_name_modified>,"XXXX-XX-XX")<IF MORE> + "|"</IF MORE> : "<IF MORE>|</IF MORE>")
-        <ELSE>
-            &    + %MakeDateForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF MORE>"
-        </IF DEFINED_DBLV11>
+    <ELSE DATE>
+      <IF DEFINED_DBLV11>
+            & + (<structure_name>.<field_original_name_modified> ? %string(<structure_name>.<field_original_name_modified>,"XXXX-XX-XX")<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+      <ELSE>
+            & + %MakeDateForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+      </IF>
 ;//
 ;// DATE_YYMMDD
 ;//
-      <ELSE DATE_YYMMDD>
-            &    + %atrim(^a(<structure_name>.<field_original_name_modified>)) + "<IF MORE>|</IF MORE>"
+    <ELSE DATE_YYMMDD>
+            & + %atrim(^a(<structure_name>.<field_original_name_modified>)) + "<IF MORE>|</IF>"
 ;//
 ;// TIME_HHMM
 ;//
-      <ELSE TIME_HHMM>
-        <IF DEFINED_DBLV11>
-            &    + (<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF MORE> : "<IF MORE>|</IF MORE>")
-        <ELSE>
-            &    + %MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF MORE>"
-        </IF DEFINED_DBLV11>
+    <ELSE TIME_HHMM>
+      <IF DEFINED_DBLV11>
+            & + (<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+      <ELSE>
+            & + %MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+      </IF>
 ;//
 ;// TIME_HHMMSS
 ;//
-      <ELSE TIME_HHMMSS>
-        <IF DEFINED_DBLV11>
-            &    + (<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF MORE> : "<IF MORE>|</IF MORE>")
-        <ELSE>
-            &    + %MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF MORE>"
-        </IF DEFINED_DBLV11>
+    <ELSE TIME_HHMMSS>
+      <IF DEFINED_DBLV11>
+            & + (<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+      <ELSE>
+            & + %MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+      </IF>
 ;//
 ;// USER-DEFINED
 ;//
-      <ELSE USER>
-        <IF USERTIMESTAMP>
-            &    + %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX") + "<IF MORE>|</IF MORE>"
-        <ELSE>
-            &    + <IF DEFINED_ASA_TIREMAX>%TmJulianToCsvDate<ELSE>%atrim</IF DEFINED_ASA_TIREMAX>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF MORE>"
-        </IF USERTIMESTAMP>
+    <ELSE USER>
+      <IF USERTIMESTAMP>
+            & + %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX") + "<IF MORE>|</IF>"
+      <ELSE>
+            & + <IF DEFINED_ASA_TIREMAX>%TmJulianToCsvDate<ELSE>%atrim</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+      </IF>
 ;//
 ;//
 ;//
-      </IF CUSTOM_DBL_TYPE>
-    </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-  </FIELD_LOOP>
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
 
             .ifdef OS_WINDOWS7
             writes(outchn,outrec)
@@ -3134,9 +3131,9 @@ proc
         end
     end
 
-  <IF NOT STRUCTURE_TAGS>
+<IF NOT STRUCTURE_TAGS>
 eof,
-  </IF STRUCTURE_TAGS>
+</IF>
 
     ;;Close the file
     if (filechn && %chopen(filechn))
@@ -3151,8 +3148,7 @@ eof,
     end
 
     ;;Return the record count
-    if (^passed(recordCount))
-        recordCount = records
+    recordCount = records
 
     ;;Return the error text
     if (^passed(errorMessage))

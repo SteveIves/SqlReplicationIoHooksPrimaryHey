@@ -143,22 +143,24 @@ proc
             access_code = %nspc_stoa(Settings.ChannelInfo,idx)
             xcall nspc_getdata(Settings.ChannelInfo,access_code,structure_data)
 
-            ;;Hard close any soft-closed database cursors
-            try
+            if (Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlConnection)
             begin
-                functionName = %atrim(structure_data.structure_name) + "Close"
-                xcall xsubr(functionName,Settings.DatabaseChannel)
+                ;;Hard close any soft-closed database cursors
+                try
+                begin
+                    functionName = %atrim(structure_data.structure_name) + "Close"
+                    xcall xsubr(functionName,Settings.DatabaseChannel)
+                end
+                catch (ex)
+                begin
+                    nop
+                end
+                endtry
             end
-            catch (ex)
-            begin
-                nop
-            end
-            endtry
         end
 
         xcall nspc_close(Settings.ChannelInfo)
         Settings.ChannelInfo = 0
-
     end
 
     ;;Disconnect from the database

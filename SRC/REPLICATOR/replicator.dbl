@@ -1022,21 +1022,23 @@ BulkLoadTable,
 
         try
         begin
-            data totalRows, int,maxRowsToLoad
-            data failRows,  int,0
+            data totalRows, int, 0
+            data failRows,  int, 0
 
             using Settings.DatabaseConnectMode select
             (DatabaseConnectionMode.SqlConnection),
             begin
-                
+                functionName = %atrim(instruction.structure_name) + "BulkLoad"
+                status = %xsubr(functionName,Settings.DatabaseChannel,(i)(Settings.DatabaseCommitMode),Settings.LocalExportPath,Settings.FileServiceHost,Settings.FileServicePort,Settings.DatabaseTimeout,Settings.BulkLoadTimeout,Settings.BulkLoadBatchSize,Settings.LogFileChannel,Settings.TerminalChannel,totalRows,failRows,dberrtxt)
             end
+.ifdef DBLNET
             (DatabaseConnectionMode.SqlClient),
             begin
-                
+                functionName = %atrim(instruction.structure_name) + "_BulkLoad"
+                status = %xsubr(functionName,maxRowsToLoad,totalRows,failRows,dberrtxt)
             end
+.endc
             endusing
-            functionName = %atrim(instruction.structure_name) + "BulkLoad"
-            status = %xsubr(functionName,Settings.DatabaseChannel,(i)(Settings.DatabaseCommitMode),Settings.LocalExportPath,Settings.FileServiceHost,Settings.FileServicePort,Settings.DatabaseTimeout,Settings.BulkLoadTimeout,Settings.BulkLoadBatchSize,Settings.LogFileChannel,Settings.TerminalChannel,totalRows,failRows,dberrtxt)
 
             if (status) then
             begin
@@ -1740,19 +1742,22 @@ DoCreateCsv,
 
     try
     begin
-        data csvFileSpec,   a128,   Settings.LocalExportPath
+        data csvFileSpec, string, Settings.LocalExportPath + %atrim(instruction.structure_name) + ".Csv"
+        data recordCount, i4, 0
+
         using Settings.DatabaseConnectMode select
         (DatabaseConnectionMode.SqlConnection),
         begin
-                
+            functionName = %atrim(instruction.structure_name) + "Csv"
         end
         (DatabaseConnectionMode.SqlClient),
         begin
-                
+            functionName = %atrim(instruction.structure_name) + "_Csv"
         end
         endusing
-        functionName = %atrim(instruction.structure_name) + "Csv"
-        status = %xsubr(functionName,csvFileSpec,dberrtxt)
+
+        status = %xsubr(functionName,(a)csvFileSpec,0,recordCount,dberrtxt)
+
         if (status) then
         begin
             Logger.VerboseLog(" - Export complete at " + %TimeNow)

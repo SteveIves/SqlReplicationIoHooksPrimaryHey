@@ -2,7 +2,8 @@
 ;;
 ;; File:        File.dbl
 ;;
-;; Description: A File handling utility class
+;; Description: Implements some og the functionality of System.IO.File for
+;;              traditional Synergy.
 ;;
 ;; Author:      Steve Ives, Synergex Professional Services Group
 ;;

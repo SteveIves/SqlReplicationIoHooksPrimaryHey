@@ -17,6 +17,7 @@
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
 import System.Data.SqlClient
+import System.IO
 
 .ifndef strEmployee
 .include "EMPLOYEE" repository, structure="strEmployee", end
@@ -1573,42 +1574,462 @@ endfunction
 ;;; <summary>
 ;;; Bulk load data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a CSV file.
 ;;; </summary>
-;;; <param name="a_connection">Established database connection.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
-;;; <param name="a_localpath">Path to local export directory</param>
-;;; <param name="a_remotepath">Remote export directory or URL</param>
-;;; <param name="a_db_timeout">Database timeout in seconds.</param>
-;;; <param name="a_bl_timeout">Bulk load timeout in seconds.</param>
-;;; <param name="a_bl_batchsz">Bulk load batch size in rows.</param>
-;;; <param name="a_logchannel">Log file channel to log messages on.</param>
+;;; <param name="recordsToLoad">The number of records to load, or 0 for all records.</param>
 ;;; <param name="a_records">Total number of records processed</param>
 ;;; <param name="a_exceptions">Total number of exception records detected</param>
-;;; <param name="a_errtxt">Returned error text.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_BulkLoad, ^val
-    required in  a_connection, @SqlConnection
-    required in  a_commit_mode,i
-    required in  a_localpath,  a
-    required in  a_server,     a
-    required in  a_port,       i
-    required in  a_db_timeout, n
-    required in  a_bl_timeout, n
-    required in  a_bl_batchsz, n
-    optional in  a_logchannel, n
-    optional in  a_ttchannel,  n
-    optional out a_records,    n
-    optional out a_exceptions, n
-    optional out a_errtxt,     a
+    required in recordsToLoad,  n
+    required out a_records,     n
+    required out a_exceptions,  n
+    required out aErrorMessage, a
 
-    .align
-    stack record local_data
-        ok, boolean
+     stack record local_data
+        ok,                     boolean    ;;Return status
+        transaction,            boolean
+        ;cursorOpen,             boolean
+        remoteBulkLoad,         boolean
+        sql,                    string
+        localCsvFile,           string
+        localExceptionsFile,    string
+        localExceptionsLog,     string
+        remoteCsvFile,          string
+        remoteExceptionsFile,   string
+        remoteExceptionsLog,    string
+        copyTarget,             string
+        fileToLoad,             string
+        errorFile,              string
+        cursor,                 int
+        length,                 int
+        dberror,                int
+        recordCount,            int	        ;# records loaded
+        exceptionCount,         int         ;# records failed
+        errtxt,                 a512        ;Temp error message
+        errorMessage,           string      ;Error message
+        fsc,                    @FileServiceClient
+        now,                    a20
     endrecord
 
 proc
     init local_data
-    ok = false
+    ok = true
+
+    ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
+
+    if (remoteBulkLoad = Settings.CanBulkLoad())
+    begin
+        fsc = new FileServiceClient(Settings.FileServiceHost,Settings.FileServicePort)
+
+        now = %datetime
+        writelog("Verifying FileService connection")
+        writett("Verifying FileService connection")
+
+        if (!fsc.Ping(errtxt))
+        begin
+            now = %datetime
+            writelog(errtxt = "No response from FileService, bulk upload cancelled")
+            writett(errtxt = "No response from FileService, bulk upload cancelled")
+            errorMessage = %atrimtostring(errtxt)
+            ok = false
+        end
+    end
+
+    ;Define temp file names and make sure there are no local temp files left over from a previous operation
+
+    if (ok)
+    begin
+        .ifdef OS_VMS
+        localCsvFile = String.Format("{0}Employee.csv",Settings.LocalExportPath)
+        .else
+        localCsvFile = Path.Combine(Settings.LocalExportPath,"Employee.csv")
+        .endc
+        localExceptionsFile = String.Format("{0}_err",localCsvFile)
+        localExceptionsLog = String.Format("{0}.Error.Txt",localExceptionsFile)
+
+        if (remoteBulkLoad)
+        begin
+            remoteCsvFile = "Employee.csv"
+            remoteExceptionsFile = String.Format("{0}_err",remoteCsvFile)
+            remoteExceptionsLog = String.Format("{0}.Error.Txt",remoteExceptionsFile)
+        end
+
+        now = %datetime
+        writelog("Deleting local temp files")
+        writett("Deleting local temp files")
+
+        if (File.Exists(localCsvFile))
+        begin
+            try
+            begin
+                File.Delete(localCsvFile)
+            end
+            catch (ex)
+            begin
+                nop
+            end
+            endtry
+        end
+
+        if (File.Exists(localExceptionsFile))
+        begin
+            try
+            begin
+                File.Delete(localExceptionsFile)
+            end
+            catch (ex)
+            begin
+                nop
+            end
+            endtry
+        end
+
+        if (File.Exists(localExceptionsLog))
+        begin
+            try
+            begin
+                File.Delete(localExceptionsLog)
+            end
+            catch (ex)
+            begin
+                nop
+            end
+            endtry
+        end
+
+        ;Delete remote files
+
+        if (remoteBulkLoad)
+        begin
+            now = %datetime
+            writelog("Deleting remote files")
+            writett("Deleting remote files")
+
+            fsc.Delete(remoteCsvFile)
+            fsc.Delete(remoteExceptionsFile)
+            fsc.Delete(remoteExceptionsLog)
+        end
+
+        ;Were we asked to load a specific number of records?
+
+        recordCount =  recordCount > 0 ? recordCount : 0
+
+        ;And export the data
+
+        now = %datetime
+        writelog("Exporting delimited file")
+        writett("Exporting delimited file")
+
+        ok = %EmployeeCsv(localCsvFile,0,recordCount,errtxt)
+
+        errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
+    end
+
+    ;If necessary, upload the exported file to the database server
+
+    if (ok)
+    begin
+        if (remoteBulkLoad) then
+        begin
+            now = %datetime
+            writelog("Uploading delimited file to database host")
+            writett("Uploading delimited file to database host")
+            ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
+            errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
+        end
+        else
+        begin
+            fileToLoad  = localCsvFile
+        end
+    end
+
+    ;If we're in manual commit mode, start a transaction
+
+    if (ok && Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        now = %datetime
+        writelog("Starting transaction")
+        ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    ;Execute the BULK INSERT statement
+
+    if (ok)
+    begin
+        data sql = String.Format("BULK INSERT Employee FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n', MAXERRORS=100000000, ERRORFILE='{1}}'",fileToLoad,errorFile)
+
+        if (Settings.BulkLoadBatchSize > 0)
+        begin
+            sql = String.Format("{0}, BATCHSIZE={1}",sql,Settings.BulkLoadBatchSize)
+        end
+
+        sql = String.Format("{0})",sql)
+
+        now = %datetime
+        writelog("Executing BULK INSERT")
+        writett("Executing BULK INSERT")
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.BulkLoadTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "BULK INSERT failed. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+
+            now = %datetime
+            writelog("Bulk insert error")
+            writett("Bulk insert error")
+
+            using ex.ErrorCode select
+            (-4864),
+            begin
+                ;Bulk load data conversion error
+                now = %datetime
+                writelog("Data conversion errors were reported")
+                writett("Data conversion errors were reported")
+                errorMessage = String.Empty
+
+                ;------------------------------------------------------------------------------------------------------------
+                ;This used to be an internal subroutine GetExceptionDetails but in .NET we can't call it from here! Sucks!
+
+                ;If we get here the bulk load reported one or more "data conversion error" issues and there should be two log files on the server
+
+                now = %datetime
+                writelog("Data conversion errors, processing exceptions")
+                writett("Data conversion errors, processing exceptions")
+
+                if (remoteBulkLoad) then
+                begin
+                    data fileExists, boolean
+                    data tmpmsg, string
+
+                    if (fsc.Exists(remoteExceptionsFile,fileExists,tmpmsg)) then
+                    begin
+                        if (fileExists) then
+                        begin
+                            ;Download the error file
+                            data exceptionRecords, [#]string
+                            data errorMessage, string
+
+                            now = %datetime
+                            writelog("Downloading remote exceptions data file")
+                            writett("Downloading remote exceptions data file")
+
+                            if (fsc.DownloadText(remoteExceptionsFile,exceptionRecords,errorMessage))
+                            begin
+                                data ex_ch, int
+                                data exceptionRecord, string
+
+                                open(ex_ch=0,o:s,localExceptionsFile)
+
+                                foreach exceptionRecord in exceptionRecords
+                                    writes(ex_ch,exceptionRecord)
+
+                                close ex_ch
+
+                                exceptionCount = exceptionRecords.Length
+
+                                now = %datetime
+                                writelog(%string(exceptionCount) + " items saved to " + localExceptionsFile)
+                                writett(%string(exceptionCount) + " items saved to " + localExceptionsFile)
+                            end
+                        end
+                        else
+                        begin
+                            ;Error file does not exist. This should not happen because we got here due to data conversion errors being reported
+                            now = %datetime
+                            writelog("Remote exceptions data file not found!")
+                            writett("Remote exceptions data file not found!")
+                        end
+                    end
+                    else
+                    begin
+                        ;Failed to determine if file exists
+                        now = %datetime
+                        writelog("Failed to determine if remote exceptions data file exists. Error was " + tmpmsg)
+                        writett("Failed to determine if remote exceptions data file exists. Error was " + tmpmsg)
+                    end
+
+                    ;Now check for and retrieve the associated exceptions log
+
+                    if (fsc.Exists(remoteExceptionsLog,fileExists,tmpmsg)) then
+                    begin
+                        if (fileExists) then
+                        begin
+                            ;Download the error file
+                            data exceptionRecords, [#]string
+                            data errorMessage, string
+
+                            now = %datetime
+                            writelog("Downloading remote exceptions log file")
+                            writett("Downloading remote exceptions log file")
+
+                            if (fsc.DownloadText(remoteExceptionsLog,exceptionRecords,errorMessage))
+                            begin
+                                data ex_ch, int
+                                data exceptionRecord, string
+
+                                open(ex_ch=0,o:s,localExceptionsLog)
+
+                                foreach exceptionRecord in exceptionRecords
+                                    writes(ex_ch,exceptionRecord)
+
+                                close ex_ch
+
+                                now = %datetime
+                                writelog(%string(exceptionRecords.Length) + " items saved to " + localExceptionsLog)
+                                writelog(" - " + %string(exceptionRecords.Length) + " items saved to " + localExceptionsLog)
+                            end
+                        end
+                        else
+                        begin
+                            ;Error file does not exist. This should not happen because we got here due to data conversion errors being reported
+                            now = %datetime
+                            writelog("Remote exceptions file not found!")
+                            writett("Remote exceptions file not found!")
+                        end
+                    end
+                    else
+                    begin
+                        ;Failed to determine if file exists
+                        now = %datetime
+                        writelog("Failed to determine if remote exceptions log file exists. Error was " + tmpmsg)
+                    end
+                end
+                else
+                begin
+                    ;Local bulk load
+
+                    if (File.Exists(localExceptionsFile)) then
+                    begin
+                        data ex_ch, int
+                        data tmprec, a65535
+                        open(ex_ch=0,i:s,localExceptionsFile)
+                        repeat
+                        begin
+                            reads(ex_ch,tmprec,eof)
+                            exceptionCount += 1
+                        end
+            eof,        close ex_ch
+                        now = %datetime
+                        writelog(%string(exceptionCount) + " exception items found in " + localExceptionsFile)
+                    end
+                    else
+                    begin
+                        ;Error file does not exist. This should not happen because we got here due to data conversion errors being reported
+                        now = %datetime
+                        writelog("Exceptions data file not found!")
+                    end
+                end
+
+                ;------------------------------------------------------------------------------------------------------------
+            end
+            (),
+            begin
+                errorMessage = String.Format("{0} {1}",ex.ErrorCode,errorMessage)
+                ok = false
+            end
+            endusing
+        end
+        endtry
+    end
+
+    ;Delete local temp files
+
+    now = %datetime
+    writelog("Deleting local temp files")
+    writett("Deleting local temp files")
+
+    if (File.Exists(localCsvFile))
+    begin
+        try
+        begin
+            File.Delete(localCsvFile)
+        end
+        catch (ex)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    if (File.Exists(localExceptionsFile))
+    begin
+        try
+        begin
+            File.Delete(localExceptionsFile)
+        end
+        catch (ex)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    if (File.Exists(localExceptionsLog))
+    begin
+        try
+        begin
+            File.Delete(localExceptionsLog)
+        end
+        catch (ex)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    ;Delete remote temp files
+
+    if (remoteBulkLoad)
+    begin
+        now = %datetime
+        writelog("Deleting remote temp files")
+        writett("Deleting remote temp files")
+
+        fsc.Delete(remoteCsvFile)
+        fsc.Delete(remoteExceptionsFile)
+        fsc.Delete(remoteExceptionsLog)
+    end
+
+    ;If we're in manual commit mode, commit or rollback the transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            now = %datetime
+            writelog("COMMIT")
+            writett("COMMIT")
+            ok = %CommitTransactionSqlClient(errorMessage)
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            now = %datetime
+            writelog("ROLLBACK")
+            writett("ROLLBACK")
+            ok = %RollbackTransactionSqlClient(errorMessage)
+        end
+    end
+
+    ;Return the record count
+    a_records = recordCount
+
+    ;Return the number of exceptions
+    a_exceptions = exceptionCount
+
+    ;Return any error message
+    aErrorMessage = errorMessage
+
+    now = %datetime
+    writelog("BULK LOAD COMPLETE")
 
     freturn ok
 
@@ -1616,51 +2037,141 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Close cursors associated with the Employee table.
-;;; </summary>
-;;; <param name="a_connection">Established database connection.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
-
-subroutine Employee_Close
-    required in a_connection, @SqlConnection
-proc
-
-    xreturn
-
-endsubroutine
-
-;*****************************************************************************
-;;; <summary>
 ;;; Exports REPLICATOR_DATA:EMPLOYEE.ISM to a CSV file.
 ;;; </summary>
 ;;; <param name="fileSpec">File to create</param>
-;;; <param name="recordCount">Passed number of records to export, returned number of records exported.</param>
+;;; <param name="maxRecords">Mumber of records to export.</param>
+;;; <param name="recordCount">Returned number of records exported.</param>
 ;;; <param name="errorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_Csv, boolean
-    required in    fileSpec, a
-    optional inout recordCount, n
-    required out   aErrorMessage, a
+    required in  fileSpec, a
+    required in  maxRecords, n
+    required out recordCount, n
+    required out errorMessage, a
 
     .include "EMPLOYEE" repository, record="employee", end
 
+    .define EXCEPTION_BUFSZ 100
+
+    external function
+        IsDecimalNo, boolean
+        MakeDecimalForCsvNegatives, a
+        MakeDecimalForCsvNoNegatives, a
+        MakeTimeForCsv, a
+    endexternal
+
     .align
     stack record local_data
-        ok,             boolean     ;Return status
-        errorMessage,   string
+        ok,         boolean ;Return status
+        filechn,    int     ;Data file channel
+        outchn,     int     ;CSV file channel
+        outrec,     string  ;A CSV file record
+        records,    int     ;Number of records exported
+        recordsMax, int     ;Max # or records to export
+        errtxt,     a512    ;Error message text
     endrecord
 
 proc
-    init local_data
     ok = true
-    errorMessage = String.Empty
+    init local_data
 
+    ;;Were we given a max # or records to export?
 
+    recordsMax = maxRecords > 0 ? maxRecords : 0
 
+    ;;Open the data file associated with the structure
+
+    if (!(filechn=%EmployeeOpenInput))
+    begin
+        ok = false
+        errtxt = "Failed to open data file!"
+    end
+
+    ;;Create the local CSV file
+
+    if (ok)
+    begin
+.ifdef OS_WINDOWS7
+        open(outchn=0,o:s,fileSpec)
+.endc
+.ifdef OS_UNIX
+        open(outchn=0,o,fileSpec)
+.endc
+.ifdef OS_VMS
+        open(outchn=0,o,fileSpec,OPTIONS:"/stream")
+.endc
+
+        ;;Add a row of column headers
+.ifdef OS_WINDOWS7
+        writes(outchn,"EmpId|EmpFirstName|EmpLastName|EmpDept|EmpHireDate|EmpPhoneWork|EmpPhoneCell|EmpPaid|EmpDateOfBirth|EmpHireTime|EmpEmail|EmpAddressStreet|EmpAddressCity|EmpAddressState|EmpAddressZip")
+.else
+        puts(outchn,"EmpId|EmpFirstName|EmpLastName|EmpDept|EmpHireDate|EmpPhoneWork|EmpPhoneCell|EmpPaid|EmpDateOfBirth|EmpHireTime|EmpEmail|EmpAddressStreet|EmpAddressCity|EmpAddressState|EmpAddressZip" + %char(13) + %char(10))
+.endc
+
+        ;;Read and add data file records
+        foreach employee in new Select(new From(filechn,Q_NO_GRFA,0,employee))
+        begin
+            ;;Make sure there are no | characters in the data
+            data pos, int
+            while (pos = %instr(1,employee,"|"))
+            begin
+                clear employee(pos:1)
+            end
+
+            incr records
+
+            if (recordsmax && (records > recordsMax))
+            begin
+                decr records
+                exitloop
+            end
+
+            outrec = ""
+            & + (employee.emp_id ? %MakeDecimalForCsvNoNegatives(employee.emp_id) + "|" : "0|")
+            & + (employee.emp_first_name ? %atrim(employee.emp_first_name) + "|" : "|")
+            & + (employee.emp_last_name ? %atrim(employee.emp_last_name) + "|" : "|")
+            & + (employee.emp_dept ? %atrim(employee.emp_dept) + "|" : "|")
+            & + (employee.emp_hire_date ? %string(employee.emp_hire_date,"XXXX-XX-XX") + "|" : "|")
+            & + (employee.emp_phone_work ? %atrim(employee.emp_phone_work) + "|" : "|")
+            & + (employee.emp_phone_cell ? %atrim(employee.emp_phone_cell) + "|" : "|")
+            & + (employee.emp_paid ? %MakeDecimalForCsvNoNegatives(employee.emp_paid) + "|" : "0|")
+            & + (employee.emp_date_of_birth ? %string(employee.emp_date_of_birth,"XXXX-XX-XX") + "|" : "|")
+            & + (employee.emp_hire_time ? %MakeTimeForCsv(employee.emp_hire_time) + "|" : "|")
+            & + (employee.emp_email ? %atrim(employee.emp_email) + "|" : "|")
+            & + (employee.emp_address_street ? %atrim(employee.emp_address_street) + "|" : "|")
+            & + (employee.emp_address_city ? %atrim(employee.emp_address_city) + "|" : "|")
+            & + (employee.emp_address_state ? %atrim(employee.emp_address_state) + "|" : "|")
+            & + (employee.emp_address_zip ? %MakeDecimalForCsvNoNegatives(employee.emp_address_zip) : "")
+
+            .ifdef OS_WINDOWS7
+            writes(outchn,outrec)
+            .else
+            puts(outchn,outrec + %char(13) + %char(10))
+            .endc
+        end
+    end
+
+eof,
+
+    ;Close the file
+    if (filechn && %chopen(filechn))
+    begin
+        close filechn
+    end
+
+    ;Close the CSV file
+    if (outchn && %chopen(outchn))
+    begin
+        close outchn
+    end
+
+    ;Return the record count
+    recordCount = records
 
     ;Return any error message to the calling routine
-    aErrorMessage = ok ? String.Empty : errorMessage
+    errorMessage = %atrim(errtxt)
 
     freturn ok
 

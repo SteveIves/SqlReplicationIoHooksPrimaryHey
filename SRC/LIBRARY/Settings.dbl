@@ -43,7 +43,7 @@ namespace ReplicationLibrary
             ErrorEmail              = ^null
             ErrorSleepTime          = 0.01
             FileServiceHost         = ^null
-            FileServicePort         = 8080
+            FileServicePort         = 0
             LocalExportPath         = ^null
             LogBulkLoadExceptions   = false
             LogKeyValues            = false
@@ -326,17 +326,21 @@ namespace ReplicationLibrary
         ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
         public static method CanBulkLoad, boolean
         proc
-.ifdef OS_VMS
-            mreturn (FileServiceHost!=^null && FileServiceHost.Length>1)
-.endc
-.ifdef OS_UNIX
-            mreturn (FileServiceHost!=^null && FileServiceHost.Length>1)
-.endc
-.ifdef OS_WINDOWS7
             ;TODO: ENHANCEMENT: On windows we can also bulk load IF the database is on the same server as the replicator
-            ;TODO: Needs to change for SQLClient
-            mreturn (!DatabaseConnectString.ToLower().StartsWith("net:") || (FileServiceHost!=^null))
-.endc
+            using Settings.DatabaseConnectMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                mreturn (!DatabaseConnectString.ToLower().StartsWith("net:") || (FileServiceHost!=^null && FileServicePort > 0))
+            end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                mreturn !String.IsNullOrWhitespace(FileServiceHost) && Settings.FileServicePort > 0
+            end
+            (),
+            begin
+                mreturn false
+            end
+            endusing
         endmethod
 
         ;;; <summary>

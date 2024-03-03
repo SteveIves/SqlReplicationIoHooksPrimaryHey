@@ -11,6 +11,9 @@
 
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
+.ifdef DBLNET
+import System.IO
+.endc
 
 .ifndef strDepartment
 .include "DEPARTMENT" repository, structure="strDepartment", end
@@ -1763,7 +1766,6 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function DepartmentBulkLoad, ^val
-
     required in  a_dbchn,      i
     required in  a_commit_mode,i
     required in  a_localpath,  a
@@ -1888,7 +1890,7 @@ proc
         writelog("Exporting delimited file")
         writett("Exporting delimited file")
 
-        ok = %DepartmentCsv(localCsvFile,recordCount,errtxt)
+        ok = %DepartmentCsv(localCsvFile,0,recordCount,errtxt)
     end
 
     if (ok)
@@ -2312,52 +2314,47 @@ endsubroutine
 ;;; Exports REPLICATOR_DATA:DEPARTMENT.ISM to a CSV file.
 ;;; </summary>
 ;;; <param name="fileSpec">File to create</param>
-;;; <param name="recordCount">Passed number of records to export, returned number of records exported.</param>
+;;; <param name="maxRecords">Mumber of records to export.</param>
+;;; <param name="recordCount">Returned number of records exported.</param>
 ;;; <param name="errorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function DepartmentCsv, boolean
-    required in    fileSpec, a
-    optional inout recordCount, n
-    optional out   errorMessage, a
+    required in  fileSpec, a
+    required in  maxRecords, n
+    required out recordCount, n
+    required out errorMessage, a
 
     .include "DEPARTMENT" repository, record="department", end
 
     .define EXCEPTION_BUFSZ 100
 
     external function
-        IsDecimalNo,                    boolean
-        MakeDecimalForCsvNegatives,     a
-        MakeDecimalForCsvNoNegatives,   a
-        MakeTimeForCsv,                 a
+        IsDecimalNo, boolean
+        MakeDecimalForCsvNegatives, a
+        MakeDecimalForCsvNoNegatives, a
+        MakeTimeForCsv, a
     endexternal
 
+    .align
     stack record local_data
-.align
-        ok,                             boolean     ;;Return status
-.align
-        filechn,                        int         ;;Data file channel
-.align
-        outchn,                         int         ;;CSV file channel
-.align
-        outrec,                         string      ;;A CSV file record
-.align
-        records,                        int         ;;Number of records exported
-.align
-        pos,                            int         ;;Position in a string
-.align
-        recordsMax,                     int         ;;Max # or records to export
-.align
-        errtxt,                         a512        ;;Error message text
+        ok,         boolean ;;Return status
+        filechn,    int     ;;Data file channel
+        outchn,     int     ;;CSV file channel
+        outrec,     string  ;;A CSV file record
+        records,    int     ;;Number of records exported
+        pos,        int     ;;Position in a string
+        recordsMax, int     ;;Max # or records to export
+        errtxt,     a512    ;;Error message text
     endrecord
-proc
 
+proc
     ok = true
     clear records, errtxt
 
     ;;Were we given a max # or records to export?
 
-    recordsMax = (^passed(recordCount) && recordCount > 0) ? recordCount : 0
+    recordsMax = maxRecords > 0 ? maxRecords : 0
 
     ;;Open the data file associated with the structure
 
@@ -2371,22 +2368,22 @@ proc
 
     if (ok)
     begin
-        .ifdef OS_WINDOWS7
+.ifdef OS_WINDOWS7
         open(outchn=0,o:s,fileSpec)
-        .endc
-        .ifdef OS_UNIX
+.endc
+.ifdef OS_UNIX
         open(outchn=0,o,fileSpec)
-        .endc
-        .ifdef OS_VMS
+.endc
+.ifdef OS_VMS
         open(outchn=0,o,fileSpec,OPTIONS:"/stream")
-        .endc
+.endc
 
         ;;Add a row of column headers
-        .ifdef OS_WINDOWS7
+.ifdef OS_WINDOWS7
         writes(outchn,"DeptId|DeptName|DeptManager")
-        .else
+.else
         puts(outchn,"DeptId|DeptName|DeptManager" + %char(13) + %char(10))
-        .endc
+.endc
 
         ;;Read and add data file records
         foreach department in new Select(new From(filechn,Q_NO_GRFA,0,department))
@@ -2406,9 +2403,9 @@ proc
             end
 
             outrec = ""
-            &    + (department.dept_id ? %atrim(department.dept_id) + "|" : "|")
-            &    + (department.dept_name ? %atrim(department.dept_name) + "|" : "|")
-            &    + (department.dept_manager ? %MakeDecimalForCsvNoNegatives(department.dept_manager) : "")
+            & + (department.dept_id ? %atrim(department.dept_id) + "|" : "|")
+            & + (department.dept_name ? %atrim(department.dept_name) + "|" : "|")
+            & + (department.dept_manager ? %MakeDecimalForCsvNoNegatives(department.dept_manager) : "")
 
             .ifdef OS_WINDOWS7
             writes(outchn,outrec)
@@ -2433,8 +2430,7 @@ eof,
     end
 
     ;;Return the record count
-    if (^passed(recordCount))
-        recordCount = records
+    recordCount = records
 
     ;;Return the error text
     if (^passed(errorMessage))

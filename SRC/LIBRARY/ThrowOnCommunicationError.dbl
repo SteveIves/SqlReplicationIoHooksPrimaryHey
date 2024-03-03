@@ -65,9 +65,9 @@ subroutine ThrowOnCommunicationError
 proc
     if (messages == ^null)
     begin
-        if (File.Exists("REPLICATOR_DATA:RetryErrorMessages.txt"))
+        if (ReplicationLibrary.File.Exists("REPLICATOR_DATA:RetryErrorMessages.txt"))
         begin
-            File.ReadAllLines("REPLICATOR_DATA:RetryErrorMessages.txt",messages)
+            ReplicationLibrary.File.ReadAllLines("REPLICATOR_DATA:RetryErrorMessages.txt",messages)
         end
 
         if ((messages == ^null) || (messages.Count == 0))

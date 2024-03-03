@@ -35,17 +35,20 @@ proc
 
     Logger.Log("Cleaning up after failed database connection...")
 
-    ;;Get a list of all replicated tables
-
-    xcall GetReplicatedTables(Settings.InstanceName,replicatedTables)
-
-    ;;Attempt to close any open cursors - no errors will be generated regardless of what happens
-
-    Logger.Log(" - Attempting to close cursors")
-
-    foreach tableName in replicatedTables
+    if (Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlConnection)
     begin
-        xcall xsubr(tableName + "Close",Settings.DatabaseChannel)
+        ;;Get a list of all replicated tables
+
+        xcall GetReplicatedTables(Settings.InstanceName,replicatedTables)
+
+        ;;Attempt to close any open cursors - no errors will be generated regardless of what happens
+
+        Logger.Log(" - Attempting to close cursors")
+
+        foreach tableName in replicatedTables
+        begin
+            xcall xsubr(tableName + "Close",Settings.DatabaseChannel)
+        end
     end
 
     ;;Attempt to disconnect from the database - no errors will be generated regardless of what happens

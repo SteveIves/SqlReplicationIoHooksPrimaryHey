@@ -11,6 +11,9 @@
 
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
+.ifdef DBLNET
+import System.IO
+.endc
 
 .ifndef strEmployee
 .include "EMPLOYEE" repository, structure="strEmployee", end
@@ -2054,7 +2057,6 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeBulkLoad, ^val
-
     required in  a_dbchn,      i
     required in  a_commit_mode,i
     required in  a_localpath,  a
@@ -2179,7 +2181,7 @@ proc
         writelog("Exporting delimited file")
         writett("Exporting delimited file")
 
-        ok = %EmployeeCsv(localCsvFile,recordCount,errtxt)
+        ok = %EmployeeCsv(localCsvFile,0,recordCount,errtxt)
     end
 
     if (ok)
@@ -2603,52 +2605,47 @@ endsubroutine
 ;;; Exports REPLICATOR_DATA:EMPLOYEE.ISM to a CSV file.
 ;;; </summary>
 ;;; <param name="fileSpec">File to create</param>
-;;; <param name="recordCount">Passed number of records to export, returned number of records exported.</param>
+;;; <param name="maxRecords">Mumber of records to export.</param>
+;;; <param name="recordCount">Returned number of records exported.</param>
 ;;; <param name="errorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeCsv, boolean
-    required in    fileSpec, a
-    optional inout recordCount, n
-    optional out   errorMessage, a
+    required in  fileSpec, a
+    required in  maxRecords, n
+    required out recordCount, n
+    required out errorMessage, a
 
     .include "EMPLOYEE" repository, record="employee", end
 
     .define EXCEPTION_BUFSZ 100
 
     external function
-        IsDecimalNo,                    boolean
-        MakeDecimalForCsvNegatives,     a
-        MakeDecimalForCsvNoNegatives,   a
-        MakeTimeForCsv,                 a
+        IsDecimalNo, boolean
+        MakeDecimalForCsvNegatives, a
+        MakeDecimalForCsvNoNegatives, a
+        MakeTimeForCsv, a
     endexternal
 
+    .align
     stack record local_data
-.align
-        ok,                             boolean     ;;Return status
-.align
-        filechn,                        int         ;;Data file channel
-.align
-        outchn,                         int         ;;CSV file channel
-.align
-        outrec,                         string      ;;A CSV file record
-.align
-        records,                        int         ;;Number of records exported
-.align
-        pos,                            int         ;;Position in a string
-.align
-        recordsMax,                     int         ;;Max # or records to export
-.align
-        errtxt,                         a512        ;;Error message text
+        ok,         boolean ;;Return status
+        filechn,    int     ;;Data file channel
+        outchn,     int     ;;CSV file channel
+        outrec,     string  ;;A CSV file record
+        records,    int     ;;Number of records exported
+        pos,        int     ;;Position in a string
+        recordsMax, int     ;;Max # or records to export
+        errtxt,     a512    ;;Error message text
     endrecord
-proc
 
+proc
     ok = true
     clear records, errtxt
 
     ;;Were we given a max # or records to export?
 
-    recordsMax = (^passed(recordCount) && recordCount > 0) ? recordCount : 0
+    recordsMax = maxRecords > 0 ? maxRecords : 0
 
     ;;Open the data file associated with the structure
 
@@ -2662,22 +2659,22 @@ proc
 
     if (ok)
     begin
-        .ifdef OS_WINDOWS7
+.ifdef OS_WINDOWS7
         open(outchn=0,o:s,fileSpec)
-        .endc
-        .ifdef OS_UNIX
+.endc
+.ifdef OS_UNIX
         open(outchn=0,o,fileSpec)
-        .endc
-        .ifdef OS_VMS
+.endc
+.ifdef OS_VMS
         open(outchn=0,o,fileSpec,OPTIONS:"/stream")
-        .endc
+.endc
 
         ;;Add a row of column headers
-        .ifdef OS_WINDOWS7
+.ifdef OS_WINDOWS7
         writes(outchn,"EmpId|EmpFirstName|EmpLastName|EmpDept|EmpHireDate|EmpPhoneWork|EmpPhoneCell|EmpPaid|EmpDateOfBirth|EmpHireTime|EmpEmail|EmpAddressStreet|EmpAddressCity|EmpAddressState|EmpAddressZip")
-        .else
+.else
         puts(outchn,"EmpId|EmpFirstName|EmpLastName|EmpDept|EmpHireDate|EmpPhoneWork|EmpPhoneCell|EmpPaid|EmpDateOfBirth|EmpHireTime|EmpEmail|EmpAddressStreet|EmpAddressCity|EmpAddressState|EmpAddressZip" + %char(13) + %char(10))
-        .endc
+.endc
 
         ;;Read and add data file records
         foreach employee in new Select(new From(filechn,Q_NO_GRFA,0,employee))
@@ -2697,21 +2694,21 @@ proc
             end
 
             outrec = ""
-            &    + (employee.emp_id ? %MakeDecimalForCsvNoNegatives(employee.emp_id) + "|" : "0|")
-            &    + (employee.emp_first_name ? %atrim(employee.emp_first_name) + "|" : "|")
-            &    + (employee.emp_last_name ? %atrim(employee.emp_last_name) + "|" : "|")
-            &    + (employee.emp_dept ? %atrim(employee.emp_dept) + "|" : "|")
-            &    + (employee.emp_hire_date ? %string(employee.emp_hire_date,"XXXX-XX-XX") + "|" : "|")
-            &    + (employee.emp_phone_work ? %atrim(employee.emp_phone_work) + "|" : "|")
-            &    + (employee.emp_phone_cell ? %atrim(employee.emp_phone_cell) + "|" : "|")
-            &    + (employee.emp_paid ? %MakeDecimalForCsvNoNegatives(employee.emp_paid) + "|" : "0|")
-            &    + (employee.emp_date_of_birth ? %string(employee.emp_date_of_birth,"XXXX-XX-XX") + "|" : "|")
-            &    + (employee.emp_hire_time ? %MakeTimeForCsv(employee.emp_hire_time) + "|" : "|")
-            &    + (employee.emp_email ? %atrim(employee.emp_email) + "|" : "|")
-            &    + (employee.emp_address_street ? %atrim(employee.emp_address_street) + "|" : "|")
-            &    + (employee.emp_address_city ? %atrim(employee.emp_address_city) + "|" : "|")
-            &    + (employee.emp_address_state ? %atrim(employee.emp_address_state) + "|" : "|")
-            &    + (employee.emp_address_zip ? %MakeDecimalForCsvNoNegatives(employee.emp_address_zip) : "")
+            & + (employee.emp_id ? %MakeDecimalForCsvNoNegatives(employee.emp_id) + "|" : "0|")
+            & + (employee.emp_first_name ? %atrim(employee.emp_first_name) + "|" : "|")
+            & + (employee.emp_last_name ? %atrim(employee.emp_last_name) + "|" : "|")
+            & + (employee.emp_dept ? %atrim(employee.emp_dept) + "|" : "|")
+            & + (employee.emp_hire_date ? %string(employee.emp_hire_date,"XXXX-XX-XX") + "|" : "|")
+            & + (employee.emp_phone_work ? %atrim(employee.emp_phone_work) + "|" : "|")
+            & + (employee.emp_phone_cell ? %atrim(employee.emp_phone_cell) + "|" : "|")
+            & + (employee.emp_paid ? %MakeDecimalForCsvNoNegatives(employee.emp_paid) + "|" : "0|")
+            & + (employee.emp_date_of_birth ? %string(employee.emp_date_of_birth,"XXXX-XX-XX") + "|" : "|")
+            & + (employee.emp_hire_time ? %MakeTimeForCsv(employee.emp_hire_time) + "|" : "|")
+            & + (employee.emp_email ? %atrim(employee.emp_email) + "|" : "|")
+            & + (employee.emp_address_street ? %atrim(employee.emp_address_street) + "|" : "|")
+            & + (employee.emp_address_city ? %atrim(employee.emp_address_city) + "|" : "|")
+            & + (employee.emp_address_state ? %atrim(employee.emp_address_state) + "|" : "|")
+            & + (employee.emp_address_zip ? %MakeDecimalForCsvNoNegatives(employee.emp_address_zip) : "")
 
             .ifdef OS_WINDOWS7
             writes(outchn,outrec)
@@ -2736,8 +2733,7 @@ eof,
     end
 
     ;;Return the record count
-    if (^passed(recordCount))
-        recordCount = records
+    recordCount = records
 
     ;;Return the error text
     if (^passed(errorMessage))
