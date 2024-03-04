@@ -47,7 +47,7 @@ function StartTransactionSqlClient, boolean
 proc
     try
     begin
-        disposable data command = new SqlCommand("START TRANSACTION",Settings.DatabaseConnection) { 
+        disposable data command = new SqlCommand("BEGIN TRANSACTION",Settings.DatabaseConnection) { 
         &    CommandTimeout = Settings.DatabaseTimeout
         &    }
         command.ExecuteNonQuery()
@@ -56,7 +56,7 @@ proc
     end
     catch (ex, @SqlException)
     begin
-        errorMessage = "Failed to start transaction. Error was: " + ex.Message
+        errorMessage = "Failed to begin transaction. Error was: " + ex.Message
         xcall ThrowOnSqlClientError(errorMessage,ex)
         transaction = false
     end
