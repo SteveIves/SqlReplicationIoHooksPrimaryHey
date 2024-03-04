@@ -5,7 +5,7 @@
       "BulkLoadBatchSize": 10000,
       "BulkLoadTimeout": 900,
       "CommitBatchSize": 1000,
-      "DatabaseCommitMode": "Batch",
+      "DatabaseCommitMode": "Manual",
       "DatabaseConnectMode": "SQLCLIENT",
       "DatabaseConnectString": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
       "DatabaseRetryDelay": 30,
