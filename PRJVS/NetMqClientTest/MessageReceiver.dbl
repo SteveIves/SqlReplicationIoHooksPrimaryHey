@@ -13,13 +13,13 @@ proc
         ;data conf = new ConsumerConfig()
         ;& {
         ;&  GroupId = "test-consumer-group",
-        ;&  BootstrapServers = "localhost:9092",
+        ;&  BootstrapServers = "localhost:19092",
         ;&  AutoOffsetReset = AutoOffsetReset.Earliest
         ;& }
 
         data conf = new ConsumerConfig()
         conf.GroupId = "ReplicationConsumers"
-        conf.BootstrapServers = "localhost:9092"
+        conf.BootstrapServers = "localhost:19092,localhost:29092,localhost:39092"
         conf.AutoOffsetReset = AutoOffsetReset.Earliest
         conf.EnableAutoCommit = false
 
@@ -29,8 +29,8 @@ proc
         ;automatically, so in this example, consumption will only start from the
         ;earliest message in the topic the first time you run the program.
 
-        disposable data consumer = new ConsumerBuilder<Ignore, string>(conf).Build()
-        consumer.Subscribe("ReplicationQueue")
+        disposable data consumer = new ConsumerBuilder<Ignore,string>(conf).Build()
+        consumer.Subscribe("ReplicatorQueue")
 
         disposable data cts = new CancellationTokenSource()
 
