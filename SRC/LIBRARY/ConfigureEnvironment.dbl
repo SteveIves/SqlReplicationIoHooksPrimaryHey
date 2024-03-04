@@ -1,15 +1,15 @@
-;;*****************************************************************************
-;;
-;; Routine:     ConfigureEnvironment
-;;
-;; Description: Configure the SQL Replication operating environment.
-;;
-;; Author:      Steve Ives, Synergex Professional Services Group
-;;
-;; Created:     30th December 2019
-;;
-;;*****************************************************************************
-;;
+;*****************************************************************************
+;
+; Routine:      ConfigureEnvironment
+;
+; Description:  Configure the SQL Replication operating environment.
+;
+; Author:       Steve Ives, Synergex Professional Services Group
+;
+; Created:      30th December 2019
+;
+;*****************************************************************************
+;
 
 import ReplicationLibrary
 import System.Collections
@@ -32,11 +32,11 @@ proc
 
     xcall flags(7004020,1)
 
-    ;;Get settings from environment
+    ;Get settings from the environment and ReplicatorConfig.json
 
     ok = %GetSettings(errorMessage)
 
-    ;;Running on terminal?
+    ;Running on terminal?
 
     if (Settings.RunningOnTerminal)
     begin
@@ -46,7 +46,8 @@ proc
 .ifndef DBLNET
         display(Settings.TerminalChannel,$scr_pos(1,1),$scr_clr(SCREEN))
 .endc
-        writes(Settings.TerminalChannel,"SQL Replicator Log")
+        writes(Settings.TerminalChannel,"SQL Replicator")
+        writes(Settings.TerminalChannel,"")
     end
 
     if (!ok)
@@ -56,40 +57,63 @@ proc
         freturn false
     end
 
-    ;;Report the instance name
+    ;-----------------------------------------------------------
+    ;Report various configuration settings
 
-    Logger.Log("Instance name " + Settings.InstanceName)
+    if (ok)
+    begin
+        Logger.Log("Instance name:      " + Settings.InstanceName)
 
-    ;;Report the queue type
+        if (Settings.QueueType == MessageQueueType.IsamFile) then
+            Logger.Log("Queue type:         ISAM")
+        else
+            Logger.Log("Queue type:         KAFKA")
 
-    if (Settings.QueueType == MessageQueueType.IsamFile) then
-        Logger.Log("Queue type ISAM")
-    else
-        Logger.Log("Queue type KAFKA")
+        using Settings.DatabaseConnectMode select
+        (DatabaseConnectionMode.SqlConnection),
+            Logger.Log("Connection mode:    SQL Connection")
+        (DatabaseConnectionMode.SqlClient),
+            Logger.Log("Connection mode:    SQL Client")
+        endusing
 
-    ;;Report the connection mode
+        Logger.Log("Sleep interval:     " + %string(Settings.SleepTime) + " seconds.")
 
-    using Settings.DatabaseConnectMode select
-    (DatabaseConnectionMode.SqlConnection),
-        Logger.Log("Connection mode SQL Connection")
-    (DatabaseConnectionMode.SqlClient),
-        Logger.Log("Connection mode SQL Client")
-    endusing
+        Logger.Log("Database timeout:   " + %string(Settings.DatabaseTimeout))
+        Logger.Log("Bulk load timeout:  " + %string(Settings.BulkLoadTimeout))
 
-    ;Report the sleep interval
+        using Settings.DatabaseCommitMode select
+        (DatabaseCommitMode.Automatic),
+            Logger.Log("Commit mode:        AUTOMATIC")
+        (DatabaseCommitMode.Batch),
+            Logger.Log("Commit mode:        BATCH")
+        (DatabaseCommitMode.Manual),
+            Logger.Log("Commit mode:        MANUAL")
+        endusing
 
-    Logger.Log("Processing interval is " + %string(Settings.SleepTime) + " seconds.")
+        Logger.Log("Bulk load batch:    " + %string(Settings.BulkLoadBatchSize))
 
-    ;;-----------------------------------------------------------
-    ;;Check that none of our tables exceed the configured maximum
-    ;;Added by Steve Ives, 1/31/2024
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.None),
+            Logger.Log("Compression:        NONE")
+        (DatabaseDataCompression.Row),
+            Logger.Log("Compression:        ROW")
+        (DatabaseDataCompression.Page),
+            Logger.Log("Compression:        PAGE")
+        endusing
+    end
 
+    ;For SQL Connection, check that no tables exceed the configured maximum columns
+
+    if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlConnection)
     begin
         data tables, @ArrayList
         data table, string
         data columns = 0
         data highestColumns = 0
         data problemTables = 0
+
+        Logger.Log("Maximum cursors:    " + %string(Settings.MaxCursors))
+        Logger.Log("Maximum columns:    " + %string(Settings.MaxColumns))
 
         xcall GetReplicatedTables(Settings.InstanceName,tables)
 
@@ -104,7 +128,7 @@ proc
                 problemTables += 1
         end
 
-        Logger.Log("Max columns found: " + %string(highestColumns))
+        Logger.Log("Max columns found:  " + %string(highestColumns))
 
         if (problemTables > 0)
         begin
@@ -121,7 +145,18 @@ proc
         end
     end
 
-    ;;Open the queue file, creting it if it does not exist
+    ;Report the logging level
+
+    if (ok)
+    begin
+        if (Settings.VerboseLogging) then
+            Logger.Log("Logging level:      Verbose")
+        else
+            Logger.Log("Logging level:      Normal")
+        Logger.Log("")
+    end
+
+    ;Open the queue file, creting it if it does not exist
 
     if (ok)
     begin
@@ -144,7 +179,7 @@ proc
         endusing
     end
 
-    ;;Connect to the database
+    ;Connect to the database
 
     if (ok)
     begin
@@ -153,16 +188,16 @@ proc
 
         (DatabaseConnectionMode.SqlConnection),
         begin
-            ;;Enable the "Improve SQL statement caching for SQL Server" feature (Synergy V11)
-            ;;
-            ;;The SQLPERFORMANCESQL environment variable causes SQL Connection to use SQLDescribeParam internally
-            ;;to improve performance for SQL statements with I/O parameters when accessing SQL Server.
-            ;;
-            ;;This is the equivalent of using %SSC_CMD(chn,,SSQL_PERFORMANCE_SQL)
-            ;;
-            ;;Setting this environment variable will have no effect on pre V11 systems, but will enable the
-            ;;enhanced performance feature under V11 and later versions.
-            ;;
+            ;Enable the "Improve SQL statement caching for SQL Server" feature (Synergy V11)
+            ;
+            ;The SQLPERFORMANCESQL environment variable causes SQL Connection to use SQLDescribeParam internally
+            ;to improve performance for SQL statements with I/O parameters when accessing SQL Server.
+            ;
+            ;This is the equivalent of using %SSC_CMD(chn,,SSQL_PERFORMANCE_SQL)
+            ;
+            ;Setting this environment variable will have no effect on pre V11 systems, but will enable the
+            ;enhanced performance feature under V11 and later versions.
+            ;
             xcall setlog("SQLPERFORMANCESQL","YES",length)
 
 .ifdef OS_VMS
@@ -172,7 +207,7 @@ proc
 .endc
             if (%ssc_init(Settings.DatabaseChannel,Settings.MaxCursors,Settings.MaxColumns)==SSQL_NORMAL) then
             begin
-                ;;Connect to the database and configure the database environment
+                ;Connect to the database and configure the database environment
                 ok = %DatabaseConnect
             end
             else
@@ -190,7 +225,7 @@ proc
         endusing
     end
 
-    ;;Register a shutdown handler
+    ;Register a shutdown handler
     if (ok && !Settings.RunningOnTerminal)
 .ifdef DBLNET
         ;TODO: DOTNET: Need to figure out how to do a shutdown handler in .NET
@@ -200,8 +235,8 @@ proc
 .endc
 
 .ifdef D_GUI
-    ;;If anything has gone wrong so far and we're running on the terminal, pause so that
-    ;;the user can read any error messages before the application window is removed.
+    ;If anything has gone wrong so far and we're running on the terminal, pause so that
+    ;the user can read any error messages before the application window is removed.
     if (!ok && Settings.RunningOnTerminal)
     begin
         data tmpchr, a1
@@ -212,13 +247,13 @@ proc
 
     if (ok)
     begin
-        ;; Record the process ID of the running instance
+        ;Record the process ID of the running instance
         if (!Settings.RunningOnTerminal)
         begin
             data pidFileSpec, string, "REPLICATOR_LOGDIR:REPLICATOR_" + Settings.InstanceName + ".PID"
             data pidFileChannel, int
 
-            ;;Open the PID file
+            ;Open the PID file
             try
             begin
                 xcall delet(pidFileSpec)
@@ -241,21 +276,18 @@ proc
             endtry
         end
 
-        ;;Create a namespace to record information about Synergy data files that we have opened.
+        ;Create a namespace to record information about Synergy data files that we have opened.
         Settings.ChannelInfo = %nspc_open(,^size(strStructureData))
-
-        Logger.Log("Maximum cursors: "+%string(Settings.MaxCursors))
-        Logger.Log("Maximum columns: "+%string(Settings.MaxColumns))
 
         Logger.Log("--- Processing instructions ----------------------")
 
-        ;;If we're sending emails then let's record the server startup
+        ;If we're sending emails then let's record the server startup
         if (Settings.CanSendEmail())
         begin
             xcall SendEmail("Replicator " + Settings.InstanceName  + " started.",^null,false,^null)
         end
 
-        ;;If were writing to the system log, record the startup
+        ;If were writing to the system log, record the startup
         if (Settings.SystemLogging)
         begin
             data tmpmsg, string, "Replicator " + Settings.InstanceName + " started" + %char(13) + %char(10)

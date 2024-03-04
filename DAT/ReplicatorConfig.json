@@ -31,7 +31,7 @@
       "SleepTime": 2,
       "StopOnError": true,
       "SystemLogging": false,
-      "VerboseLogging": false
+      "VerboseLogging": true
     }
   ],
   "DefaultInstance": "DEFAULT",

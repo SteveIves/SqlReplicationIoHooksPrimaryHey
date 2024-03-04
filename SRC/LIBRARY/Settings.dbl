@@ -68,6 +68,14 @@ namespace ReplicationLibrary
             RunningOnTerminal       = (%tnmbr >= 0)
             TerminalChannel         = 0
 
+            ;If we're running on a terminal, open the terminal channel
+            if (RunningOnTerminal)
+            begin
+                data tmpchn, i4
+                open(tmpchn=0,o,"tt:")
+                Settings.TerminalChannel = tmpchn
+            end
+
         endmethod
 
         ;---------------------------------------------------------------------------------------------------------
@@ -209,12 +217,12 @@ namespace ReplicationLibrary
         public static readwrite property LogLoadProgress, boolean
 
         ;;; <summary>
-        ;;; Maximum number of columns in a database table
+        ;;; Maximum number of columns in a database table (SQL Connection only)
         ;;; </summary>
         public static readwrite property MaxColumns, int
 
         ;;; <summary>
-        ;;; Maximum number of database cursors
+        ;;; Maximum number of database cursors (SQL Connection only)
         ;;; </summary>
         public static readwrite property MaxCursors, int
 
@@ -264,13 +272,13 @@ namespace ReplicationLibrary
         public static readwrite property ChannelInfo, i4
 
         ;;; <summary>
-        ;;; The SQL Connection database channel that represents our connection to the database.
+        ;;; The database channel that represents our connection to the database (SQL Connection only).
         ;;; </summary>
         public static readwrite property DatabaseChannel, i4
 
 .ifdef DBLNET
         ;;; <summary>
-        ;;; If using Microsoft SqlClient, this is the connection to the database
+        ;;; The connection to the database (Microsoft SqlClient only)
         ;;; </summary>
         public static readwrite property DatabaseConnection, @SqlConnection
 .endc
@@ -281,38 +289,43 @@ namespace ReplicationLibrary
         public static readwrite property DataDirectory, string
 
         ;;; <summary>
-        ;;; The channel number of the replication instruction file.
+        ;;; The channel number of the replication instruction file (ISAM queue mode only)
         ;;; </summary>
         public static readwrite property InstructionChannel, i4
 
         ;;; <summary>
-        ;;; What is the name of the Kafka topic (when in Kafka mode)?
+        ;;; What is the name of the Kafka topic (Kafka queue mode only)?
+        ;;; Set automatically to REPLICATION_<InstanceName>
         ;;; </summary>
         public static readwrite property KafkaTopicName, string
 
         ;;; <summary>
         ;;; The file spec of the instances log file
+        ;;; Set automatically to REPLICATOR_LOGDIR:REPLICATION_<InstanceName>_<yyyymmdd>_<hhmmss>.LOG"
         ;;; </summary>
         public static readwrite property LogFileName, string
 
         ;;; <summary>
         ;;; The channel that the replicator log file is open on.
+        ;;; Set automatically when ValidateBasicEnvironment calls Logger.OpenLog()
         ;;; </summary>
         public static readwrite property LogFileChannel, i4
 
         ;;; <summary>
-        ;;; The name of the replicator queue file (when is ISAM mode).
-        ;;; If running in interactive mode this will be TT:
+        ;;; The name of the replicator queue file (ISAM queue mode only).
+        ;;; Set automatically to REPLICATOR_DATA:REPLICATION_<InstanceName>.ISM"
         ;;; </summary>
         public static readwrite property QueueFileName, string
 
         ;;; <summary>
         ;;; Are we attached to a terminal?
+        ;;; Set automatically if terminal number >= 0.
         ;;; </summary>
         public static readwrite property RunningOnTerminal, boolean
 
         ;;; <summary>
         ;;; If running interactively, the channel number of the terminal.
+        ;;; Channel opened and set automatically if RunningOnTerminal is true.
         ;;; </summary>
         public static readwrite property TerminalChannel, i4
 
@@ -409,6 +422,11 @@ namespace ReplicationLibrary
         Manual,             3
     endenum
 
+    public enum DatabaseConnectionMode
+        SqlConnection,      1
+        SqlClient,          2
+    endenum
+
     ;; Do not change these values, they are processed via their integer value in the SqlIO routines!
     public enum DatabaseDataCompression
         None,       1
@@ -419,11 +437,6 @@ namespace ReplicationLibrary
     public enum MessageQueueType
         IsamFile,           1
         Kafka,              2
-    endenum
-
-    public enum DatabaseConnectionMode
-        SqlConnection,      1
-        SqlClient,          2
     endenum
 
 endnamespace

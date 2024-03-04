@@ -26,19 +26,19 @@ function DatabaseConnect, boolean
 proc
     ;;Connect to the database
 
-    Logger.Log("Connecting to database...")
+    Logger.VerboseLog("Connecting to database...")
     if (%ssc_connect(Settings.DatabaseChannel,Settings.DatabaseConnectString)==SSQL_NORMAL) then
     begin
-        Logger.Log("Connected")
+        Logger.VerboseLog("Connected")
+        Logger.VerboseLog("")
         ok = true
 
         ;;Set the SQL statement execution timeout
-        Logger.Log("Setting database execution timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
         if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))!=SSQL_NORMAL)
         begin
             dbstatus = %ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
             Logger.ErrorLog("Failed to set database execution timeout to " + %string(Settings.DatabaseTimeout) + " seconds!")
-            Logger.Log("Error message was : " + dberrtxt(1,length))
+            Logger.Log("Error was : " + dberrtxt(1,length))
             ok = false
 
             ;;If we're sending emails then let's record the error
@@ -47,7 +47,7 @@ proc
                 data body = new string[3]
                 body[1] = "ERROR: Failed to set database timeout!"
                 body[2] = "Specified timeout value was " + %string(Settings.DatabaseTimeout) + " seconds"
-                body[3] = "Error message was :  " + dberrtxt(1,length)
+                body[3] = "Error was :  " + dberrtxt(1,length)
                 xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to set database timeout!",body,false,^null)
             end
         end
@@ -58,7 +58,7 @@ proc
         dbstatus = %ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
         Logger.ErrorLog("Failed to connect to database!")
         Logger.Log("Connect string was: " + Settings.DatabaseConnectString)
-        Logger.Log("Error message was : " + dberrtxt(1,length))
+        Logger.Log("Error was : " + dberrtxt(1,length))
         ok = false
 
         ;;If we're sending emails then let's record the connect failure
@@ -67,7 +67,7 @@ proc
             data body = new string[3]
             body[1] = "ERROR: Failed to connect to database!"
             body[2] = "Connect string was: " + Settings.DatabaseConnectString
-            body[3] = "Error message was :  " + dberrtxt(1,length)
+            body[3] = "Error was :  " + dberrtxt(1,length)
             xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to connect to database!",body,false,^null)
         end
     end
@@ -77,48 +77,24 @@ proc
     if (ok)
     begin
         using Settings.DatabaseCommitMode select
-
         (DatabaseCommitMode.Automatic),
         begin
-            Logger.Log("Commit mode: AUTOMATIC")
+            ;Should be ON by default, but just in case it's not
             dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"yes")
         end
-
         (DatabaseCommitMode.Batch),
         begin
-            Logger.Log("Commit mode: BATCH")
-            Logger.VerboseLog(" - Start transaction")
+            ;Should be OFF by default, but just in case it's not
+            dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"no")
+            ;In batch mode, begin the first stransation now
             dbstatus = %ssc_commit(Settings.DatabaseChannel,SSQL_TXON)
             Counters.BatchCounter = 0
         end
-
         (DatabaseCommitMode.Manual),
         begin
-            Logger.Log("Commit mode: MANUAL")
+            ;Should be OFF by default, but just in case it's not
+            dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"no")
         end
-
-        endusing
-    end
-
-    ;;Report custom bulk load batch size
-    if (ok)
-    begin
-        if (Settings.BulkLoadBatchSize > 0)
-        begin
-            Logger.Log("Bulk load batch size: " + %string(Settings.BulkLoadBatchSize))
-        end
-    end
-
-    ;;Report if data compression is enabled
-    if (ok)
-    begin
-        using Settings.DataCompressionMode select
-        (DatabaseDataCompression.None),
-            Logger.Log("Compression: NONE")
-        (DatabaseDataCompression.Row),
-            Logger.Log("Compression: ROW")
-        (DatabaseDataCompression.Page),
-            Logger.Log("Compression: PAGE")
         endusing
     end
 

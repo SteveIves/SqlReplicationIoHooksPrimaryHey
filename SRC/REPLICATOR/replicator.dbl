@@ -82,7 +82,7 @@ main replicator
     endexternal
 
 proc
-    ;Check that we have data and log directories, a config file, and an instance name
+    ;Check that we have the basic environment that we need
     begin
         data errorMessage, string
         if (!%ValidateBasicEnvironment(errorMessage))
