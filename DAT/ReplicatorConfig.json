@@ -12,10 +12,7 @@
       "DatabaseRetryMax": 10,
       "DatabaseTimeout": 60,
       "DataCompressionMode": "None",
-      "EmailSender": "",
-      "EmailServer": "",
       "Enabled": true,
-      "ErrorEmail": "",
       "ErrorSleepTime": 0.01,
       "FileServiceHost": "LOCALHOST",
       "FileServicePort": 8080,
@@ -34,12 +31,23 @@
       "VerboseLogging": true
     }
   ],
+  "EmailSettings": {
+    "SmtpServer": "localhost",
+    "SmtpPort": 25,
+    "SmtpUseSSL": false,
+    "EmailSenderAddress": "replicator@somedomain.local",
+    "EmailSenderName": "SQL Replicator",
+    "EmailRecipients": [
+      "admin1@somedomain.local",
+      "admin2@somedomain.local"
+    ]
+  },
   "DefaultInstance": "DEFAULT",
   "TableMaps": [
     {
       "FileName": "DEPARTMENT",
       "Instance": "DEFAULT",
-      "Enabled":  true
+      "Enabled": true
     },
     {
       "FileName": "EMPLOYEE",

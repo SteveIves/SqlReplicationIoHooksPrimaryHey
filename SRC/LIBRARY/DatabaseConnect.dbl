@@ -48,7 +48,7 @@ proc
                 body[1] = "ERROR: Failed to set database timeout!"
                 body[2] = "Specified timeout value was " + %string(Settings.DatabaseTimeout) + " seconds"
                 body[3] = "Error was :  " + dberrtxt(1,length)
-                xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to set database timeout!",body,false,^null)
+                xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to set database timeout!",body,false)
             end
         end
     end
@@ -68,7 +68,7 @@ proc
             body[1] = "ERROR: Failed to connect to database!"
             body[2] = "Connect string was: " + Settings.DatabaseConnectString
             body[3] = "Error was :  " + dberrtxt(1,length)
-            xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to connect to database!",body,false,^null)
+            xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to connect to database!",body,false)
         end
     end
 

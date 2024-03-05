@@ -61,6 +61,7 @@ main replicator
         bulkLoad,                   boolean             ;;Use bulk load?
         doCheckCommit,              boolean             ;;Do we need to check if it's time to commit?
         doForceCommit,              boolean             ;;Do we need to force a commit?
+        shutdownRequested,          boolean             ;;A shutdown instruction was received and processed
         nsptr,                      i4                  ;;Namespace pointer
         status,                     i4                  ;;General working status return
         rows,                       i4                  ;;Number of rows affected
@@ -88,7 +89,6 @@ proc
         if (!%ValidateBasicEnvironment(errorMessage))
         begin
             Console.WriteLine("Basic environment not established. " + errorMessage)
-            stop
         end
     end
 
@@ -101,6 +101,26 @@ proc
 
     if (ok = %ConfigureEnvironment)
     begin
+        
+        ;Register a shutdown handler that will be called when the process exits.
+        ;This code does NOT need to be called if the shutdown has been requested by an instruction and processed below.
+        ;This is only really to cover the case of a "service" being shut down by the service control manager.
+        if (ok && !Settings.RunningOnTerminal)
+        begin
+.ifdef DBLNET
+            lambda shutdownHandler(sender, e)
+            begin
+                xcall ReplicatorShutdown
+            end
+            AppDomain.CurrentDomain.ProcessExit += shutdownHandler
+.else
+            xcall syn_atexit(%xaddr("ReplicatorShutdown"))
+.endc
+        end
+
+
+
+
         ;;If we're in batch commit mode then initialize a collection to store the RFA's of any pending operations
         if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         begin
@@ -243,7 +263,6 @@ proc
                     ;;And shutdown
                     Logger.Log("Shutdown requested")
                     xcall ReplicatorShutdown
-                    stop
                 end
 
                 ;;We have an instruction to process
@@ -528,7 +547,6 @@ proc
                     end
 
                     xcall ReplicatorShutdown
-                    stop
                 end
 
                 endusing
@@ -616,7 +634,8 @@ CommitTransaction,
 
     (DatabaseConnectionMode.SqlConnection),
     begin
-        if (%ssc_commit(Settings.DatabaseChannel,SSQL_TXON)==SSQL_NORMAL) then
+        data tmpmsg, a128
+        if (%CommitTransactionSqlConnection(Settings.DatabaseChannel,tmpmsg)) then
         begin
             ;TODO: This code is duplicated below but can't be turned into an internal subroutine because of "label"
 
@@ -657,20 +676,15 @@ CommitTransaction,
         else
         begin
             ;TODO: ENHANCEMENT: Commit failed - now what?
-
-
+            Logger.ErrorLog("Failed to commit batch!")
         end
     end
 .ifdef DBLNET
     (DatabaseConnectionMode.SqlClient),
     begin
-        try
+        data message, string
+        if (%CommitTransactionSqlClient(message)) then
         begin
-            disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.DatabaseTimeout
-            &    }
-            command.ExecuteNonQuery()
-
             ;;Delete all of the associated instructions from the queue file.
             foreach boxedRfa in uncommittedInstructions
             begin
@@ -705,13 +719,11 @@ CommitTransaction,
             Counters.BatchCommits += 1
             Counters.BatchCounter = 0
         end
-        catch (ex, @SqlException)
+        else
         begin
             ;TODO: ENHANCEMENT: Commit failed - now what?
-
-
+            Logger.ErrorLog("Failed to commit batch!")
         end
-        endtry
     end
 .endc
     endusing
@@ -1581,7 +1593,7 @@ DoCreateTable,
                         begin
                             if (Settings.CanSendEmail())
                             begin
-                                xcall SendEmail("Replicator " + Settings.InstanceName + " created table " + %atrim(instruction.structure_name),^null,false,^null)
+                                xcall SendEmail("Replicator " + Settings.InstanceName + " created table " + %atrim(instruction.structure_name),^null,false)
                             end
                         end
                         else
@@ -1802,7 +1814,7 @@ DoDeleteAllRows,
 
                 if (Settings.CanSendEmail())
                 begin
-                    xcall SendEmail("Replicator " + Settings.InstanceName + " truncated table " + %atrim(instruction.structure_name),^null,false,^null)
+                    xcall SendEmail("Replicator " + Settings.InstanceName + " truncated table " + %atrim(instruction.structure_name),^null,false)
                 end
             end
             else
@@ -1846,37 +1858,94 @@ DoDeleteTable,
         xcall nspc_delete(Settings.ChannelInfo,nsptr)
     end
 
+    Logger.VerboseLog(" - Checking if table exists")
+
     repeat
     begin
-        data doReturn, boolean, false
         try
         begin
             using Settings.DatabaseConnectMode select
             (DatabaseConnectionMode.SqlConnection),
             begin
-                functionName = %atrim(instruction.structure_name) + "Drop"
+                functionName = %atrim(instruction.structure_name) + "Exists"
                 status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
             end
             (DatabaseConnectionMode.SqlClient),
             begin
-                functionName = %atrim(instruction.structure_name) + "_Drop"
+                functionName = %atrim(instruction.structure_name) + "_Exists"
                 status = %xsubr(functionName,dberrtxt)
             end
             endusing
-            if (status) then
-            begin
-                Logger.VerboseLog(" - Table deleted")
 
-                if (Settings.CanSendEmail())
-                begin
-                    xcall SendEmail("Replicator " + Settings.InstanceName + " deleted table " + %atrim(instruction.structure_name),^null,false,^null)
-                end
+            using status select
+            (0),
+            begin
+                Logger.VerboseLog(" - Table does not exist!")
+                exitloop
             end
-            else
+            (1),
+            begin
+                Logger.VerboseLog(" - Deleting table")
+
+                repeat
+                begin
+                    try
+                    begin
+                        using Settings.DatabaseConnectMode select
+                        (DatabaseConnectionMode.SqlConnection),
+                        begin
+                            functionName = %atrim(instruction.structure_name) + "Drop"
+                            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
+                        end
+                        (DatabaseConnectionMode.SqlClient),
+                        begin
+                            functionName = %atrim(instruction.structure_name) + "_Drop"
+                            status = %xsubr(functionName,dberrtxt)
+                        end
+                        endusing
+
+                        if (status) then
+                        begin
+                            Logger.VerboseLog(" - Table deleted")
+
+                            if (Settings.CanSendEmail())
+                            begin
+                                xcall SendEmail("Replicator " + Settings.InstanceName + " deleted table " + %atrim(instruction.structure_name),^null,false)
+                            end
+                        end
+                        else
+                        begin
+                            Logger.LogFunctionError(functionName,status,dberrtxt)
+                        end
+                    end
+                    catch (ex, @DatabaseCommunicationException)
+                    begin
+                        ;;Attempt to disconnect from and re-connect to the database
+                        if (%DatabaseReconnect) then
+                        begin
+                            ;;Re-connected, retry the previous operation
+                            nextloop
+                        end
+                        else
+                        begin
+                            xcall ReplicatorShutdown
+                        end
+                    end
+                    catch (ex, @SynException)
+                    begin
+                        ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+                    end
+                    endtry
+                    exitloop
+                end
+                exitloop
+            end
+            (<0),
             begin
                 Logger.LogFunctionError(functionName,status,dberrtxt)
+                exitloop
             end
-            exitloop
+            endusing
         end
         catch (ex, @DatabaseCommunicationException)
         begin
@@ -1894,12 +1963,9 @@ DoDeleteTable,
         catch (ex, @SynException)
         begin
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
-            doReturn = true ;Can't return from a TRY in .NET
+            exitloop
         end
         endtry
-
-        if (doReturn)
-            return
     end
 
     return
@@ -1931,7 +1997,7 @@ DoAddIndexes,
 
                 if (Settings.CanSendEmail())
                 begin
-                    xcall SendEmail("Replicator " + Settings.InstanceName + " added indexes to table " + %atrim(instruction.structure_name),^null,false,^null)
+                    xcall SendEmail("Replicator " + Settings.InstanceName + " added indexes to table " + %atrim(instruction.structure_name),^null,false)
                 end
             end
             else
@@ -1995,7 +2061,7 @@ DoDeleteIndexes,
 
                 if (Settings.CanSendEmail())
                 begin
-                    xcall SendEmail("Replicator " + Settings.InstanceName + " removed indexes from table " + %atrim(instruction.structure_name),^null,false,^null)
+                    xcall SendEmail("Replicator " + Settings.InstanceName + " removed indexes from table " + %atrim(instruction.structure_name),^null,false)
                 end
             end
             else

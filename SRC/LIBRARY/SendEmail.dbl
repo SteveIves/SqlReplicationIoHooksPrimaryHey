@@ -1,62 +1,106 @@
 ;;*****************************************************************************
 ;;
 
-import ReplicationLibrary
-
 .ifdef DBLNET
+
+import ReplicationLibrary
+import System.Net
+import System.Net.Mail
+import System.Text
+
+subroutine SendEmail
+    required in aSubject, string
+    required in aBody, [#]string
+    required in aBodyHtml, boolean
+proc
+
+    ;Build the message body
+
+    data bodyBuilder = new StringBuilder()
+    if (aBody == ^null) then
+    begin
+        bodyBuilder.Append(String.Empty)
+    end
+    else
+    begin
+        data bodyLine, string
+        foreach bodyLine in aBody
+        begin
+            bodyBuilder.AppendLine(bodyLine)
+        end
+    end
+
+    ;Create a new MailMessage
+
+    disposable data message = new MailMessage() {
+    &   From = new MailAddress(Settings.EmailSenderAddress,Settings.EmailSenderName),
+    &   Subject = aSubject,
+    &   Body = bodyBuilder.ToString(),
+    &   IsBodyHtml = aBodyHtml
+    & }
+
+    ;Add recipient(s)
+    data recipient, string
+    foreach recipient in Settings.EmailRecipients
+    begin
+        message.To.Add(new MailAddress(recipient))
+    end
+
+    ;Create an SmtpClient
+
+    disposable data smtpClient = new SmtpClient() {
+    &   Host = Settings.SmtpServer,
+    &   Port = Settings.SmtpPort,
+    &   Credentials = new NetworkCredential(Settings.EmailSenderAddress, "senderPassword"),
+    &   EnableSsl = Settings.SmtpUseSSL
+    & }
+
+    ;Send the message
+
+    try
+    begin
+        smtpClient.SendMailAsync(message).Wait()
+    end
+    catch (ex, @Exception)
+    begin
+        ;Noting useful to do if it fails!
+        nop
+    end
+    endtry
+    
+    xreturn
+
+endsubroutine
+
+.else
+
+import ReplicationLibrary
 
 subroutine SendEmail
     required in subject, string
     required in body, [#]string
     required in bodyhtml, boolean
-    required in recipientEmail, string
-proc
-    ;TODO: DOTNET: Need to implement email for .NET
-    xreturn
-endsubroutine
-
-.else
-
-subroutine SendEmail
-    required in subject, string
-    optional in body, [#]string
-    optional in bodyhtml, boolean
-    optional in recipientEmail, string
 
     .include "REPLICATOR_INCLUDE:SmtpMail.def"
 
     stack record
         emailStatus, i4
-        recipientAddress, string
-        bodyData, [#]string
-        html, boolean
     endrecord
 proc
     emailStatus = 0
-    if ^passed(bodyhtml) then
-        html = bodyhtml
-    else
-        html = false
 
-    if (^passed(body) && body != ^null) then
-    begin
-        bodyData = body
-    end
-    else
-    begin
-        bodyData = new string[#] { "" }
-    end
-
-    if (^passed(recipientEmail) && recipientEmail != ^null && recipientEmail.Length>0) then
-    begin
-        recipientAddress = recipientEmail
-    end
-    else
-    begin
-        recipientAddress = Settings.ErrorEmail
-    end
-
-    if ((emailStatus=%SmtpMail(Settings.EmailServer,Settings.EmailSender,"SQL Replicator",,recipientAddress,,subject,bodyData,,html)) != SMERR_SUCCESS)
+    if emailStatus=%SmtpMail(
+    &   Settings.SmtpServer,
+    &   Settings.EmailSenderAddress,
+    &   Settings.EmailSenderName,
+    &   ,
+    &   Settings.GetEmailRecipientsString(),
+    &   ,
+    &   subject,
+    &   body,
+    &   ,
+    &   bodyhtml
+    & ) != SMERR_SUCCESS
     begin
         Logger.ErrorLog("Failed to send error email. Error was " + %atrim(SmtpErrorText[emailStatus]))
     end

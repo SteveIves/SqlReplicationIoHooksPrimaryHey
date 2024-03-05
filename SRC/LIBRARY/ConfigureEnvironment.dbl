@@ -13,6 +13,7 @@
 
 import ReplicationLibrary
 import System.Collections
+import System.Text
 
 function ConfigureEnvironment, boolean
 
@@ -40,9 +41,6 @@ proc
 
     if (Settings.RunningOnTerminal)
     begin
-        data tmpchn, i4, 0
-        open(tmpchn,o,"tt:")
-        Settings.TerminalChannel = tmpchn
 .ifndef DBLNET
         display(Settings.TerminalChannel,$scr_pos(1,1),$scr_clr(SCREEN))
 .endc
@@ -225,15 +223,6 @@ proc
         endusing
     end
 
-    ;Register a shutdown handler
-    if (ok && !Settings.RunningOnTerminal)
-.ifdef DBLNET
-        ;TODO: DOTNET: Need to figure out how to do a shutdown handler in .NET
-        nop
-.else
-        xcall syn_atexit(%xaddr("ReplicatorShutdown"))
-.endc
-
 .ifdef D_GUI
     ;If anything has gone wrong so far and we're running on the terminal, pause so that
     ;the user can read any error messages before the application window is removed.
@@ -284,13 +273,15 @@ proc
         ;If we're sending emails then let's record the server startup
         if (Settings.CanSendEmail())
         begin
-            xcall SendEmail("Replicator " + Settings.InstanceName  + " started.",^null,false,^null)
+            ;TODO: Add configuration information to the email message
+
+            xcall SendEmail("Replicator instance " + Settings.InstanceName  + " was started.",^null,false)
         end
 
         ;If were writing to the system log, record the startup
         if (Settings.SystemLogging)
         begin
-            data tmpmsg, string, "Replicator " + Settings.InstanceName + " started" + %char(13) + %char(10)
+            data tmpmsg, string, "Replicator instance " + Settings.InstanceName + " was started" + %char(13) + %char(10)
             tmpmsg += "Database connect string is " + Settings.DatabaseConnectString + %char(13) + %char(10)
             tmpmsg += "Transaction file is " + Settings.QueueFileName + %char(13) + %char(10)
             tmpmsg += "Log file is " + Settings.LogFileName + %char(13) + %char(10)
@@ -307,9 +298,19 @@ proc
 
             if (Settings.CanSendEmail()) then
             begin
-                tmpmsg += "Replicator is configured to send email messages to " + Settings.ErrorEmail + %char(13) + %char(10)
-                tmpmsg += "Emails will be sent from " + Settings.EmailSender + %char(13) + %char(10)
-                tmpmsg += "Email server is " + Settings.EmailServer + %char(13) + %char(10)
+                data sb = new StringBuilder()
+                data ix, int
+                for ix from 1 thru Settings.EmailRecipients.Length
+                begin
+                    sb.Append(Settings.EmailRecipients[ix])
+                    if (ix < Settings.EmailRecipients.Length)
+                    begin
+                        sb.Append(",")
+                    end
+                end
+                tmpmsg += "Replicator is configured to send email messages to " + sb.ToString() + %char(13) + %char(10)
+                tmpmsg += "Emails will be sent from " + Settings.EmailSenderAddress + %char(13) + %char(10)
+                tmpmsg += "Email server is " + Settings.SmtpServer + %char(13) + %char(10)
             end
             else
             begin

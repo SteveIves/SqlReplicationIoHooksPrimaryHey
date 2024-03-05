@@ -82,7 +82,7 @@ proc
             ;;Send email notification re re-connect success
             if (Settings.CanSendEmail())
             begin
-                xcall SendEmail("Replicator " + %atrim(Settings.InstanceName) + " reconnected to database.",^null,false,^null)
+                xcall SendEmail("Replicator " + %atrim(Settings.InstanceName) + " reconnected to database.",^null,false)
             end
 
             exitloop
@@ -90,7 +90,7 @@ proc
         else if (Settings.CanSendEmail())
         begin
             ;;Send email notification re re-connect failure
-            xcall SendEmail("ERROR: Replicator " + %atrim(Settings.InstanceName) + " reconnect attempt " + %string(connectionAttempt) + " failed!",^null,false,^null)
+            xcall SendEmail("ERROR: Replicator " + %atrim(Settings.InstanceName) + " reconnect attempt " + %string(connectionAttempt) + " failed!",^null,false)
         end
     end
 
@@ -100,7 +100,7 @@ proc
         if (Settings.CanSendEmail())
         begin
             ;;Send email notification re re-connect failure
-            xcall SendEmail("ERROR: Replicator " + %atrim(Settings.InstanceName) + " reconnect failed!",^null,false,^null)
+            xcall SendEmail("ERROR: Replicator " + %atrim(Settings.InstanceName) + " reconnect failed!",^null,false)
         end
         freturn false
     end

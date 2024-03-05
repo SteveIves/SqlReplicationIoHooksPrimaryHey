@@ -66,6 +66,4 @@ proc
     Settings.InstructionChannel = 0
     xcall ReplicatorShutdown
 
-    freturn false
-
 endfunction

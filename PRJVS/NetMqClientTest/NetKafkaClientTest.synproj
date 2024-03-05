@@ -11,6 +11,9 @@
     <EnableCommonProperties>True</EnableCommonProperties>
     <CommonPropertiesFileLocation>$(SolutionDir)Common.props</CommonPropertiesFileLocation>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="MessageReceiver.dbl" />
   </ItemGroup>

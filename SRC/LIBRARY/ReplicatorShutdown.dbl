@@ -60,25 +60,13 @@ proc
         using Settings.DatabaseConnectMode select
         (DatabaseConnectionMode.SqlConnection),
         begin
-            dbstatus = %ssc_commit(Settings.DatabaseChannel,SSQL_TXON)
+            data tmpmsg, a128
+            data ok, boolean, %CommitTransactionSqlConnection(Settings.DatabaseChannel,tmpmsg)
         end
 .ifdef DBLNET
         (DatabaseConnectionMode.SqlClient),
         begin
-            try
-            begin
-                disposable data command = new SqlCommand("COMMIT",Settings.DatabaseConnection) { 
-                &    CommandTimeout = Settings.DatabaseTimeout
-                &    }
-                command.ExecuteNonQuery()
-            end
-            catch (ex, @SqlException)
-            begin
-                ;TODO: ENHANCEMENT: Commit failed - now what?
-
-
-            end
-            endtry
+            data ok, boolean, %CommitTransactionSqlClient(message)
         end
 .endc
         endusing
@@ -130,7 +118,7 @@ proc
         body[08] =      "ERRORS:  " + %string(Counters.Errors, "ZZZ,ZZZ,ZZZ,ZZX") + "</pre>"
         body[09] = "</body>"
         body[10] = "</html>"
-        xcall SendEmail("Replicator " + Settings.InstanceName + " stopped.",body,true,^null)
+        xcall SendEmail("Replicator " + Settings.InstanceName + " stopped.",body,true)
     end
 
     ;;Clean up any database cursors and data files that we have open
@@ -202,6 +190,6 @@ proc
     end
 .endc
 
-    xreturn
+    stop
 
 endsubroutine

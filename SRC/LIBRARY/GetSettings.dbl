@@ -29,10 +29,14 @@ function GetSettings,   boolean
         instances,      JsonElement
         instance,       JsonElement
         setting,        JsonElement
+        smtpsettings,   JsonElement
+        emailAddress,   JsonElement
 .else
         instances,      @JsonElement
         instance,       @JsonElement
         setting,        @JsonElement
+        smtpsettings,   @JsonElement
+        emailAddress,   @JsonElement
 .endc
     endrecord
     external function
@@ -394,42 +398,6 @@ proc
         end
     end
 
-    ;EmailSender
-
-    if (ok)
-    begin
-        if (instance.TryGetProperty("EmailSender",setting))
-        begin
-            if (setting.ValueKind != JsonValueKind.String) then
-            begin
-                errorMessage = "The instance's EmailSender property is not a string!"
-                ok = false
-            end
-            else if (!String.IsNullOrWhitespace(setting.GetString()))
-            begin
-                Settings.EmailSender = setting.GetString()
-            end
-        end
-    end
-
-    ;EmailServer
-
-    if (ok)
-    begin
-        if (instance.TryGetProperty("EmailServer",setting))
-        begin
-            if (setting.ValueKind != JsonValueKind.String) then
-            begin
-                errorMessage = "The instance's EmailServer property is not a string!"
-                ok = false
-            end
-            else if (!String.IsNullOrWhitespace(setting.GetString()))
-            begin
-                Settings.EmailServer = setting.GetString()
-            end
-        end
-    end
-
     ;Enabled
 
     if (ok)
@@ -444,24 +412,6 @@ proc
             else
             begin
                 Settings.Enabled = setting.GetBoolean()
-            end
-        end
-    end
-
-    ;ErrorEmail
-
-    if (ok)
-    begin
-        if (instance.TryGetProperty("ErrorEmail",setting))
-        begin
-            if (setting.ValueKind != JsonValueKind.String) then
-            begin
-                errorMessage = "The instance's ErrorEmail property is not a string!"
-                ok = false
-            end
-            else if (!String.IsNullOrWhitespace(setting.GetString()))
-            begin
-                Settings.ErrorEmail = setting.GetString()
             end
         end
     end
@@ -827,6 +777,159 @@ proc
             else
             begin
                 Settings.VerboseLogging = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;--------------------------------------------------------------------------------------------------------
+    ;Shared settings
+
+    ;EmailSettings
+    if (ok)
+    begin
+        if (doc.RootElement.TryGetProperty("EmailSettings",smtpsettings))
+        begin
+            if (smtpsettings.ValueKind != JsonValueKind.Object)
+            begin
+                errorMessage = "Configuration file EmailSettings property is not an object!"
+                ok = false
+            end
+        end
+    end
+
+    ;SmtpServer
+    if (ok)
+    begin
+        if (smtpsettings.TryGetProperty("SmtpServer",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's SmtpServer property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.SmtpServer = setting.GetString()
+            end
+        end
+    end
+
+    ;SmtpPort
+    if (ok)
+    begin
+        if (smtpsettings.TryGetProperty("SmtpPort",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.Number) then
+            begin
+                errorMessage = "The instance's SmtpPort property is not a number!"
+                ok = false
+            end
+            else if (setting.GetInt32() < 1) then
+            begin
+                errorMessage = "The instance's SmtpPort property is invalid!"
+                ok = false
+            end
+            else
+            begin
+                Settings.SmtpPort = setting.GetInt32()
+            end
+        end
+    end
+
+    ;SmtpUseSSL
+    if (ok)
+    begin
+        if (instance.TryGetProperty("SmtpUseSSL",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            begin
+                errorMessage = "The instance's SmtpUseSSL property is not a boolean!"
+                ok = false
+            end
+            else
+            begin
+                Settings.SmtpUseSSL = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;EmailSenderAddress
+    if (ok)
+    begin
+        if (smtpsettings.TryGetProperty("EmailSenderAddress",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's EmailSenderAddress property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.EmailSenderAddress = setting.GetString()
+            end
+        end
+    end
+
+    ;EmailSenderName
+    if (ok)
+    begin
+        if (smtpsettings.TryGetProperty("EmailSenderName",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's EmailSenderName property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.EmailSenderName = setting.GetString()
+            end
+        end
+    end
+
+    ;EmailRecipients
+    if (ok)
+    begin
+        if (!smtpsettings.TryGetProperty("EmailRecipients",setting)) then
+        begin
+            errorMessage = "EmailSettings does not have a EmailRecipients property!"
+            ok = false
+        end
+        else if (setting.ValueKind != JsonValueKind.Array) then
+        begin
+            errorMessage = "EmailRecipients property is not an array!"
+            ok = false
+        end
+        else if (setting.GetArrayLength() == 0) then
+        begin
+            errorMessage = "EmailRecipients property is an empty array!"
+            ok = false
+        end
+        else
+        begin
+            data addressCount = setting.GetArrayLength()
+            data addressNumber, int
+
+            Settings.EmailRecipients = new String[addressCount]
+
+            for addressNumber from 0 thru addressCount - 1
+            begin
+                emailAddress = setting[addressNumber]
+                
+                if (emailAddress.ValueKind != JsonValueKind.String) then
+                begin
+                    errorMessage = "EmailRecipients " + %string(addressNumber) + " is not a string!"
+                    ok = false
+                end
+                else if (String.IsNullOrWhitespace(emailAddress.GetString())) then
+                begin
+                    errorMessage = "EmailRecipients " + %string(addressNumber) + " is blank!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.EmailRecipients[addressNumber+1] = emailAddress.GetString()
+                end
             end
         end
     end

@@ -37,10 +37,7 @@ namespace ReplicationLibrary
             DatabaseRetryMax        = 10
             DatabaseTimeout         = 60
             DataCompressionMode     = DatabaseDataCompression.None
-            EmailSender             = ^null
-            EmailServer             = ^null
             Enabled                 = true
-            ErrorEmail              = ^null
             ErrorSleepTime          = 0.01
             FileServiceHost         = ^null
             FileServicePort         = 0
@@ -75,6 +72,14 @@ namespace ReplicationLibrary
                 open(tmpchn=0,o,"tt:")
                 Settings.TerminalChannel = tmpchn
             end
+
+            ;Shared settings
+            SmtpServer              = ^null
+            SmtpPort                = 25
+            SmtpUseSSL              = false
+            EmailSenderAddress      = ^null
+            EmailSenderName         = ^null
+            EmailRecipients         = ^null
 
         endmethod
 
@@ -160,26 +165,9 @@ namespace ReplicationLibrary
         public static readwrite property DataCompressionMode, DatabaseDataCompression
 
         ;;; <summary>
-        ;;; The email address to be used as the sender of status messages.
-        ;;; </summary>
-        public static readwrite property EmailSender, string
-
-        ;;; <summary>
-        ;;; The DNS name or IP address of the SMTP server to use to send email messages.
-        ;;; The SMTP server must be configured to accept messages from unauthenticated sources.
-        ;;; </summary>
-        public static readwrite property EmailServer, string
-
-        ;;; <summary>
         ;;; Is the instance enabled?
         ;;; </summary>
         public static readwrite property Enabled, boolean
-
-        ;;; <summary>
-        ;;; The email address or addresses to send status messages to.
-        ;;; One or more email addresses seperated by commas.
-        ;;; </summary>
-        public static readwrite property ErrorEmail, string
 
         ;;; <summary>
         ;;; How many seconds should we sleep after processing an error?
@@ -260,6 +248,41 @@ namespace ReplicationLibrary
         ;;; Are we doing verbose logging?
         ;;; </summary>
         public static readwrite property VerboseLogging, boolean
+
+        ;------------------------------------------------------------------------------------------------
+        ; Shared settings
+
+        ;;; <summary>
+        ;;; The DNS name or IP address of the SMTP server to use to send email messages.
+        ;;; The SMTP server must be configured to accept messages from unauthenticated sources.
+        ;;; </summary>
+        public static readwrite property SmtpServer, string
+
+        ;;; <summary>
+        ;;; The IP port of the SMTP server to use to send email messages.
+        ;;; </summary>
+        public static readwrite property SmtpPort, int
+
+        ;;; <summary>
+        ;;; Does the SMTP server expect an SSL connection?
+        ;;; </summary>
+        public static readwrite property SmtpUseSSL, boolean
+
+        ;;; <summary>
+        ;;; The email address to be used as the sender of status messages.
+        ;;; </summary>
+        public static readwrite property EmailSenderAddress, string
+
+        ;;; <summary>
+        ;;; The name associated with the email sender address.
+        ;;; </summary>
+        public static readwrite property EmailSenderName, string
+
+        ;;; <summary>
+        ;;; The email address or addresses to send status messages to.
+        ;;; One or more email addresses seperated by commas.
+        ;;; </summary>
+        public static readwrite property EmailRecipients, [#]string
 
         ;------------------------------------------------------------------------------------------------
         ; Internal stuff below here
@@ -358,12 +381,36 @@ namespace ReplicationLibrary
 
         ;;; <summary>
         ;;; Are we able to send email messages. In order for this to return true we must have values
-        ;;; for EmailError, EmailServer, EmailSender and EmailDomain.
+        ;;; for EmailError, SmtpServer, EmailSender and EmailDomain.
         ;;; </summary>
         ;;; <returns>Returns true if we have all the data, but does not guarantee that email can be sent!</returns>
         public static method CanSendEmail, boolean
         proc
-            mreturn (ErrorEmail != ^null && ErrorEmail.Length>0 && EmailServer != ^null && EmailServer.Length>0 && EmailSender != ^null && EmailSender.Length>0)
+            if (String.IsNullOrWhitespace(EmailSenderName))
+            begin
+                EmailSenderName = EmailSenderAddress
+            end
+
+            mreturn (EmailRecipients!=^null && EmailRecipients.Length>0 && SmtpServer!=^null && SmtpServer.Length>0 && SmtpPort!=0 && EmailSenderAddress!=^null && EmailSenderAddress.Length>0)
+        endmethod
+
+        public static method GetEmailRecipientsString, string
+        proc
+            if (EmailRecipients != ^null && EmailRecipients.Length > 0)
+            begin
+                data sb = new StringBuilder()
+                data ix, int
+                for ix from 1 thru EmailRecipients.Length
+                begin
+                    sb.Append(EmailRecipients[ix])
+                    if (ix < EmailRecipients.Length)
+                    begin
+                        sb.Append(",")
+                    end
+                end
+                mreturn sb.ToString()
+            end
+            mreturn ""
         endmethod
 
         ;;; <summary>
