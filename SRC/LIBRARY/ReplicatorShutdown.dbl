@@ -107,18 +107,16 @@ proc
 
     if (Settings.CanSendEmail())
     begin
-        data body = new string[10]
-        body[01] = "<html>"
-        body[02] = "<head><title>Replicator Activity Summary</title></head>"
-        body[03] = "<body>"
-        body[04] = "<p>Summary of activity:</p>"
-        body[05] = "<pre>INSERTS: " + %string(Counters.Inserts,"ZZZ,ZZZ,ZZZ,ZZX")
-        body[06] =      "UPDATES: " + %string(Counters.Updates,"ZZZ,ZZZ,ZZZ,ZZX")
-        body[07] =      "DELETES: " + %string(Counters.Deletes,"ZZZ,ZZZ,ZZZ,ZZX")
-        body[08] =      "ERRORS:  " + %string(Counters.Errors, "ZZZ,ZZZ,ZZZ,ZZX") + "</pre>"
-        body[09] = "</body>"
-        body[10] = "</html>"
-        xcall SendEmail("Replicator " + Settings.InstanceName + " stopped.",body,true)
+        data subject = "Replicator instance " + Settings.InstanceName + " was stopped. Summary of activity:"
+        data body = new string[6]
+        data ix = 0
+        body[ix+=1] = subject
+        body[ix+=1] = ""
+        body[ix+=1] = "INSERTS: " + %string(Counters.Inserts,"ZZZ,ZZZ,ZZZ,ZZX")
+        body[ix+=1] = "UPDATES: " + %string(Counters.Updates,"ZZZ,ZZZ,ZZZ,ZZX")
+        body[ix+=1] = "DELETES: " + %string(Counters.Deletes,"ZZZ,ZZZ,ZZZ,ZZX")
+        body[ix+=1] = "ERRORS:  " + %string(Counters.Errors, "ZZZ,ZZZ,ZZZ,ZZX")
+        xcall SendEmail(subject,body,false)
     end
 
     ;;Clean up any database cursors and data files that we have open

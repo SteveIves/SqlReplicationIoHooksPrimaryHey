@@ -853,6 +853,40 @@ proc
         end
     end
 
+    ;SmtpUsername
+    if (ok)
+    begin
+        if (smtpsettings.TryGetProperty("SmtpUsername",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's SmtpUsername property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.SmtpUsername = setting.GetString()
+            end
+        end
+    end
+
+    ;SmtpPassword
+    if (ok)
+    begin
+        if (smtpsettings.TryGetProperty("SmtpPassword",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "The instance's SmtpPassword property is not a string!"
+                ok = false
+            end
+            else
+            begin
+                Settings.SmtpPassword = setting.GetString()
+            end
+        end
+    end
+
     ;EmailSenderAddress
     if (ok)
     begin

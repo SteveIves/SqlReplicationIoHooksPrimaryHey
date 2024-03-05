@@ -74,12 +74,7 @@ namespace ReplicationLibrary
             end
 
             ;Shared settings
-            SmtpServer              = ^null
             SmtpPort                = 25
-            SmtpUseSSL              = false
-            EmailSenderAddress      = ^null
-            EmailSenderName         = ^null
-            EmailRecipients         = ^null
 
         endmethod
 
@@ -264,7 +259,17 @@ namespace ReplicationLibrary
         public static readwrite property SmtpPort, int
 
         ;;; <summary>
-        ;;; Does the SMTP server expect an SSL connection?
+        ;;; If authentication is required, the username to present to the SMTP server (.NET only).
+        ;;; </summary>
+        public static readwrite property SmtpUsername, string
+
+        ;;; <summary>
+        ;;; If authentication is required, the password to present to the SMTP server (.NET only).
+        ;;; </summary>
+        public static readwrite property SmtpPassword, string
+
+        ;;; <summary>
+        ;;; Does the SMTP server expect an SSL connection? (.NET only)
         ;;; </summary>
         public static readwrite property SmtpUseSSL, boolean
 

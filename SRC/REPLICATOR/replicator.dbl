@@ -1593,7 +1593,8 @@ DoCreateTable,
                         begin
                             if (Settings.CanSendEmail())
                             begin
-                                xcall SendEmail("Replicator " + Settings.InstanceName + " created table " + %atrim(instruction.structure_name),^null,false)
+                                data subject, string, "Replicator instance " + Settings.InstanceName + " created table " + %atrimtostring(instruction.structure_name)
+                                xcall SendEmail(subject,^null,false)
                             end
                         end
                         else
@@ -1814,7 +1815,8 @@ DoDeleteAllRows,
 
                 if (Settings.CanSendEmail())
                 begin
-                    xcall SendEmail("Replicator " + Settings.InstanceName + " truncated table " + %atrim(instruction.structure_name),^null,false)
+                    data subject, string, "Replicator instance " + Settings.InstanceName + " truncated table " + %atrim(instruction.structure_name)
+                    xcall SendEmail(subject,^null,false)
                 end
             end
             else
@@ -1910,7 +1912,8 @@ DoDeleteTable,
 
                             if (Settings.CanSendEmail())
                             begin
-                                xcall SendEmail("Replicator " + Settings.InstanceName + " deleted table " + %atrim(instruction.structure_name),^null,false)
+                                data subject, string, "Replicator instance " + Settings.InstanceName + " deleted table " + %atrim(instruction.structure_name)
+                                xcall SendEmail(subject,^null,false)
                             end
                         end
                         else
@@ -1997,7 +2000,8 @@ DoAddIndexes,
 
                 if (Settings.CanSendEmail())
                 begin
-                    xcall SendEmail("Replicator " + Settings.InstanceName + " added indexes to table " + %atrim(instruction.structure_name),^null,false)
+                    data subject, string, "Replicator instance " + Settings.InstanceName + " added indexes to table " + %atrim(instruction.structure_name)
+                    xcall SendEmail(subject,^null,false)
                 end
             end
             else
@@ -2061,7 +2065,8 @@ DoDeleteIndexes,
 
                 if (Settings.CanSendEmail())
                 begin
-                    xcall SendEmail("Replicator " + Settings.InstanceName + " removed indexes from table " + %atrim(instruction.structure_name),^null,false)
+                    data subject, string, "Replicator instance " + Settings.InstanceName + " removed indexes from table " + %atrim(instruction.structure_name)
+                    xcall SendEmail(subject,^null,false)
                 end
             end
             else

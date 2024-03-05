@@ -273,9 +273,60 @@ proc
         ;If we're sending emails then let's record the server startup
         if (Settings.CanSendEmail())
         begin
-            ;TODO: Add configuration information to the email message
+            data subject = "Replicator instance " + Settings.InstanceName  + " was started. Configuration:"
+            data body = new string[13]
+            data ix = 0
 
-            xcall SendEmail("Replicator instance " + Settings.InstanceName  + " was started.",^null,false)
+            body[ix+=1] = subject
+            body[ix+=1] = ""
+
+            body[ix+=1] = "Log file:           " + Settings.LogFileName
+
+            if (Settings.QueueType == MessageQueueType.IsamFile) then
+            begin
+                body[ix+=1] = "Queue type:         ISAM"
+                body[ix+=1] = "Queue file:         " + Settings.QueueFileName
+            end
+            else
+            begin
+                body[ix+=1] = "Queue type:         KAFKA"
+                body[ix+=1] = "Queue topic:        " + Settings.KafkaTopicName
+            end
+
+            using Settings.DatabaseConnectMode select
+            (DatabaseConnectionMode.SqlConnection),
+                body[ix+=1] = "Connection mode:    SQL Connection"
+            (DatabaseConnectionMode.SqlClient),
+                body[ix+=1] = "Connection mode:    SQL Client"
+            endusing
+
+            body[ix+=1] = "Connect string:     " + Settings.DatabaseConnectString
+
+            body[ix+=1] = "Sleep interval:     " + %string(Settings.SleepTime) + " seconds."
+            body[ix+=1] = "Database timeout:   " + %string(Settings.DatabaseTimeout)
+            body[ix+=1] = "Bulk load timeout:  " + %string(Settings.BulkLoadTimeout)
+
+            using Settings.DatabaseCommitMode select
+            (DatabaseCommitMode.Automatic),
+                body[ix+=1] = "Commit mode:        AUTOMATIC"
+            (DatabaseCommitMode.Batch),
+                body[ix+=1] = "Commit mode:        BATCH"
+            (DatabaseCommitMode.Manual),
+                body[ix+=1] = "Commit mode:        MANUAL"
+            endusing
+
+            body[ix+=1] = "Bulk load batch:    " + %string(Settings.BulkLoadBatchSize)
+
+            using Settings.DataCompressionMode select
+            (DatabaseDataCompression.None),
+                body[ix+=1] = "Compression:        NONE"
+            (DatabaseDataCompression.Row),
+                body[ix+=1] = "Compression:        ROW"
+            (DatabaseDataCompression.Page),
+                body[ix+=1] = "Compression:        PAGE"
+            endusing
+
+            xcall SendEmail(subject,body,false)
         end
 
         ;If were writing to the system log, record the startup
@@ -308,7 +359,7 @@ proc
                         sb.Append(",")
                     end
                 end
-                tmpmsg += "Replicator is configured to send email messages to " + sb.ToString() + %char(13) + %char(10)
+                tmpmsg += "Replicator is configured to send email messages to " + Settings.GetEmailRecipientsString() + %char(13) + %char(10)
                 tmpmsg += "Emails will be sent from " + Settings.EmailSenderAddress + %char(13) + %char(10)
                 tmpmsg += "Email server is " + Settings.SmtpServer + %char(13) + %char(10)
             end

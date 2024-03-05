@@ -44,11 +44,14 @@ proc
             ;;If we're sending emails then let's record the error
             if (Settings.CanSendEmail())
             begin
-                data body = new string[3]
-                body[1] = "ERROR: Failed to set database timeout!"
-                body[2] = "Specified timeout value was " + %string(Settings.DatabaseTimeout) + " seconds"
-                body[3] = "Error was :  " + dberrtxt(1,length)
-                xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to set database timeout!",body,false)
+                data subject = "ERROR: Replicator instance " + Settings.InstanceName + " failed to set database timeout!"
+                data body = new string[5]
+                body[1] = subject
+                body[2] = ""
+                body[3] = "ERROR: Failed to set database timeout!"
+                body[4] = "Specified timeout value was " + %string(Settings.DatabaseTimeout) + " seconds"
+                body[5] = "Error was :  " + dberrtxt(1,length)
+                xcall SendEmail(subject,body,false)
             end
         end
     end
@@ -64,11 +67,14 @@ proc
         ;;If we're sending emails then let's record the connect failure
         if (Settings.CanSendEmail())
         begin
-            data body = new string[3]
-            body[1] = "ERROR: Failed to connect to database!"
-            body[2] = "Connect string was: " + Settings.DatabaseConnectString
-            body[3] = "Error was :  " + dberrtxt(1,length)
-            xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " failed to connect to database!",body,false)
+            data subject = "ERROR: Replicator instance " + Settings.InstanceName + " failed to connect to database!"
+            data body = new string[5]
+            body[1] = subject
+            body[2] = ""
+            body[3] = "ERROR: Failed to connect to database!"
+            body[4] = "Connect string was: " + Settings.DatabaseConnectString
+            body[5] = "Error was :  " + dberrtxt(1,length)
+            xcall SendEmail(subject,body,false)
         end
     end
 

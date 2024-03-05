@@ -155,21 +155,20 @@ namespace ReplicationLibrary
             ;;Email the error?
             if (Settings.CanSendEmail())
             begin
+                data subject, string
                 data body = new string[3]
                 if (Settings.StopOnError) then
                 begin
-                    body[1] = "The SQL Replicator encountered the following error and will STOP processing:"
-                    body[2] = ""
-                    body[3] = errorText
-                    xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " encountered an error and will STOP processing!",body,false)
+                    subject = "ERROR: Replicator instance " + Settings.InstanceName + " encountered an error and will STOP processing!"
                 end
                 else
                 begin
-                    body[1] = "The SQL Replicator encountered the following error and will CONTINUE processing:"
-                    body[2] = ""
-                    body[3] = errorText
-                    xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " encountered an error but will CONTINUE processing.",body,false)
+                    subject = "ERROR: Replicator instance " + Settings.InstanceName + " encountered an error but will CONTINUE processing."
                 end
+                body[1] = subject
+                body[2] = ""
+                body[3] = errorText
+                xcall SendEmail(subject,body,false)
             end
 
             ;;Stop processing?
@@ -206,21 +205,20 @@ namespace ReplicationLibrary
             ;;Email the error?
             if (Settings.CanSendEmail())
             begin
+                data subject, string
                 data body = new string[3]
                 if (Settings.StopOnError) then
                 begin
-                    body[1] = "The SQL Replicator encountered the following error and will STOP processing:"
-                    body[2] = ""
-                    body[3] = errorText
-                    xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " encountered an error and will STOP processing!",body,false)
+                    subject = "ERROR: Replicator instance " + Settings.InstanceName + " encountered an error and will STOP processing!"
                 end
                 else
                 begin
-                    body[1] = "The SQL Replicator encountered the following error and will CONTINUE processing:"
-                    body[2] = ""
-                    body[3] = errorText
-                    xcall SendEmail("ERROR: Replicator " + Settings.InstanceName + " encountered an error but will CONTINUE processing.",body,false)
+                    subject = "ERROR: Replicator instance " + Settings.InstanceName + " encountered an error but will CONTINUE processing."
                 end
+                body[1] = subject
+                body[2] = ""
+                body[3] = errorText
+                xcall SendEmail(subject,body,false)
             end
 
             ;;Stop processing?

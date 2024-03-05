@@ -48,18 +48,24 @@ proc
 
     ;Create an SmtpClient
 
-    disposable data smtpClient = new SmtpClient() {
+    disposable data client = new SmtpClient() {
     &   Host = Settings.SmtpServer,
     &   Port = Settings.SmtpPort,
-    &   Credentials = new NetworkCredential(Settings.EmailSenderAddress, "senderPassword"),
     &   EnableSsl = Settings.SmtpUseSSL
     & }
+
+    ;Do we have SMTP credentials?
+
+    if (!String.IsNullOrWhiteSpace(Settings.SmtpUsername) && !String.IsNullOrWhiteSpace(Settings.SmtpPassword))
+    begin
+        client.Credentials = new NetworkCredential(Settings.SmtpUsername,Settings.SmtpPassword)
+    end
 
     ;Send the message
 
     try
     begin
-        smtpClient.SendMailAsync(message).Wait()
+        client.SendMailAsync(message).Wait()
     end
     catch (ex, @Exception)
     begin
