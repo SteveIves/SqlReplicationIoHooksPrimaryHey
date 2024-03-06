@@ -118,9 +118,6 @@ proc
 .endc
         end
 
-
-
-
         ;;If we're in batch commit mode then initialize a collection to store the RFA's of any pending operations
         if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         begin
@@ -449,33 +446,34 @@ proc
                     end
                     endtry
 
-                    repeat
-                    begin
-                        try
-                        begin
-                            delete(Settings.InstructionChannel)
-                            exitloop
-                        end
-                        catch (ex, @NetworkException); $ERR_NETPROB (320)
-                        begin
-                            if (%ReOpenQueueFile)
-                            begin
-                                ;;Re-read and lock the instruction record. What if THIS fails????
-                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-                                nextloop
-                            end
-                        end
-                        catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-                        begin
-                            if (%ReOpenQueueFile)
-                            begin
-                                ;;Re-read and lock the instruction record. What if THIS fails????
-                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-                                nextloop
-                            end
-                        end
-                        endtry
-                    end
+;I suspect this code should have been removed when batch commit mode was added, but it was missed!
+;                    repeat
+;                    begin
+;                        try
+;                        begin
+;                            delete(Settings.InstructionChannel)
+;                            exitloop
+;                        end
+;                        catch (ex, @NetworkException); $ERR_NETPROB (320)
+;                        begin
+;                            if (%ReOpenQueueFile)
+;                            begin
+;                                ;;Re-read and lock the instruction record. What if THIS fails????
+;                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
+;                                nextloop
+;                            end
+;                        end
+;                        catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
+;                        begin
+;                            if (%ReOpenQueueFile)
+;                            begin
+;                                ;;Re-read and lock the instruction record. What if THIS fails????
+;                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
+;                                nextloop
+;                            end
+;                        end
+;                        endtry
+;                    end
                 end
 
                 (REPLICATION_INSTRUCTION.CYCLE_LOG),
@@ -483,34 +481,35 @@ proc
                     Logger.Log("Cycle log file")
                     Logger.CycleLog()
 
-                    ;; Delete the "Cycle Log" instruction from the instructions 
-                    repeat
-                    begin
-                        try
-                        begin
-                            delete(Settings.InstructionChannel)
-                            exitloop
-                        end
-                        catch (ex, @NetworkException); $ERR_NETPROB (320)
-                        begin
-                            if (%ReOpenQueueFile)
-                            begin
-                                ;;Re-read and lock the instruction record. What if THIS fails????
-                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-                                nextloop
-                            end
-                        end
-                        catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-                        begin
-                            if (%ReOpenQueueFile)
-                            begin
-                                ;;Re-read and lock the instruction record. What if THIS fails????
-                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-                                nextloop
-                            end
-                        end
-                        endtry
-                    end
+;I suspect this code should have been removed when batch commit mode was added, but it was missed!
+;                    ;; Delete the "Cycle Log" instruction from the instructions 
+;                    repeat
+;                    begin
+;                        try
+;                        begin
+;                            delete(Settings.InstructionChannel)
+;                            exitloop
+;                        end
+;                        catch (ex, @NetworkException); $ERR_NETPROB (320)
+;                        begin
+;                            if (%ReOpenQueueFile)
+;                            begin
+;                                ;;Re-read and lock the instruction record. What if THIS fails????
+;                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
+;                                nextloop
+;                            end
+;                        end
+;                        catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
+;                        begin
+;                            if (%ReOpenQueueFile)
+;                            begin
+;                                ;;Re-read and lock the instruction record. What if THIS fails????
+;                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
+;                                nextloop
+;                            end
+;                        end
+;                        endtry
+;                    end
                 end
 
                 (REPLICATION_INSTRUCTION.SHUTDOWN),
@@ -950,6 +949,12 @@ LoadTable,
 
     Logger.Log(" - Load starting at " + %TimeNow)
 
+    if (Settings.CanSendEmail())
+    begin
+        data subject, string, "SQL replicator " + Settings.InstanceName + " is starting to load table " + %atrim(instruction.structure_name)
+        xcall SendEmail(subject,^null,false)
+    end
+
     repeat
     begin
         clear status
@@ -985,10 +990,27 @@ LoadTable,
                 Logger.Log(" - " + %string(successCount) + " rows inserted, " + %string(failCount) + " rows failed.")
                 Counters.Inserts += successCount
                 Counters.Errors  += failCount
+
+                if (Settings.CanSendEmail())
+                begin
+                    data subject, string, "SQL replicator " + Settings.InstanceName + " has completed load of table " + %atrim(instruction.structure_name)
+                    data body = new string[2]
+                    body[1] = "Rows inserted: " + %string(successCount - failCount)
+                    body[2] = "Rows failed:   " + %string(failCount)
+                    xcall SendEmail(subject,body,false)
+                end
             end
             else
             begin
                 Logger.LogFunctionError(functionName,status,dberrtxt)
+
+                if (Settings.CanSendEmail())
+                begin
+                    data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to complete load of table " + %atrim(instruction.structure_name)
+                    data body = new string[1]
+                    body[1] = "Error was: " + %atrimtostring(dberrtxt)
+                    xcall SendEmail(subject,body,false)
+                end
             end
             exitloop
         end
@@ -1026,7 +1048,14 @@ LoadTable,
     ;;
 BulkLoadTable,
 
+
     Logger.Log(" - Bulk load starting at " + %TimeNow)
+
+    if (Settings.CanSendEmail())
+    begin
+        data subject, string, "SQL replicator " + Settings.InstanceName + " is starting to bulk load table " + %atrim(instruction.structure_name)
+        xcall SendEmail(subject,^null,false)
+    end
 
     repeat
     begin
@@ -1058,10 +1087,27 @@ BulkLoadTable,
                 Logger.Log("   - " + %string(totalRows) + " records processed, " + %string(failRows) + " failed.")
                 Counters.Inserts += totalRows - failRows
                 Counters.Errors  += failRows
+
+                if (Settings.CanSendEmail())
+                begin
+                    data subject, string, "SQL replicator " + Settings.InstanceName + " has completed bulk load of table " + %atrim(instruction.structure_name)
+                    data body = new string[2]
+                    body[1] = "Rows inserted: " + %string(totalRows - failRows)
+                    body[2] = "Rows failed:   " + %string(failRows)
+                    xcall SendEmail(subject,body,false)
+                end
             end
             else
             begin
                 Logger.LogFunctionError(functionName,status,dberrtxt)
+
+                if (Settings.CanSendEmail())
+                begin
+                    data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to complete bulk load of table " + %atrim(instruction.structure_name)
+                    data body = new string[1]
+                    body[1] = "Error was: " + %atrimtostring(dberrtxt)
+                    xcall SendEmail(subject,body,false)
+                end
             end
             exitloop
         end
@@ -1593,7 +1639,7 @@ DoCreateTable,
                         begin
                             if (Settings.CanSendEmail())
                             begin
-                                data subject, string, "Replicator instance " + Settings.InstanceName + " created table " + %atrimtostring(instruction.structure_name)
+                                data subject, string, "SQL replicator " + Settings.InstanceName + " created table " + %atrimtostring(instruction.structure_name)
                                 xcall SendEmail(subject,^null,false)
                             end
                         end
@@ -1815,7 +1861,7 @@ DoDeleteAllRows,
 
                 if (Settings.CanSendEmail())
                 begin
-                    data subject, string, "Replicator instance " + Settings.InstanceName + " truncated table " + %atrim(instruction.structure_name)
+                    data subject, string, "SQL replicator " + Settings.InstanceName + " truncated table " + %atrim(instruction.structure_name)
                     xcall SendEmail(subject,^null,false)
                 end
             end
@@ -1912,7 +1958,7 @@ DoDeleteTable,
 
                             if (Settings.CanSendEmail())
                             begin
-                                data subject, string, "Replicator instance " + Settings.InstanceName + " deleted table " + %atrim(instruction.structure_name)
+                                data subject, string, "SQL replicator " + Settings.InstanceName + " deleted table " + %atrim(instruction.structure_name)
                                 xcall SendEmail(subject,^null,false)
                             end
                         end
@@ -2000,7 +2046,7 @@ DoAddIndexes,
 
                 if (Settings.CanSendEmail())
                 begin
-                    data subject, string, "Replicator instance " + Settings.InstanceName + " added indexes to table " + %atrim(instruction.structure_name)
+                    data subject, string, "SQL replicator " + Settings.InstanceName + " added indexes to table " + %atrim(instruction.structure_name)
                     xcall SendEmail(subject,^null,false)
                 end
             end
@@ -2065,7 +2111,7 @@ DoDeleteIndexes,
 
                 if (Settings.CanSendEmail())
                 begin
-                    data subject, string, "Replicator instance " + Settings.InstanceName + " removed indexes from table " + %atrim(instruction.structure_name)
+                    data subject, string, "SQL replicator " + Settings.InstanceName + " removed indexes from table " + %atrim(instruction.structure_name)
                     xcall SendEmail(subject,^null,false)
                 end
             end

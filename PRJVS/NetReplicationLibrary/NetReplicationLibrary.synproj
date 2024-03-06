@@ -101,7 +101,6 @@
     <Compile Include="..\..\SRC\LIBRARY\SendEmail.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Settings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SmtpMail.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\SqlClientConnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlClient.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringDictionary.dbl" />

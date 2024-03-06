@@ -52,6 +52,12 @@ proc
     begin
         ;GetSettings returned a failure!
         Logger.ErrorLog(errorMessage)
+        if (Settings.RunningOnTerminal)
+        begin
+            data tmpvar, a1
+            display(Settings.TerminalChannel,"Press ENTER to close: ")
+            reads(Settings.TerminalChannel,tmpvar)
+        end
         freturn false
     end
 
@@ -177,50 +183,39 @@ proc
         endusing
     end
 
+    ;Initialize SQL Connection
+
+    if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlConnection)
+    begin
+        ;Enable the "Improve SQL statement caching for SQL Server" feature (Synergy V11)
+        ;
+        ;The SQLPERFORMANCESQL environment variable causes SQL Connection to use SQLDescribeParam internally
+        ;to improve performance for SQL statements with I/O parameters when accessing SQL Server.
+        ;
+        ;This is the equivalent of using %SSC_CMD(chn,,SSQL_PERFORMANCE_SQL)
+        ;
+        ;Setting this environment variable will have no effect on pre V11 systems, but will enable the
+        ;enhanced performance feature under V11 and later versions.
+        ;
+        xcall setlog("SQLPERFORMANCESQL","YES",length)
+
+.ifdef OS_VMS
+        xcall init_ssql
+.else
+        status = %option(48,1)
+.endc
+        if (%ssc_init(Settings.DatabaseChannel,Settings.MaxCursors,Settings.MaxColumns)==SSQL_FAILURE)
+        begin
+            Logger.ErrorLog("Failed to initialize SQL Connection")
+            ok = false
+        end
+    end
+
     ;Connect to the database
 
     if (ok)
     begin
-
-        using Settings.DatabaseConnectMode select
-
-        (DatabaseConnectionMode.SqlConnection),
-        begin
-            ;Enable the "Improve SQL statement caching for SQL Server" feature (Synergy V11)
-            ;
-            ;The SQLPERFORMANCESQL environment variable causes SQL Connection to use SQLDescribeParam internally
-            ;to improve performance for SQL statements with I/O parameters when accessing SQL Server.
-            ;
-            ;This is the equivalent of using %SSC_CMD(chn,,SSQL_PERFORMANCE_SQL)
-            ;
-            ;Setting this environment variable will have no effect on pre V11 systems, but will enable the
-            ;enhanced performance feature under V11 and later versions.
-            ;
-            xcall setlog("SQLPERFORMANCESQL","YES",length)
-
-.ifdef OS_VMS
-            xcall init_ssql
-.else
-            status = %option(48,1)
-.endc
-            if (%ssc_init(Settings.DatabaseChannel,Settings.MaxCursors,Settings.MaxColumns)==SSQL_NORMAL) then
-            begin
-                ;Connect to the database and configure the database environment
-                ok = %DatabaseConnect
-            end
-            else
-            begin
-                Logger.ErrorLog("Failed to initialize SQL Connection")
-                ok = false
-            end
-        end
-.ifdef DBLNET
-        (DatabaseConnectionMode.SqlClient),
-        begin
-            ok = %SqlClientConnect
-        end
-.endc
-        endusing
+        ok = %DatabaseConnect
     end
 
 .ifdef D_GUI
@@ -273,11 +268,11 @@ proc
         ;If we're sending emails then let's record the server startup
         if (Settings.CanSendEmail())
         begin
-            data subject = "Replicator instance " + Settings.InstanceName  + " was started. Configuration:"
+            data subject = "SQL replicator " + Settings.InstanceName  + " was started."
             data body = new string[13]
             data ix = 0
 
-            body[ix+=1] = subject
+            body[ix+=1] = "Configuration:"
             body[ix+=1] = ""
 
             body[ix+=1] = "Log file:           " + Settings.LogFileName
@@ -332,7 +327,7 @@ proc
         ;If were writing to the system log, record the startup
         if (Settings.SystemLogging)
         begin
-            data tmpmsg, string, "Replicator instance " + Settings.InstanceName + " was started" + %char(13) + %char(10)
+            data tmpmsg, string, "SQL replicator " + Settings.InstanceName + " was started" + %char(13) + %char(10)
             tmpmsg += "Database connect string is " + Settings.DatabaseConnectString + %char(13) + %char(10)
             tmpmsg += "Transaction file is " + Settings.QueueFileName + %char(13) + %char(10)
             tmpmsg += "Log file is " + Settings.LogFileName + %char(13) + %char(10)

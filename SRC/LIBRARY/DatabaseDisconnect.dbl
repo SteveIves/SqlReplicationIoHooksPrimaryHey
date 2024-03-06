@@ -31,6 +31,7 @@ proc
         end
 .endc
         endusing
+        Settings.DatabaseConnected = false
     end
     catch (e, @Exception)
     begin

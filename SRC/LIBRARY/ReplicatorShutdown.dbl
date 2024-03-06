@@ -78,7 +78,7 @@ proc
     ;;Report the counters
 
     message = "--------------------------------------------------" + %char(13) + %char(10)
-    message += "Shutdown of replicator instance " + Settings.InstanceName + %char(13) + %char(10)
+    message += "Shutdown of replicator " + Settings.InstanceName + %char(13) + %char(10)
     message += "INSERTS: " + %string(Counters.Inserts,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
     message += "UPDATES: " + %string(Counters.Updates,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
     message += "DELETES: " + %string(Counters.Deletes,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
@@ -107,10 +107,10 @@ proc
 
     if (Settings.CanSendEmail())
     begin
-        data subject = "Replicator instance " + Settings.InstanceName + " was stopped. Summary of activity:"
+        data subject = "SQL replicator " + Settings.InstanceName + " was stopped."
         data body = new string[6]
         data ix = 0
-        body[ix+=1] = subject
+        body[ix+=1] = "Summary of activity:"
         body[ix+=1] = ""
         body[ix+=1] = "INSERTS: " + %string(Counters.Inserts,"ZZZ,ZZZ,ZZZ,ZZX")
         body[ix+=1] = "UPDATES: " + %string(Counters.Updates,"ZZZ,ZZZ,ZZZ,ZZX")

@@ -1,6 +1,62 @@
 ;;*****************************************************************************
 ;;
 
+subroutine SendEmail
+    required in aSubject, string
+    required in aBody, [#]string
+    required in aBodyHtml, boolean
+    stack record
+        bodyToSend, [#]string
+    endrecord
+    external function
+        DoSendEmail, boolean
+    endexternal
+proc
+    if (Settings.SmtpDisabled)
+    begin
+        ;Is it time to start sending emails again?
+        data timeNow, i8, %datetime_to_i8(%datetime)
+        if (timeNow > (Settings.SmtpPausedTime+(Settings.SmtpPauseMinutes*60000000)))
+        begin
+            ;Yes, the pause period has expired.
+            Settings.SmtpFailCount = 0
+            Settings.SmtpDisabled = false
+            Logger.Log("Email notification resuming after a " + %string(Settings.SmtpPauseMinutes) + " minute pause")
+        end
+    end
+
+    if (!Settings.SmtpDisabled)
+    begin
+        if (aBody == ^null) then
+        begin
+            bodyToSend = new string[1]
+            bodyToSend[1] = ""
+        end
+        else
+        begin
+            bodyToSend = aBody
+        end
+
+        if (!%DoSendEmail(aSubject,bodyToSend,aBodyHtml))
+        begin
+            Logger.ErrorLog("Failed to send email!")
+            Settings.SmtpFailCount = Settings.SmtpFailCount + 1
+
+            ;Have we exceded the SmtpMaxFail threshold?
+            if (Settings.SmtpFailCount > Settings.SmtpFailMax)
+            begin
+                ;Yes, pause email delivery
+                Settings.SmtpDisabled = true
+                Settings.SmtpPausedTime = %datetime_to_i8(%datetime)
+                Logger.ErrorLog("Email notifications will be paused for " + %string(Settings.SmtpPauseMinutes)+ " following " + %string(Settings.SmtpFailMax) + " failures")
+            end
+        end
+    end
+
+    xreturn
+
+endsubroutine
+
 .ifdef DBLNET
 
 import ReplicationLibrary
@@ -8,26 +64,23 @@ import System.Net
 import System.Net.Mail
 import System.Text
 
-subroutine SendEmail
+function DoSendEmail, boolean
     required in aSubject, string
     required in aBody, [#]string
     required in aBodyHtml, boolean
+    stack record
+        ok, boolean
+    endrecord
 proc
+    ok = true
 
     ;Build the message body
 
     data bodyBuilder = new StringBuilder()
-    if (aBody == ^null) then
+    data bodyLine, string
+    foreach bodyLine in aBody
     begin
-        bodyBuilder.Append(String.Empty)
-    end
-    else
-    begin
-        data bodyLine, string
-        foreach bodyLine in aBody
-        begin
-            bodyBuilder.AppendLine(bodyLine)
-        end
+        bodyBuilder.AppendLine(bodyLine)
     end
 
     ;Create a new MailMessage
@@ -69,30 +122,31 @@ proc
     end
     catch (ex, @Exception)
     begin
-        ;Noting useful to do if it fails!
-        nop
+        ok = false
     end
     endtry
     
-    xreturn
+    freturn ok
 
-endsubroutine
+endfunction
 
 .else
 
 import ReplicationLibrary
 
-subroutine SendEmail
-    required in subject, string
-    required in body, [#]string
-    required in bodyhtml, boolean
+function DoSendEmail, boolean
+    required in aSubject, string
+    required in aBody, [#]string
+    required in aBodyHtml, boolean
 
     .include "REPLICATOR_INCLUDE:SmtpMail.def"
 
     stack record
+        ok, boolean
         emailStatus, i4
     endrecord
 proc
+    ok = true
     emailStatus = 0
 
     if emailStatus=%SmtpMail(
@@ -102,17 +156,17 @@ proc
     &   ,
     &   Settings.GetEmailRecipientsString(),
     &   ,
-    &   subject,
-    &   body,
+    &   aSubject,
+    &   aBody,
     &   ,
-    &   bodyhtml
+    &   aBodyHtml
     & ) != SMERR_SUCCESS
     begin
-        Logger.ErrorLog("Failed to send error email. Error was " + %atrim(SmtpErrorText[emailStatus]))
+        ok = false
     end
 
-    xreturn
+    freturn ok
 
-endsubroutine
+endfunction
 
 .endc

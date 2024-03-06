@@ -75,6 +75,7 @@ namespace ReplicationLibrary
 
             ;Shared settings
             SmtpPort                = 25
+            SmtpFailMax             = 3
 
         endmethod
 
@@ -274,6 +275,16 @@ namespace ReplicationLibrary
         public static readwrite property SmtpUseSSL, boolean
 
         ;;; <summary>
+        ;;; The maximum number of send failures before giving up for a while.
+        ;;; </summary>
+        public static readwrite property SmtpFailMax, int
+
+        ;;; <summary>
+        ;;; The How many minutes to pause following SmtpFailMax SMTP send failures
+        ;;; </summary>
+        public static readwrite property SmtpPauseMinutes, i4
+
+        ;;; <summary>
         ;;; The email address to be used as the sender of status messages.
         ;;; </summary>
         public static readwrite property EmailSenderAddress, string
@@ -303,6 +314,11 @@ namespace ReplicationLibrary
         ;;; The database channel that represents our connection to the database (SQL Connection only).
         ;;; </summary>
         public static readwrite property DatabaseChannel, i4
+
+        ;;; <summary>
+        ;;; Is the database currently connected?
+        ;;; </summary>  
+        public static readwrite property DatabaseConnected, boolean
 
 .ifdef DBLNET
         ;;; <summary>
@@ -350,6 +366,21 @@ namespace ReplicationLibrary
         ;;; Set automatically if terminal number >= 0.
         ;;; </summary>
         public static readwrite property RunningOnTerminal, boolean
+
+        ;;; <summary>
+        ;;; Is sending SMTP messages currently disabled because od errors?
+        ;;; </summary>
+        public static readwrite property SmtpDisabled, boolean
+
+        ;;; <summary>
+        ;;; The number of SMTP send failures
+        ;;; </summary>
+        public static readwrite property SmtpFailCount, i4
+
+        ;;; <summary>
+        ;;; The time of the last SMTP send failure in microseconds
+        ;;; </summary>
+        public static readwrite property SmtpPausedTime, i8
 
         ;;; <summary>
         ;;; If running interactively, the channel number of the terminal.

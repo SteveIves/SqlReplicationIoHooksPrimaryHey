@@ -6,8 +6,10 @@
       "BulkLoadTimeout": 900,
       "CommitBatchSize": 1000,
       "DatabaseCommitMode": "Manual",
-      "DatabaseConnectMode": "SQLCLIENT",
-      "DatabaseConnectString": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
+      "DatabaseConnectMode": "SQLCONNECTION",
+      "DatabaseConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes",
+      "DatabaseConnectString_SqlConnection": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes",
+      "DatabaseConnectString_SqlClient": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
       "DatabaseRetryDelay": 30,
       "DatabaseRetryMax": 10,
       "DatabaseTimeout": 60,
@@ -35,11 +37,10 @@
     "SmtpServer": "localhost",
     "SmtpPort": 25,
     "SmtpUseSSL": false,
-    "EmailSenderAddress": "replicator@somedomain.local",
+    "EmailSenderAddress": "replicator@me.local",
     "EmailSenderName": "SQL Replicator",
     "EmailRecipients": [
-      "admin1@somedomain.local",
-      "admin2@somedomain.local"
+      "admin1@me.local"
     ]
   },
   "DefaultInstance": "DEFAULT",

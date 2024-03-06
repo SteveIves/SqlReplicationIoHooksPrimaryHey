@@ -12,6 +12,9 @@
 ;;
 
 import ReplicationLibrary
+.ifdef DBLNET
+import System.Data.SqlClient
+.endc
 
 function DatabaseConnect, boolean
 
@@ -24,85 +27,205 @@ function DatabaseConnect, boolean
         dberrtxt,   a1024
     endrecord
 proc
-    ;;Connect to the database
+    ok = true
 
     Logger.VerboseLog("Connecting to database...")
-    if (%ssc_connect(Settings.DatabaseChannel,Settings.DatabaseConnectString)==SSQL_NORMAL) then
-    begin
-        Logger.VerboseLog("Connected")
-        Logger.VerboseLog("")
-        ok = true
 
-        ;;Set the SQL statement execution timeout
-        if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))!=SSQL_NORMAL)
+    using Settings.DatabaseConnectMode select
+    ;----------------------------------------------------------------------------------------------------------------
+    (DatabaseConnectionMode.SqlConnection),
+    begin
+        if (%ssc_connect(Settings.DatabaseChannel,Settings.DatabaseConnectString)==SSQL_NORMAL) then
         begin
+            Logger.VerboseLog("Connected")
+            Logger.VerboseLog("")
+            Settings.DatabaseConnected = true
+
+            ;Set the SQL Connection statement execution timeout
+
+            if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))!=SSQL_NORMAL)
+            begin
+                dbstatus = %ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
+                Logger.ErrorLog("Failed to set database execution timeout to " + %string(Settings.DatabaseTimeout) + " seconds!")
+                Logger.Log("Error was : " + dberrtxt(1,length))
+                ok = false
+
+                ;If we're sending emails then let's record the error
+
+                if (Settings.CanSendEmail())
+                begin
+                    data subject = "ERROR: SQL replicator " + Settings.InstanceName + " failed to set database timeout!"
+                    data body = new string[5]
+                    body[1] = subject
+                    body[2] = ""
+                    body[3] = "ERROR: Failed to set database timeout!"
+                    body[4] = "Specified timeout value was " + %string(Settings.DatabaseTimeout) + " seconds"
+                    body[5] = "Error was :  " + dberrtxt(1,length)
+                    xcall SendEmail(subject,body,false)
+                end
+            end
+        end
+        else
+        begin
+            ;;Failed to connect
             dbstatus = %ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
-            Logger.ErrorLog("Failed to set database execution timeout to " + %string(Settings.DatabaseTimeout) + " seconds!")
+            Logger.ErrorLog("Failed to connect to database!")
+            Logger.Log("Connect string was: " + Settings.DatabaseConnectString)
             Logger.Log("Error was : " + dberrtxt(1,length))
             ok = false
 
-            ;;If we're sending emails then let's record the error
+            ;;If we're sending emails then let's record the connect failure
             if (Settings.CanSendEmail())
             begin
-                data subject = "ERROR: Replicator instance " + Settings.InstanceName + " failed to set database timeout!"
+                data subject = "ERROR: SQL replicator " + Settings.InstanceName + " failed to connect to database!"
                 data body = new string[5]
                 body[1] = subject
                 body[2] = ""
-                body[3] = "ERROR: Failed to set database timeout!"
-                body[4] = "Specified timeout value was " + %string(Settings.DatabaseTimeout) + " seconds"
+                body[3] = "ERROR: Failed to connect to database!"
+                body[4] = "Connect string was: " + Settings.DatabaseConnectString
                 body[5] = "Error was :  " + dberrtxt(1,length)
                 xcall SendEmail(subject,body,false)
             end
         end
+
+        ;;Enable SQL Server Auto-Commit mode?
+
+        if (ok)
+        begin
+            using Settings.DatabaseCommitMode select
+            (DatabaseCommitMode.Automatic),
+            begin
+                ;Should be ON by default, but just in case it's not
+                dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"yes")
+            end
+            (DatabaseCommitMode.Batch),
+            begin
+                ;Should be OFF by default, but just in case it's not
+                dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"no")
+                ;In batch mode, begin the first stransation now
+                dbstatus = %ssc_commit(Settings.DatabaseChannel,SSQL_TXON)
+                Counters.BatchCounter = 0
+            end
+            (DatabaseCommitMode.Manual),
+            begin
+                ;Should be OFF by default, but just in case it's not
+                dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"no")
+            end
+            endusing
+        end
     end
-    else
+    ;----------------------------------------------------------------------------------------------------------------
+.ifdef DBLNET
+    (DatabaseConnectionMode.SqlClient),
     begin
-        ;;Failed to connect
-        dbstatus = %ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
-        Logger.ErrorLog("Failed to connect to database!")
-        Logger.Log("Connect string was: " + Settings.DatabaseConnectString)
-        Logger.Log("Error was : " + dberrtxt(1,length))
-        ok = false
+        Settings.DatabaseConnection = new SqlConnection(Settings.DatabaseConnectString)
 
-        ;;If we're sending emails then let's record the connect failure
-        if (Settings.CanSendEmail())
+        try
         begin
-            data subject = "ERROR: Replicator instance " + Settings.InstanceName + " failed to connect to database!"
-            data body = new string[5]
-            body[1] = subject
-            body[2] = ""
-            body[3] = "ERROR: Failed to connect to database!"
-            body[4] = "Connect string was: " + Settings.DatabaseConnectString
-            body[5] = "Error was :  " + dberrtxt(1,length)
-            xcall SendEmail(subject,body,false)
+            Settings.DatabaseConnection.Open()
+
+            Logger.VerboseLog("Connected")
+            Logger.VerboseLog("")
+            Settings.DatabaseConnected = true
+
+            ;Note: We do not need to set the database command execution timeout like we did
+            ;in SQL Connection because it is set each time a SqlCommand is created.
+        end
+        catch (ex, @SqlException)
+        begin
+            Logger.ErrorLog("Failed to connect to database!")
+            Logger.Log("Connect string was: " + Settings.DatabaseConnectString)
+            Logger.Log("Error was : " + ex.Message)
+            ok = false
+
+            ;;If we're sending emails then send a message about the failure
+            if (Settings.CanSendEmail())
+            begin
+                data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to start!"
+                data body = new string[4]
+                body[1] = subject
+                body[2] = "ERROR: Failed to connect to database!"
+                body[3] = "Connect string was: " + Settings.DatabaseConnectString
+                body[4] = "Error was :  " + dberrtxt(1,length)
+                xcall SendEmail(subject,body,false)
+            end
+        end
+        endtry
+
+        ;Enable SQL Server Auto-Commit (IMPLICIT TRANSACTIONS)?
+        ;Should be ON by default, but we'll set it as we want it to be sure.
+
+        if (ok)
+        begin
+            data sql, string
+
+            using Settings.DatabaseCommitMode select
+            (DatabaseCommitMode.Automatic),
+            begin
+                sql = "SET IMPLICIT_TRANSACTIONS ON"
+            end
+            (DatabaseCommitMode.Batch, DatabaseCommitMode.Manual),
+            begin
+                sql = "SET IMPLICIT_TRANSACTIONS OFF"
+            end
+            endusing
+
+            try
+            begin
+                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+                &    CommandTimeout = Settings.DatabaseTimeout
+                &    }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                Logger.ErrorLog("Failed to configure implicit transaction mode! Error was " + ex.Message)
+                ok = false
+
+                ;;If we're sending emails then send a message about the failure
+                if (Settings.CanSendEmail())
+                begin
+                    data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to start!"
+                    data body = new string[3]
+                    body[1] = subject
+                    body[2] = "ERROR: Failed to configure implicit transaction mode!"
+                    body[3] = "Error was :  " + ex.Message
+                    xcall SendEmail(subject,body,false)
+                end
+            end
+            endtry
+        end
+
+        ;In batch commit mode, begin the first transaction now
+
+        if (ok && Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
+        begin
+            data transaction, boolean
+            data errorMessage, string
+
+            if (ok = %StartTransactionSqlClient(transaction,errorMessage)) then
+            begin
+                Counters.BatchCounter = 0
+            end
+            else
+            begin
+                Logger.ErrorLog(errorMessage)
+
+                ;;If we're sending emails then send a message about the failure
+                if (Settings.CanSendEmail())
+                begin
+                    data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to start!"
+                    data body = new string[2]
+                    body[1] = subject
+                    body[2] = errorMessage
+                    xcall SendEmail(subject,body,false)
+                end
+            end
         end
     end
-
-    ;;Enable SQL Server Auto-Commit mode?
-
-    if (ok)
-    begin
-        using Settings.DatabaseCommitMode select
-        (DatabaseCommitMode.Automatic),
-        begin
-            ;Should be ON by default, but just in case it's not
-            dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"yes")
-        end
-        (DatabaseCommitMode.Batch),
-        begin
-            ;Should be OFF by default, but just in case it's not
-            dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"no")
-            ;In batch mode, begin the first stransation now
-            dbstatus = %ssc_commit(Settings.DatabaseChannel,SSQL_TXON)
-            Counters.BatchCounter = 0
-        end
-        (DatabaseCommitMode.Manual),
-        begin
-            ;Should be OFF by default, but just in case it's not
-            dbstatus = %ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"no")
-        end
-        endusing
-    end
+.endc
+    ;----------------------------------------------------------------------------------------------------------------
+    endusing
 
     freturn ok
 

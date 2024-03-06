@@ -67,17 +67,17 @@ proc
     begin
         if (!doc.RootElement.TryGetProperty("Instances",instances)) then
         begin
-            errorMessage = "Configuration file does not have a root Instances property!"
+            errorMessage = "Configuration must have an Instances property!"
             ok = false
         end
         else if (instances.ValueKind != JsonValueKind.Array) then
         begin
-            errorMessage = "Configuration file instances property is not an array!"
+            errorMessage = "Instances must be an array!"
             ok = false
         end
         else if (instances.GetArrayLength() == 0)
         begin
-            errorMessage = "Configuration file instances property is an empty array!"
+            errorMessage = "Instances must contain at least one object!"
             ok = false
         end
     end
@@ -95,12 +95,12 @@ proc
             ;Is it our settings?
             if (!instance.TryGetProperty("InstanceName",setting)) then
             begin
-                errorMessage = "Instance " + %string(instanceNumber) + " has no InstanceName property!"
+                errorMessage = "Instance[" + %string(instanceNumber+1) + "] has no InstanceName!"
                 ok = false
             end
             else if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "Instance " + %string(instanceNumber) + "'s InstanceName property is not a string!"
+                errorMessage = "Instance[" + %string(instanceNumber+1) + "] InstanceName is not a string!"
                 ok = false
             end
             else if (setting.GetString().ToUpper() != Settings.InstanceName) 
@@ -119,14 +119,9 @@ proc
     begin
         if (instance.TryGetProperty("BulkLoadBatchSize",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1000) then
             begin
-                errorMessage = "The instance's BulkLoadBatchSize property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1000) then
-            begin
-                errorMessage = "The instance's BulkLoadBatchSize property may not be less than 1000!"
+                errorMessage = "BulkLoadBatchSize must have an integer value >= 1000!"
                 ok = false
             end
             else
@@ -142,14 +137,9 @@ proc
     begin
         if (instance.TryGetProperty("BulkLoadTimeout",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<60) then
             begin
-                errorMessage = "The instance's BulkLoadTimeout property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 60) then
-            begin
-                errorMessage = "The instance's BulkLoadTimeout property may not be less than 60!"
+                errorMessage = "BulkLoadTimeout must have an integer value >= 60!"
                 ok = false
             end
             else
@@ -165,14 +155,9 @@ proc
     begin
         if (instance.TryGetProperty("CommitBatchSize",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100) then
             begin
-                errorMessage = "The instance's CommitBatchSize property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 100) then
-            begin
-                errorMessage = "The instance's CommitBatchSize property may not be less than 100!"
+                errorMessage = "CommitBatchSize must have an integervalue >= 100!"
                 ok = false
             end
             else
@@ -188,37 +173,26 @@ proc
     begin
         if (instance.TryGetProperty("DatabaseCommitMode",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.String) then
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
             begin
-                errorMessage = "The instance's DatabaseCommitMode property is not a string!"
-                ok = false
-            end
-            else if (String.IsNullOrWhitespace(setting.GetString())) then
-            begin
-                errorMessage = "The instance's DatabaseCommitMode property is blank!"
                 ok = false
             end
             else
             begin
                 using setting.GetString().ToUpper() select
                 ("AUTOMATIC"),
-                begin
                     Settings.DatabaseCommitMode = DatabaseCommitMode.Automatic
-                end
                 ("BATCH"),
-                begin
                     Settings.DatabaseCommitMode = DatabaseCommitMode.Batch
-                end
                 ("MANUAL"),
-                begin
                     Settings.DatabaseCommitMode = DatabaseCommitMode.Manual
-                end
                 (),
-                begin
-                    errorMessage = "The instance's DatabaseCommitMode property must be set to Automatic, Batch or Manual!"
                     ok = false
-                end
                 endusing
+            end
+            if (!ok)
+            begin
+                errorMessage = "DatabaseCommitMode must be Automatic, Batch or Manual!"
             end
         end
     end
@@ -229,35 +203,28 @@ proc
     begin
         if (instance.TryGetProperty("DatabaseConnectMode",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.String) then
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
             begin
-                errorMessage = "The instance's DatabaseConnectMode property is not a string!"
-                ok = false
-            end
-            else if (String.IsNullOrWhitespace(setting.GetString())) then
-            begin
-                errorMessage = "The instance's DatabaseConnectMode property is blank!"
+                errorMessage = "DatabaseConnectMode must be SqlClient (.NET only) or SqlConnection!"
                 ok = false
             end
             else
             begin
                 using setting.GetString().ToUpper() select
                 ("SQLCONNECTION"),
-                begin
                     Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlConnection
-                end
                 ("SQLCLIENT"),
                 begin
 .ifdef DBLNET
                     Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlClient
 .else
-                    errorMessage = "Connection mode " + setting.GetString() + " is only valid when running the .NET version of replicator."
+                    errorMessage = "DatabaseConnectMode SqlClient is only supported in .NET!"
                     ok = false
 .endc
                 end
                 (),
                 begin
-                    errorMessage = "The instance's DatabaseConnectMode property must be set to SqlConnection, SqlClient!"
+                    errorMessage = "DatabaseConnectMode must be SqlClient (.NET only) or SqlConnection!"
                     ok = false
                 end
                 endusing
@@ -271,14 +238,9 @@ proc
     begin
         if (instance.TryGetProperty("DatabaseConnectString",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.String) then
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
             begin
-                errorMessage = "The instance's DatabaseConnectString property is not a string!"
-                ok = false
-            end
-            else if (String.IsNullOrWhitespace(setting.GetString())) then
-            begin
-                errorMessage = "The instance's DatabaseConnectString property is blank!"
+                errorMessage = "DatabaseConnectString must have a non-blank string value!"
                 ok = false
             end
             else
@@ -294,14 +256,9 @@ proc
     begin
         if (instance.TryGetProperty("DatabaseRetryDelay",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's DatabaseRetryDelay property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's DatabaseRetryDelay property may not be less than 1!"
+                errorMessage = "DatabaseRetryDelay have a positive integer value!"
                 ok = false
             end
             else
@@ -317,14 +274,9 @@ proc
     begin
         if (instance.TryGetProperty("DatabaseRetryMax",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's DatabaseRetryMax property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's DatabaseRetryMax property may not be less than 1!"
+                errorMessage = "DatabaseRetryMax have a positive integer value!"
                 ok = false
             end
             else
@@ -340,14 +292,9 @@ proc
     begin
         if (instance.TryGetProperty("DatabaseTimeout",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's DatabaseTimeout property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's DatabaseTimeout property may not be less than 1!"
+                errorMessage = "DatabaseTimeout must have a positive integer value!"
                 ok = false
             end
             else
@@ -363,38 +310,27 @@ proc
     begin
         if (instance.TryGetProperty("DataCompressionMode",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.String) then
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
             begin
-                errorMessage = "The instance's DataCompressionMode property is not a string!"
-                ok = false
-            end
-            else if (String.IsNullOrWhitespace(setting.GetString())) then
-            begin
-                errorMessage = "The instance's DataCompressionMode property is blank!"
                 ok = false
             end
             else
             begin
                 using setting.GetString().ToUpper() select
                 ("NONE"),
-                begin
                     Settings.DataCompressionMode = DatabaseDataCompression.None
-                end
                 ("PAGE"),
-                begin
                     Settings.DataCompressionMode = DatabaseDataCompression.Page
-                end
                 ("ROW"),
-                begin
                     Settings.DataCompressionMode = DatabaseDataCompression.Row
-                end
                 (),
-                begin
-                    errorMessage = "The instance's DataCompressionMode property must be set to None, Page or Row!"
                     ok = false
-                end
                 endusing
             end
+        end
+        if (!ok)
+        begin
+            errorMessage = "DataCompressionMode must be None, Page or Row!"
         end
     end
 
@@ -404,9 +340,9 @@ proc
     begin
         if (instance.TryGetProperty("Enabled",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "The instance's Enabled property is not a boolean!"
+                errorMessage = "Enabled must be true or false!"
                 ok = false
             end
             else
@@ -422,14 +358,9 @@ proc
     begin
         if (instance.TryGetProperty("ErrorSleepTime",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetDecimal()<=0) then
             begin
-                errorMessage = "The instance's ErrorSleepTime property is not a number!"
-                ok = false
-            end
-            else if (setting.GetDecimal() <= 0) then
-            begin
-                errorMessage = "The instance's ErrorSleepTime property may not be less than or equal to zero!"
+                errorMessage = "ErrorSleepTime must have a positive decimal value!"
                 ok = false
             end
             else
@@ -445,12 +376,12 @@ proc
     begin
         if (instance.TryGetProperty("FileServiceHost",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.String) then
+            if (setting.ValueKind!=JsonValueKind.String) then
             begin
-                errorMessage = "The instance's FileServiceHost property is not a string!"
+                errorMessage = "FileServiceHost must have a string value (ip address or DNS name)!"
                 ok = false
             end
-            else if (!String.IsNullOrWhitespace(setting.GetString()))
+            else
             begin
                 Settings.FileServiceHost = setting.GetString()
             end
@@ -463,14 +394,9 @@ proc
     begin
         if (instance.TryGetProperty("FileServicePort",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<=0) then
             begin
-                errorMessage = "The instance's FileServicePort property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() <= 0) then
-            begin
-                errorMessage = "The instance's FileServicePort property may not be less than or equal to zero!"
+                errorMessage = "FileServicePort must have a positive integer value!"
                 ok = false
             end
             else
@@ -488,7 +414,6 @@ proc
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "The instance's LocalExportPath property is not a string!"
                 ok = false
             end
             else if (!String.IsNullOrWhitespace(setting.GetString()))
@@ -503,7 +428,6 @@ proc
                 end
                 catch (e, @Exception)
                 begin
-                    errorMessage = "The instance's LocalExportPath property is invalid!"
                     ok = false
                 end
                 finally
@@ -514,6 +438,10 @@ proc
                 endtry
             end
         end
+        if (!ok)
+        begin
+            errorMessage = "LocalExportPath must have a string value and be a valid path!"
+        end
     end
 
     ;LogBulkLoadExceptions
@@ -522,9 +450,9 @@ proc
     begin
         if (instance.TryGetProperty("LogBulkLoadExceptions",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "The instance's LogBulkLoadExceptions property is not a boolean!"
+                errorMessage = "LogBulkLoadExceptions must be true or false!"
                 ok = false
             end
             else
@@ -540,9 +468,9 @@ proc
     begin
         if (instance.TryGetProperty("LogKeyValues",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "The instance's LogKeyValues property is not a boolean!"
+                errorMessage = "LogKeyValues must be true or false!"
                 ok = false
             end
             else
@@ -558,9 +486,9 @@ proc
     begin
         if (instance.TryGetProperty("LogLoadProgress",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "The instance's LogLoadProgress property is not a boolean!"
+                errorMessage = "LogLoadProgress must be true or false!"
                 ok = false
             end
             else
@@ -576,14 +504,9 @@ proc
     begin
         if (instance.TryGetProperty("MaxColumns",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's MaxColumns property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's MaxColumns property may not be less than 1!"
+                errorMessage = "MaxColumns must have a positive integer value!"
                 ok = false
             end
             else
@@ -599,14 +522,9 @@ proc
     begin
         if (instance.TryGetProperty("MaxCursors",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's MaxCursors property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's MaxCursors property may not be less than 1!"
+                errorMessage = "MaxCursors must have a positive integer value!"
                 ok = false
             end
             else
@@ -622,14 +540,9 @@ proc
     begin
         if (instance.TryGetProperty("QueueReconnectAttempts",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's QueueReconnectAttempts property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's QueueReconnectAttempts property may not be less than 1!"
+                errorMessage = "QueueReconnectAttempts must have a positive integer value!"
                 ok = false
             end
             else
@@ -645,14 +558,9 @@ proc
     begin
         if (instance.TryGetProperty("QueueReconnectDelay",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's QueueReconnectDelay property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's QueueReconnectDelay property may not be less than 1!"
+                errorMessage = "QueueReconnectDelay must have a positive integer value!"
                 ok = false
             end
             else
@@ -668,39 +576,29 @@ proc
     begin
         if (instance.TryGetProperty("QueueType",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.String) then
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
             begin
-                errorMessage = "The instance's QueueType property is not a string!"
-                ok = false
-            end
-            else if (String.IsNullOrWhitespace(setting.GetString())) then
-            begin
-                errorMessage = "The instance's QueueType property is blank!"
                 ok = false
             end
             else
             begin
                 using setting.GetString().ToUpper() select
                 ("ISAMFILE"),
-                begin
                     Settings.QueueType = MessageQueueType.IsamFile
-                end
                 ("KAFKA"),
-                begin
 .ifdef DBLNET
                     Settings.QueueType = MessageQueueType.Kafka
 .else
-                    errorMessage = "Queue type " + setting.GetString() + " is only valid when running the .NET version of replicator."
                     ok = false
 .endc
-                end
                 (),
-                begin
-                    errorMessage = "The instance's QueueType property must be set to IsamFile or Kafka!"
                     ok = false
-                end
                 endusing
             end
+        end
+        if (!ok)
+        begin
+            errorMessage = "QueueType must be IsamFile or Kafka (.NET only)!"
         end
     end
 
@@ -710,14 +608,9 @@ proc
     begin
         if (instance.TryGetProperty("SleepTime",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's SleepTime property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's SleepTime property may not be less than 1!"
+                errorMessage = "SleepTime must have a positive integer value!"
                 ok = false
             end
             else
@@ -733,9 +626,9 @@ proc
     begin
         if (instance.TryGetProperty("StopOnError",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "The instance's StopOnError property is not a boolean!"
+                errorMessage = "StopOnError must be true or false!"
                 ok = false
             end
             else
@@ -751,9 +644,9 @@ proc
     begin
         if (instance.TryGetProperty("SystemLogging",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "The instance's SystemLogging property is not a boolean!"
+                errorMessage = "SystemLogging must be true or false!"
                 ok = false
             end
             else
@@ -769,9 +662,9 @@ proc
     begin
         if (instance.TryGetProperty("VerboseLogging",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "The instance's VerboseLogging property is not a boolean!"
+                errorMessage = "VerboseLogging must be true or false!"
                 ok = false
             end
             else
@@ -791,7 +684,7 @@ proc
         begin
             if (smtpsettings.ValueKind != JsonValueKind.Object)
             begin
-                errorMessage = "Configuration file EmailSettings property is not an object!"
+                errorMessage = "EmailSettings must be an object containing other email settings!"
                 ok = false
             end
         end
@@ -804,7 +697,7 @@ proc
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "The instance's SmtpServer property is not a string!"
+                errorMessage = "SmtpServer must be a string containing a DNS name or IP address!"
                 ok = false
             end
             else
@@ -819,14 +712,9 @@ proc
     begin
         if (smtpsettings.TryGetProperty("SmtpPort",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.Number) then
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "The instance's SmtpPort property is not a number!"
-                ok = false
-            end
-            else if (setting.GetInt32() < 1) then
-            begin
-                errorMessage = "The instance's SmtpPort property is invalid!"
+                errorMessage = "SmtpPort must have a positive integer value!"
                 ok = false
             end
             else
@@ -841,9 +729,9 @@ proc
     begin
         if (instance.TryGetProperty("SmtpUseSSL",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.True && setting.ValueKind != JsonValueKind.False) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "The instance's SmtpUseSSL property is not a boolean!"
+                errorMessage = "SmtpUseSSL must be true or false!"
                 ok = false
             end
             else
@@ -860,7 +748,7 @@ proc
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "The instance's SmtpUsername property is not a string!"
+                errorMessage = "SmtpUsername must have a string value!"
                 ok = false
             end
             else
@@ -877,7 +765,7 @@ proc
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "The instance's SmtpPassword property is not a string!"
+                errorMessage = "SmtpPassword must have a string value!"
                 ok = false
             end
             else
@@ -894,7 +782,7 @@ proc
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "The instance's EmailSenderAddress property is not a string!"
+                errorMessage = "EmailSenderAddress must have a string value!"
                 ok = false
             end
             else
@@ -911,7 +799,7 @@ proc
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "The instance's EmailSenderName property is not a string!"
+                errorMessage = "EmailSenderName must have a string value!"
                 ok = false
             end
             else
@@ -924,19 +812,8 @@ proc
     ;EmailRecipients
     if (ok)
     begin
-        if (!smtpsettings.TryGetProperty("EmailRecipients",setting)) then
+        if (!smtpsettings.TryGetProperty("EmailRecipients",setting) || setting.ValueKind!=JsonValueKind.Array || setting.GetArrayLength()==0) then
         begin
-            errorMessage = "EmailSettings does not have a EmailRecipients property!"
-            ok = false
-        end
-        else if (setting.ValueKind != JsonValueKind.Array) then
-        begin
-            errorMessage = "EmailRecipients property is not an array!"
-            ok = false
-        end
-        else if (setting.GetArrayLength() == 0) then
-        begin
-            errorMessage = "EmailRecipients property is an empty array!"
             ok = false
         end
         else
@@ -950,14 +827,8 @@ proc
             begin
                 emailAddress = setting[addressNumber]
                 
-                if (emailAddress.ValueKind != JsonValueKind.String) then
+                if (emailAddress.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(emailAddress.GetString())) then
                 begin
-                    errorMessage = "EmailRecipients " + %string(addressNumber) + " is not a string!"
-                    ok = false
-                end
-                else if (String.IsNullOrWhitespace(emailAddress.GetString())) then
-                begin
-                    errorMessage = "EmailRecipients " + %string(addressNumber) + " is blank!"
                     ok = false
                 end
                 else
@@ -965,6 +836,10 @@ proc
                     Settings.EmailRecipients[addressNumber+1] = emailAddress.GetString()
                 end
             end
+        end
+        if (!ok)
+        begin
+            errorMessage = "EmailRecipients must be an array containing at least one email address!"
         end
     end
 
