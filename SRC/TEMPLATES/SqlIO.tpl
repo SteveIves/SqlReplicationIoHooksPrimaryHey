@@ -2430,7 +2430,6 @@ function <StructureName>BulkLoad, ^val
         remoteExceptionsLog,    string
         copyTarget,             string
         fileToLoad,             string
-        errorFile,              string
         cursor,                 int
         length,                 int
         dberror,                int
@@ -2563,13 +2562,11 @@ proc
             now = %datetime
             writelog("Opening cursor")
 
-            errorFile = fileToLoad + "_err"
-
-            sql = "BULK INSERT <StructureName> FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n', MAXERRORS=100000000, ERRORFILE='" + errorFile + "'"
+            sql = "BULK INSERT <StructureName> FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + fileToLoad + "_err'"
 
             if (a_bl_batchsz > 0)
             begin
-                sql = sql + ", BATCHSIZE=" + %string(a_bl_batchsz)
+                sql = sql + ",BATCHSIZE=" + %string(a_bl_batchsz)
             end
 
            sql = sql + ")"

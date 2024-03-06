@@ -1859,9 +1859,7 @@ function <StructureName>_BulkLoad, ^val
      stack record local_data
         ok,                     boolean    ;;Return status
         transaction,            boolean
-        ;cursorOpen,             boolean
         remoteBulkLoad,         boolean
-        sql,                    string
         localCsvFile,           string
         localExceptionsFile,    string
         localExceptionsLog,     string
@@ -1870,7 +1868,6 @@ function <StructureName>_BulkLoad, ^val
         remoteExceptionsLog,    string
         copyTarget,             string
         fileToLoad,             string
-        errorFile,              string
         cursor,                 int
         length,                 int
         dberror,                int
@@ -2027,11 +2024,11 @@ proc
 
     if (ok)
     begin
-        data sql = String.Format("BULK INSERT <StructureName> FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n', MAXERRORS=100000000, ERRORFILE='{1}}'",fileToLoad,errorFile)
+        data sql = String.Format("BULK INSERT <StructureName> FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
 
         if (Settings.BulkLoadBatchSize > 0)
         begin
-            sql = String.Format("{0}, BATCHSIZE={1}",sql,Settings.BulkLoadBatchSize)
+            sql = String.Format("{0},BATCHSIZE={1}",sql,Settings.BulkLoadBatchSize)
         end
 
         sql = String.Format("{0})",sql)

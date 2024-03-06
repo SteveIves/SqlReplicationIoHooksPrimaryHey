@@ -438,7 +438,7 @@ proc
         begin
             ok = false
             sts = 0
-            using ex.ErrorCode Select
+            using ex.Number Select
             (-2627),    ;TODO: * * * MAY NOT BE THE CORRECT ERROR NUMBER FOR DUPLICATE KEY
             begin
                 ;Duplicate key
@@ -1268,9 +1268,7 @@ function Department_BulkLoad, ^val
      stack record local_data
         ok,                     boolean    ;;Return status
         transaction,            boolean
-        ;cursorOpen,             boolean
         remoteBulkLoad,         boolean
-        sql,                    string
         localCsvFile,           string
         localExceptionsFile,    string
         localExceptionsLog,     string
@@ -1279,7 +1277,6 @@ function Department_BulkLoad, ^val
         remoteExceptionsLog,    string
         copyTarget,             string
         fileToLoad,             string
-        errorFile,              string
         cursor,                 int
         length,                 int
         dberror,                int
@@ -1436,11 +1433,11 @@ proc
 
     if (ok)
     begin
-        data sql = String.Format("BULK INSERT Department FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n', MAXERRORS=100000000, ERRORFILE='{1}}'",fileToLoad,errorFile)
+        data sql = String.Format("BULK INSERT Department FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
 
         if (Settings.BulkLoadBatchSize > 0)
         begin
-            sql = String.Format("{0}, BATCHSIZE={1}",sql,Settings.BulkLoadBatchSize)
+            sql = String.Format("{0},BATCHSIZE={1}",sql,Settings.BulkLoadBatchSize)
         end
 
         sql = String.Format("{0})",sql)
@@ -1465,7 +1462,7 @@ proc
             writelog("Bulk insert error")
             writett("Bulk insert error")
 
-            using ex.ErrorCode select
+            using ex.Number select
             (-4864),
             begin
                 ;Bulk load data conversion error
@@ -1611,7 +1608,7 @@ proc
             end
             (),
             begin
-                errorMessage = String.Format("{0} {1}",ex.ErrorCode,errorMessage)
+                errorMessage = String.Format("{0} {1}",ex.Number,errorMessage)
                 ok = false
             end
             endusing
