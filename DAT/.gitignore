@@ -1,0 +1,7 @@
+#Ignore everything in this folder
+*
+
+#Except
+!DEPARTMENT.SEQ
+!EMPLOYEE.SEQ
+!ReplicatorConfig.json
