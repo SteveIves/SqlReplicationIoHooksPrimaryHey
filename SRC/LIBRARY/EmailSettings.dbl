@@ -1,0 +1,146 @@
+
+import System.Text
+
+namespace ReplicationLibrary
+
+    ;;; <summary>
+    ;;; Represents email related settings used within the replicator application.
+    ;;; </summary>
+.ifdef D_VMS
+    public class EmailSettings
+.else
+    public static class EmailSettings
+.endc
+        public static method Initialize, void
+        proc
+            SmtpPort = 25
+            ErrorsBeforePause = 3
+            ErrorPauseMinutes = 10
+            SenderName = "SQL replicator"
+        endmethod
+
+        ;;; <summary>
+        ;;; Is sending email messages enabled?
+        ;;; </summary>
+        public static readwrite property Enabled, boolean
+
+        ;;; <summary>
+        ;;; The DNS name or IP address of the SMTP server to use to send email messages.
+        ;;; The SMTP server must be configured to accept messages from unauthenticated sources.
+        ;;; </summary>
+        public static readwrite property SmtpServer, string
+
+        ;;; <summary>
+        ;;; The IP port of the SMTP server to use to send email messages.
+        ;;; </summary>
+        public static readwrite property SmtpPort, int
+
+        ;;; <summary>
+        ;;; If authentication is required, the username to present to the SMTP server (.NET only).
+        ;;; </summary>
+        public static readwrite property SmtpUsername, string
+
+        ;;; <summary>
+        ;;; If authentication is required, the password to present to the SMTP server (.NET only).
+        ;;; </summary>
+        public static readwrite property SmtpPassword, string
+
+        ;;; <summary>
+        ;;; Does the SMTP server expect an SSL connection? (.NET only)
+        ;;; </summary>
+        public static readwrite property SmtpUseSSL, boolean
+
+        ;;; <summary>
+        ;;; The email address to be used as the sender of status messages.
+        ;;; </summary>
+        public static readwrite property SenderAddress, string
+
+        ;;; <summary>
+        ;;; The name associated with the email sender address.
+        ;;; </summary>
+        public static readwrite property SenderName, string
+
+        ;;; <summary>
+        ;;; The email address or addresses to send status messages to.
+        ;;; One or more email addresses seperated by commas.
+        ;;; </summary>
+        public static readwrite property Recipients, [#]string
+
+        ;;; <summary>
+        ;;; The maximum number of send errors before pausing sending.
+        ;;; </summary>
+        public static readwrite property ErrorsBeforePause, int
+
+        ;;; <summary>
+        ;;; The How many minutes to pause following SmtpFailMax SMTP send failures
+        ;;; </summary>
+        public static readwrite property ErrorPauseMinutes, i4
+
+
+.region "Internal properties"
+
+        ;;; <summary>
+        ;;; The number of send failures so far
+        ;;; </summary>
+        public static readwrite property ErrorCount, i4
+
+        ;;; <summary>
+        ;;; Is sending currently paused due to earlier errors?
+        ;;; </summary>
+        public static readwrite property EmailPaused, boolean
+
+        ;;; <summary>
+        ;;; The time that sending was paused (in milliseconds)
+        ;;; </summary>
+        public static readwrite property TimePaused, i8
+
+.endregion
+
+.region "Methods"
+
+        ;;; <summary>
+        ;;; Are we able to send email messages. In order for this to return true we must have values
+        ;;; for EmailError, SmtpServer, EmailSender and EmailDomain.
+        ;;; </summary>
+        ;;; <returns>Returns true if we have all the data, but does not guarantee that email can be sent!</returns>
+        public static method CanSendEmail, boolean
+        proc
+            if (String.IsNullOrWhitespace(SenderName))
+            begin
+                SenderName = SenderAddress
+            end
+            mreturn (
+            &   Enabled==true
+            &   && !String.IsNullOrWhiteSpace(SmtpServer)
+            &   && SmtpPort!=0
+            &   && !String.IsNullOrWhiteSpace(SenderAddress)
+            &   && Recipients!=^null
+            &   && Recipients.Length>0
+            &   && !String.IsNullOrWhiteSpace(Recipients[1])
+            & )
+        endmethod
+
+        public static method GetRecipientsString, string
+        proc
+            if (Recipients != ^null && Recipients.Length > 0)
+            begin
+                data sb = new StringBuilder()
+                data ix, int
+                for ix from 1 thru Recipients.Length
+                begin
+                    sb.Append(Recipients[ix])
+                    if (ix < Recipients.Length)
+                    begin
+                        sb.Append(",")
+                    end
+                end
+                mreturn sb.ToString()
+            end
+            mreturn ""
+        endmethod
+
+.endregion
+
+    endclass
+
+endnamespace

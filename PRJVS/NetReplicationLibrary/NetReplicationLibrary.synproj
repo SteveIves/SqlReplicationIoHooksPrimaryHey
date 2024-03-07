@@ -60,6 +60,7 @@
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Department_SqlIO.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\EmailSettings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmployeeSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Employee_SqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\File.dbl" />
@@ -96,8 +97,8 @@
     <Compile Include="..\..\SRC\LIBRARY\ReOpenQueueFile.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Replicate.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ReplicatorShutdown.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\RollbackTransactionSqlClient.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\RollbackTransactionSqlConnection.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\RollbackSqlClient.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\RollbackSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SendEmail.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Settings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SmtpMail.dbl" />

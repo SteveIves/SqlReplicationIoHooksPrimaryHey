@@ -39,7 +39,7 @@ proc
             try
             begin
 .ifdef D_VMS
-                xcall isamc(Settings.TransactionFile + ", FIXED", 32054, 1, "START=1, LENGTH=20, TYPE=ALPHA, NAME=TRANSACTION_ID, DENSITY=100")
+                xcall isamc(Settings.QueueFileName + ", FIXED", 32054, 1, "START=1, LENGTH=20, TYPE=ALPHA, NAME=TRANSACTION_ID, DENSITY=100")
 .else
                 xcall isamc(Settings.QueueFileName + ", FIXED, COMPRESS, PAGE=1024, TBYTE", 65042, 1, "START=1, LENGTH=8, TYPE=SEQUENCE, NAME=TRANSACTION_ID, DENSITY=100")
 .endc

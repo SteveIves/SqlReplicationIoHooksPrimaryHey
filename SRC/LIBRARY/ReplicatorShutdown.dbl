@@ -105,7 +105,7 @@ proc
     end
     ;;If we're sending emails then send a shutting down message
 
-    if (Settings.CanSendEmail())
+    if (EmailSettings.CanSendEmail())
     begin
         data subject = "SQL replicator " + Settings.InstanceName + " was stopped."
         data body = new string[6]

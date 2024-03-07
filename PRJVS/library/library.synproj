@@ -129,6 +129,9 @@
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl">
       <Link>DepartmentSqlIO.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\EmailSettings.dbl">
+      <Link>EmailSettings.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\EmployeeSqlIO.dbl">
       <Link>EmployeeSqlIO.dbl</Link>
     </Compile>
@@ -225,8 +228,8 @@
     <Compile Include="..\..\SRC\LIBRARY\ReplicatorShutdown.dbl">
       <Link>ReplicatorShutdown.dbl</Link>
     </Compile>
-    <Compile Include="..\..\SRC\LIBRARY\RollbackTransactionSqlConnection.dbl">
-      <Link>RollbackTransactionSqlConnection.dbl</Link>
+    <Compile Include="..\..\SRC\LIBRARY\RollbackSqlConnection.dbl">
+      <Link>RollbackSqlConnection.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\SendEmail.dbl">
       <Link>SendEmail.dbl</Link>

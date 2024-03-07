@@ -262,7 +262,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -399,7 +399,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -491,7 +491,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -748,7 +748,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -1058,7 +1058,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -1322,7 +1322,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -1424,7 +1424,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -1494,7 +1494,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -1568,7 +1568,7 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -1653,10 +1653,10 @@ proc
     end
 
     ;Open the data file associated with the structure
-    if (!(filechn = %<StructureName>OpenInput))
+    if (!(filechn = %<StructureName>OpenInput(tmperrmsg)))
     begin
+        errorMessage = "Failed to open data file! Error was " + %atrimtostring(tmperrmsg)
         ok = false
-        errorMessage = "Failed to open data file!"
     end
 
     if (ok)
@@ -2282,7 +2282,7 @@ proc
             now = %datetime
             writelog("ROLLBACK")
             writett("ROLLBACK")
-            ok = %RollbackTransactionSqlClient(errorMessage)
+            ok = %RollbackSqlClient(errorMessage)
         end
     end
 
@@ -2343,7 +2343,6 @@ function <StructureName>_Csv, boolean
         outchn,     int     ;CSV file channel
         outrec,     string  ;A CSV file record
         records,    int     ;Number of records exported
-        recordsMax, int     ;Max # or records to export
         errtxt,     a512    ;Error message text
     endrecord
 
@@ -2351,16 +2350,12 @@ proc
     ok = true
     init local_data
 
-    ;;Were we given a max # or records to export?
-
-    recordsMax = maxRecords > 0 ? maxRecords : 0
-
     ;;Open the data file associated with the structure
 
-    if (!(filechn=%<StructureName>OpenInput))
+    if (!(filechn=%<StructureName>OpenInput(errtxt)))
     begin
+        errtxt = "Failed to open data file! Error was: " + errtxt
         ok = false
-        errtxt = "Failed to open data file!"
     end
 
     ;;Create the local CSV file
@@ -2396,7 +2391,7 @@ proc
 
             incr records
 
-            if (recordsmax && (records > recordsMax))
+            if (maxRecords && (records > maxRecords))
             begin
                 decr records
                 exitloop

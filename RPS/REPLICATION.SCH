@@ -240,7 +240,7 @@ Key TRANSACTION_ID   ACCESS   Order ASCENDING   Dups NO   Density 100
 Structure REPLICATION_VMS   DBL ISAM
    Description "Replication request queue (OpenVMS)"
  
-Field TRANSACTION_ID   Type AUTOSEQ   Size 8
+Field TRANSACTION_ID   Type ALPHA   Size 20
    Description "Unique transaction ID (timestamp)"
    Report Just LEFT   Input Just LEFT   Readonly
    Nonull
@@ -257,7 +257,7 @@ Field RECORD   Type ALPHA   Size 32000
  
 Key TRANSACTION_ID   ACCESS   Order ASCENDING   Dups NO   Density 100
    Description "Transaction ID (timestamp)"
-   Segment FIELD   TRANSACTION_ID  SegType SEQUENCE
+   Segment FIELD   TRANSACTION_ID  SegType ALPHA  SegOrder ASCENDING
  
 File DEPARTMENT   DBL ISAM   "REPLICATOR_DATA:DEPARTMENT.ISM"
    Description "Department master file"

@@ -1,6 +1,6 @@
 ;;*****************************************************************************
 ;;
-;; File:        RollbackTransactionSqlClient.dbl
+;; File:        RollbackSqlClient.dbl
 ;;
 ;; Description: Rolls back a database transaction (SqlClient mode)
 ;;
@@ -40,7 +40,7 @@
 import ReplicationLibrary
 import System.Data.SqlClient
 
-function RollbackTransactionSqlClient, boolean
+function RollbackSqlClient, boolean
     required out errorMessage, string
 proc
     try

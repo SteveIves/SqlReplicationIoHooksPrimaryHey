@@ -1,77 +1,78 @@
-#
+#!/bin/bash
+
 # Builds the SQL Replication sample environment on Linux
-#
 
 . ./setup
 
-#
 # Build the main library
-#
 
 dblproto -out library $LIBSRC/*.dbl
 
 dbl -do REPLICATOR_OBJ:library.dbo \
   LIBSRC:CommandLineParser.dbl \
+  LIBSRC:CommitTransactionSqlConnection.dbl \
+  LIBSRC:ConfigureEnvironment.dbl \
   LIBSRC:ConfigureReplication.dbl \
+  LIBSRC:Counters.dbl \
   LIBSRC:DatabaseCommunicationException.dbl \
+  LIBSRC:DatabaseConnect.dbl \
+  LIBSRC:DatabaseDisconnect.dbl \
+  LIBSRC:DatabaseReconnect.dbl \
   LIBSRC:DataConversionTools.dbl \
   LIBSRC:DepartmentSqlIO.dbl \
+  LIBSRC:EmailSettings.dbl \
   LIBSRC:EmployeeSqlIO.dbl \
   LIBSRC:File.dbl \
   LIBSRC:FileChunkReader.dbl \
   LIBSRC:FileServiceClient.dbl \
+  LIBSRC:GenerateDepartmentData.dbl \
+  LIBSRC:GenerateEmployeeData.dbl \
   LIBSRC:GetDateTimeString.dbl \
   LIBSRC:GetInstanceNames.dbl \
   LIBSRC:GetReplicatedTables.dbl \
+  LIBSRC:GetSettings.dbl \
   LIBSRC:IndexExists.dbl \
   LIBSRC:InstanceInfo.dbl \
   LIBSRC:IOHooksISAM.dbl \
+  LIBSRC:IOHooksKAFKA.dbl \
   LIBSRC:IOHooksRELATIVE.dbl \
   LIBSRC:IsDate.dbl \
   LIBSRC:IsDecimal.dbl \
   LIBSRC:IsEmailAddress.dbl \
   LIBSRC:IsTime.dbl \
   LIBSRC:Json.dbl \
+  LIBSRC:KafkaAPI.dbl \
   LIBSRC:LastRecordCache.dbl \
+  LIBSRC:Logger.dbl \
   LIBSRC:MakeDateForCsv.dbl \
   LIBSRC:MakeDecimalForCsv.dbl \
   LIBSRC:MakeTimeForCsv.dbl \
   LIBSRC:OpenOrCreateQueueFile.dbl \
+  LIBSRC:OpenQueueFile.dbl \
   LIBSRC:PopulateReplicationKey.dbl \
+  LIBSRC:ReOpenQueueFile.dbl \
   LIBSRC:Replicate.dbl \
+  LIBSRC:ReplicatorShutdown.dbl \
+  LIBSRC:RollbackSqlConnection.dbl \
+  LIBSRC:SendEmail.dbl \
+  LIBSRC:Settings.dbl \
   LIBSRC:SmtpMail.dbl \
+  LIBSRC:StartTransactionSqlConnection.dbl \
   LIBSRC:StringDictionary.dbl \
   LIBSRC:StringTools.dbl \
-  LIBSRC:ThrowOnCommunicationError.dbl
+  LIBSRC:ThrowOnCommunicationError.dbl \
+  LIBSRC:TimeNow.dbl \
+  LIBSRC:ValidateBasicEnvironment.dbl
 
 dblink -dl REPLICATOR_EXE:library.elb REPLICATOR_OBJ:library.dbo
 
-#
 # Build the replicator application
-#
 
-dblproto -out replicator $REPSRC/*.dbl
-
-dbl -do REPLICATOR_OBJ:replicator.dbo \
-  REPSRC:replicator.dbl \
-  REPSRC:ConfigureEnvironment.dbl \
-  REPSRC:Counters.dbl \
-  REPSRC:DatabaseConnect.dbl \
-  REPSRC:DatabaseDisconnect.dbl \
-  REPSRC:DatabaseReconnect.dbl \
-  REPSRC:GetSettings.dbl \
-  REPSRC:Logger.dbl \
-  REPSRC:OpenQueueFile.dbl \
-  REPSRC:ReplicatorShutdown.dbl \
-  REPSRC:SendEmail.dbl \
-  REPSRC:Settings.dbl \
-  REPSRC:TimeNow.dbl
-
+dblproto -out replicator $REPSRC/replicator.dbl
+dbl -do REPLICATOR_OBJ:replicator.dbo REPSRC:replicator.dbl
 dblink -do REPLICATOR_EXE:replicator.dbr REPLICATOR_OBJ:replicator.dbo REPLICATOR_EXE:library.elb
 
-#
 # Build the other tools
-#
 
 dbl -o REPLICATOR_OBJ:changeeveryemployee.dbo TOOLSRC:ChangeEveryEmployee.dbl
 dblink -o REPLICATOR_EXE:changeeveryemployee.dbr REPLICATOR_OBJ:changeeveryemployee.dbo REPLICATOR_EXE:library.elb

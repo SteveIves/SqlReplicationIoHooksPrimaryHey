@@ -1,4 +1,3 @@
-import System.Data.SqlClient
 ;;*****************************************************************************
 ;;
 ;; File:        StartTransactionSqlClient.dbl

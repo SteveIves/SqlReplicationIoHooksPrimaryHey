@@ -59,8 +59,9 @@ echo mdelete [.SRC.REPLICATOR]*.*;* >> ftp.tmp
 echo mdelete [.SRC.TOOLS]*.*;* >> ftp.tmp
 
 rem Upload new files
-echo put ..\UBSDataService_hc_apl\Repository\repository.scm [.REPOSITORY]repository.scm >> ftp.tmp
-echo cd [.SRC.LIBRARY] >> ftp.tmp
+echo cd [.REPOSITORY] >> ftp.tmp
+echo put RPS\REPLICATION.SCH >> ftp.tmp
+echo cd [-.SRC.LIBRARY] >> ftp.tmp
 echo mput SRC\LIBRARY\*.dbl >> ftp.tmp
 echo mput SRC\LIBRARY\*.def >> ftp.tmp
 echo cd [-.REPLICATOR] >> ftp.tmp

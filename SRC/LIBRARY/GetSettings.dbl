@@ -29,13 +29,13 @@ function GetSettings,   boolean
         instances,      JsonElement
         instance,       JsonElement
         setting,        JsonElement
-        smtpsettings,   JsonElement
+        emailsetting,   JsonElement
         emailAddress,   JsonElement
 .else
         instances,      @JsonElement
         instance,       @JsonElement
         setting,        @JsonElement
-        smtpsettings,   @JsonElement
+        emailsetting,   @JsonElement
         emailAddress,   @JsonElement
 .endc
     endrecord
@@ -112,6 +112,24 @@ proc
     end
 
     ;We found the settings for our instance. Now process all the settings.
+
+    ;Enabled
+
+    if (ok)
+    begin
+        if (instance.TryGetProperty("Enabled",setting))
+        begin
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
+            begin
+                errorMessage = "Enabled must be true or false!"
+                ok = false
+            end
+            else
+            begin
+                Settings.Enabled = setting.GetBoolean()
+            end
+        end
+    end
 
     ;BulkLoadBatchSize
 
@@ -331,24 +349,6 @@ proc
         if (!ok)
         begin
             errorMessage = "DataCompressionMode must be None, Page or Row!"
-        end
-    end
-
-    ;Enabled
-
-    if (ok)
-    begin
-        if (instance.TryGetProperty("Enabled",setting))
-        begin
-            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-            begin
-                errorMessage = "Enabled must be true or false!"
-                ok = false
-            end
-            else
-            begin
-                Settings.Enabled = setting.GetBoolean()
-            end
         end
     end
 
@@ -675,14 +675,13 @@ proc
     end
 
     ;--------------------------------------------------------------------------------------------------------
-    ;Shared settings
+    ;Email settings
 
-    ;EmailSettings
     if (ok)
     begin
-        if (doc.RootElement.TryGetProperty("EmailSettings",smtpsettings))
+        if (doc.RootElement.TryGetProperty("EmailSettings",emailsetting))
         begin
-            if (smtpsettings.ValueKind != JsonValueKind.Object)
+            if (emailsetting.ValueKind != JsonValueKind.Object)
             begin
                 errorMessage = "EmailSettings must be an object containing other email settings!"
                 ok = false
@@ -690,19 +689,36 @@ proc
         end
     end
 
-    ;SmtpServer
+    ;Enabled
     if (ok)
     begin
-        if (smtpsettings.TryGetProperty("SmtpServer",setting))
+        if (emailsetting.TryGetProperty("Enabled",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.String) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "SmtpServer must be a string containing a DNS name or IP address!"
+                errorMessage = "EmailSettings.Enabled must be true or false!"
                 ok = false
             end
             else
             begin
-                Settings.SmtpServer = setting.GetString()
+                EmailSettings.SmtpUseSSL = setting.GetBoolean()
+            end
+        end
+    end
+
+    ;SmtpServer
+    if (ok)
+    begin
+        if (emailsetting.TryGetProperty("SmtpServer",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "EmailSettings.SmtpServer must be a string containing a DNS name or IP address!"
+                ok = false
+            end
+            else
+            begin
+                EmailSettings.SmtpServer = setting.GetString()
             end
         end
     end
@@ -710,33 +726,16 @@ proc
     ;SmtpPort
     if (ok)
     begin
-        if (smtpsettings.TryGetProperty("SmtpPort",setting))
+        if (emailsetting.TryGetProperty("SmtpPort",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
             begin
-                errorMessage = "SmtpPort must have a positive integer value!"
+                errorMessage = "EmailSettings.SmtpPort must have a positive integer value!"
                 ok = false
             end
             else
             begin
-                Settings.SmtpPort = setting.GetInt32()
-            end
-        end
-    end
-
-    ;SmtpUseSSL
-    if (ok)
-    begin
-        if (instance.TryGetProperty("SmtpUseSSL",setting))
-        begin
-            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-            begin
-                errorMessage = "SmtpUseSSL must be true or false!"
-                ok = false
-            end
-            else
-            begin
-                Settings.SmtpUseSSL = setting.GetBoolean()
+                EmailSettings.SmtpPort = setting.GetInt32()
             end
         end
     end
@@ -744,16 +743,16 @@ proc
     ;SmtpUsername
     if (ok)
     begin
-        if (smtpsettings.TryGetProperty("SmtpUsername",setting))
+        if (emailsetting.TryGetProperty("SmtpUsername",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "SmtpUsername must have a string value!"
+                errorMessage = "EmailSettings.SmtpUsername must have a string value!"
                 ok = false
             end
             else
             begin
-                Settings.SmtpUsername = setting.GetString()
+                EmailSettings.SmtpUsername = setting.GetString()
             end
         end
     end
@@ -761,58 +760,75 @@ proc
     ;SmtpPassword
     if (ok)
     begin
-        if (smtpsettings.TryGetProperty("SmtpPassword",setting))
+        if (emailsetting.TryGetProperty("SmtpPassword",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "SmtpPassword must have a string value!"
+                errorMessage = "EmailSettings.SmtpPassword must have a string value!"
                 ok = false
             end
             else
             begin
-                Settings.SmtpPassword = setting.GetString()
+                EmailSettings.SmtpPassword = setting.GetString()
             end
         end
     end
 
-    ;EmailSenderAddress
+    ;SmtpUseSSL
     if (ok)
     begin
-        if (smtpsettings.TryGetProperty("EmailSenderAddress",setting))
+        if (emailsetting.TryGetProperty("SmtpUseSSL",setting))
         begin
-            if (setting.ValueKind != JsonValueKind.String) then
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
             begin
-                errorMessage = "EmailSenderAddress must have a string value!"
+                errorMessage = "EmailSettings.SmtpUseSSL must be true or false!"
                 ok = false
             end
             else
             begin
-                Settings.EmailSenderAddress = setting.GetString()
+                EmailSettings.SmtpUseSSL = setting.GetBoolean()
             end
         end
     end
 
-    ;EmailSenderName
+    ;SenderAddress
     if (ok)
     begin
-        if (smtpsettings.TryGetProperty("EmailSenderName",setting))
+        if (emailsetting.TryGetProperty("SenderAddress",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
             begin
-                errorMessage = "EmailSenderName must have a string value!"
+                errorMessage = "EmailSettings.SenderAddress must have a string value!"
                 ok = false
             end
             else
             begin
-                Settings.EmailSenderName = setting.GetString()
+                EmailSettings.SenderAddress = setting.GetString()
             end
         end
     end
 
-    ;EmailRecipients
+    ;SenderName
     if (ok)
     begin
-        if (!smtpsettings.TryGetProperty("EmailRecipients",setting) || setting.ValueKind!=JsonValueKind.Array || setting.GetArrayLength()==0) then
+        if (emailsetting.TryGetProperty("SenderName",setting))
+        begin
+            if (setting.ValueKind != JsonValueKind.String) then
+            begin
+                errorMessage = "EmailSettings.SenderName must have a string value!"
+                ok = false
+            end
+            else
+            begin
+                EmailSettings.SenderName = setting.GetString()
+            end
+        end
+    end
+
+    ;Recipients
+    if (ok)
+    begin
+        if (!emailsetting.TryGetProperty("Recipients",setting) || setting.ValueKind!=JsonValueKind.Array || setting.GetArrayLength()==0) then
         begin
             ok = false
         end
@@ -821,7 +837,7 @@ proc
             data addressCount = setting.GetArrayLength()
             data addressNumber, int
 
-            Settings.EmailRecipients = new String[addressCount]
+            EmailSettings.Recipients = new String[addressCount]
 
             for addressNumber from 0 thru addressCount - 1
             begin
@@ -833,13 +849,47 @@ proc
                 end
                 else
                 begin
-                    Settings.EmailRecipients[addressNumber+1] = emailAddress.GetString()
+                    EmailSettings.Recipients[addressNumber+1] = emailAddress.GetString()
                 end
             end
         end
         if (!ok)
         begin
-            errorMessage = "EmailRecipients must be an array containing at least one email address!"
+            errorMessage = "EmailSettings.Recipients must be an array containing at least one email address!"
+        end
+    end
+
+    ;ErrorsBeforePause
+    if (ok)
+    begin
+        if (emailsetting.TryGetProperty("ErrorsBeforePause",setting))
+        begin
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
+            begin
+                errorMessage = "EmailSettings.ErrorsBeforePause must have a positive integer value!"
+                ok = false
+            end
+            else
+            begin
+                EmailSettings.ErrorsBeforePause = setting.GetInt32()
+            end
+        end
+    end
+
+    ;ErrorPauseMinutes
+    if (ok)
+    begin
+        if (emailsetting.TryGetProperty("ErrorPauseMinutes",setting))
+        begin
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
+            begin
+                errorMessage = "EmailSettings.ErrorPauseMinutes must have a positive integer value!"
+                ok = false
+            end
+            else
+            begin
+                EmailSettings.ErrorPauseMinutes = setting.GetInt32()
+            end
         end
     end
 

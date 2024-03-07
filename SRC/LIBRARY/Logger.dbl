@@ -148,7 +148,7 @@ namespace ReplicationLibrary
             Logger.ErrorLog(errorText)
 
             ;;Email the error?
-            if (Settings.CanSendEmail())
+            if (EmailSettings.CanSendEmail())
             begin
                 data subject, string
                 data body = new string[3]
@@ -198,7 +198,7 @@ namespace ReplicationLibrary
             Logger.ErrorLog(errorText)
 
             ;;Email the error?
-            if (Settings.CanSendEmail())
+            if (EmailSettings.CanSendEmail())
             begin
                 data subject, string
                 data body = new string[3]

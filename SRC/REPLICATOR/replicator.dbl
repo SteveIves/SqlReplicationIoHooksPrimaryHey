@@ -122,25 +122,13 @@ proc
         if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         begin
             uncommittedInstructions = new ArrayList()
-
 .ifdef DBLNET
             if (Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlClient)
             begin
-                ;;Start a transaction
-                try
-                begin
-                    disposable data command = new SqlCommand("START TRANSACTION",Settings.DatabaseConnection) { 
-                    &    CommandTimeout = Settings.DatabaseTimeout
-                    &    }
-                    command.ExecuteNonQuery()
-                end
-                catch (ex, @SqlException)
-                begin
-                    ;TODO: ENHANCEMENT: START TRANSACTION failed - now what?
-
-
-                end
-                endtry
+                data ok, boolean
+                data transaction, boolean
+                data errorMessage, string
+                ok = %StartTransactionSqlClient(transaction,errorMessage)
             end
 .endc
         end
@@ -809,23 +797,19 @@ CheckTable,
 
     Logger.VerboseLog(" - Checking if table exists")
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Exists"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Exists"
+    endusing
+
     repeat
     begin
         data doReturn, boolean, false
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Exists"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Exists"
-                status = %xsubr(functionName,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -880,23 +864,19 @@ CreateTable,
 
     Logger.Log(" - Creating table")
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Create"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Create"
+    endusing
+
     repeat
     begin
         data doReturn, boolean, false
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Create"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),(i)(Settings.DataCompressionMode),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Create"
-                status = %xsubr(functionName,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -949,7 +929,14 @@ LoadTable,
 
     Logger.Log(" - Load starting at " + %TimeNow)
 
-    if (Settings.CanSendEmail())
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Load"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Load"
+    endusing
+
+    if (EmailSettings.CanSendEmail())
     begin
         data subject, string, "SQL replicator " + Settings.InstanceName + " is starting to load table " + %atrim(instruction.structure_name)
         xcall SendEmail(subject,^null,false)
@@ -964,25 +951,7 @@ LoadTable,
             data successCount,  int
             data failCount,     int,0
 
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Load"
-                if (Settings.RunningOnTerminal) then
-                begin
-                    status = %xsubr(functionName,(i)(Settings.DatabaseChannel),maxRowsToLoad,(i)(Settings.DatabaseCommitMode),dberrtxt,Settings.LogBulkLoadExceptions,Settings.TerminalChannel,successCount,failCount,Settings.LogLoadProgress)
-                end
-                else
-                begin
-                    status = %xsubr(functionName,(i)(Settings.DatabaseChannel),maxRowsToLoad,(i)(Settings.DatabaseCommitMode),dberrtxt,Settings.LogBulkLoadExceptions,,successCount,failCount)
-                end
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Load"
-                status = %xsubr(functionName,maxRowsToLoad,successCount,failCount,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,maxRowsToLoad,successCount,failCount,dberrtxt)
 
             if (status) then
             begin
@@ -991,7 +960,7 @@ LoadTable,
                 Counters.Inserts += successCount
                 Counters.Errors  += failCount
 
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "SQL replicator " + Settings.InstanceName + " has completed load of table " + %atrim(instruction.structure_name)
                     data body = new string[2]
@@ -1004,7 +973,7 @@ LoadTable,
             begin
                 Logger.LogFunctionError(functionName,status,dberrtxt)
 
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to complete load of table " + %atrim(instruction.structure_name)
                     data body = new string[1]
@@ -1051,7 +1020,14 @@ BulkLoadTable,
 
     Logger.Log(" - Bulk load starting at " + %TimeNow)
 
-    if (Settings.CanSendEmail())
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "BulkLoad"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_BulkLoad"
+    endusing
+
+    if (EmailSettings.CanSendEmail())
     begin
         data subject, string, "SQL replicator " + Settings.InstanceName + " is starting to bulk load table " + %atrim(instruction.structure_name)
         xcall SendEmail(subject,^null,false)
@@ -1066,20 +1042,7 @@ BulkLoadTable,
             data totalRows, int, 0
             data failRows,  int, 0
 
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "BulkLoad"
-                status = %xsubr(functionName,Settings.DatabaseChannel,(i)(Settings.DatabaseCommitMode),Settings.LocalExportPath,Settings.FileServiceHost,Settings.FileServicePort,Settings.DatabaseTimeout,Settings.BulkLoadTimeout,Settings.BulkLoadBatchSize,Settings.LogFileChannel,Settings.TerminalChannel,totalRows,failRows,dberrtxt)
-            end
-.ifdef DBLNET
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_BulkLoad"
-                status = %xsubr(functionName,maxRowsToLoad,totalRows,failRows,dberrtxt)
-            end
-.endc
-            endusing
+            status = %xsubr(functionName,maxRowsToLoad,totalRows,failRows,dberrtxt)
 
             if (status) then
             begin
@@ -1088,7 +1051,7 @@ BulkLoadTable,
                 Counters.Inserts += totalRows - failRows
                 Counters.Errors  += failRows
 
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "SQL replicator " + Settings.InstanceName + " has completed bulk load of table " + %atrim(instruction.structure_name)
                     data body = new string[2]
@@ -1101,7 +1064,7 @@ BulkLoadTable,
             begin
                 Logger.LogFunctionError(functionName,status,dberrtxt)
 
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to complete bulk load of table " + %atrim(instruction.structure_name)
                     data body = new string[1]
@@ -1154,39 +1117,26 @@ DoInsert,
     begin
         if (Settings.LogKeyValues)
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                
-            end
-            endusing
             functionName = %atrim(instruction.structure_name) + "KeyVal"
             status = %xsubr(functionName,instruction.record,keyValue,keyLength)
             Logger.VerboseLog(" - Key: " + keyValue(1:keyLength))
         end
     end
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Insert"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Insert"
+    endusing
+
     repeat
     begin
         data doReturn, boolean, false
+
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Insert"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),instruction.record(1,structure_data.structure_size),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Insert"
-                status = %xsubr(functionName,instruction.record(1,structure_data.structure_size),dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,instruction.record(1,structure_data.structure_size),dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1262,23 +1212,20 @@ DoInsertRelative,
         end
     end
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Insert"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Insert"
+    endusing
+
     repeat
     begin
         data doReturn, boolean, false
+
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Insert"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),recordNumber,instruction.record(1,structure_data.structure_size),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Insert"
-                status = %xsubr(functionName,recordNumber,instruction.record(1,structure_data.structure_size),dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,recordNumber,instruction.record(1,structure_data.structure_size),dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1353,23 +1300,20 @@ DoUpdate,
         end
     end
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Update"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Update"
+    endusing
+
     repeat
     begin
         data doReturn, boolean, false
+
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Update"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),instruction.record(1,structure_data.structure_size),rows,dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Update"
-                status = %xsubr(functionName,instruction.record(1,structure_data.structure_size),rows,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,instruction.record(1,structure_data.structure_size),rows,dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1446,23 +1390,20 @@ DoUpdateRelative,
         end
     end
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Update"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Update"
+    endusing
+
     repeat
     begin
         data doReturn, boolean, false
+
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                
-            end
-            endusing
-            functionName = %atrim(instruction.structure_name) + "Update"
-            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),recordNumber,instruction.record(1,structure_data.structure_size),rows,dberrtxt)
+            status = %xsubr(functionName,recordNumber,instruction.record(1,structure_data.structure_size),rows,dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1531,22 +1472,19 @@ DoDelete,
         Logger.VerboseLog(" - Key: " + keyValue(1:keyLength))
     end
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Delete"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Delete"
+    endusing
+
     repeat
     begin
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Delete"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),keyValue(1:keyLength),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Delete"
-                status = %xsubr(functionName,keyValue(1:keyLength),dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,keyValue(1:keyLength),dberrtxt)
+
             if (status) then
             begin
                 Logger.VerboseLog(" - Row deleted")
@@ -1594,20 +1532,17 @@ DoCreateTable,
 
     repeat
     begin
+        using Settings.DatabaseConnectMode select
+        (DatabaseConnectionMode.SqlConnection),
+            functionName = %atrim(instruction.structure_name) + "Exists"
+        (DatabaseConnectionMode.SqlClient),
+            functionName = %atrim(instruction.structure_name) + "_Exists"
+        endusing
+
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Exists"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Exists"
-                status = %xsubr(functionName,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,dberrtxt)
+
             using status select
             (1),
             begin
@@ -1620,24 +1555,20 @@ DoCreateTable,
 
                 repeat
                 begin
+                    using Settings.DatabaseConnectMode select
+                    (DatabaseConnectionMode.SqlConnection),
+                        functionName = %atrim(instruction.structure_name) + "Create"
+                    (DatabaseConnectionMode.SqlClient),
+                        functionName = %atrim(instruction.structure_name) + "_Create"
+                    endusing
+
                     try
                     begin
-                        using Settings.DatabaseConnectMode select
-                        (DatabaseConnectionMode.SqlConnection),
-                        begin
-                            functionName = %atrim(instruction.structure_name) + "Create"
-                            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),(i)(Settings.DataCompressionMode),dberrtxt)
-                        end
-                        (DatabaseConnectionMode.SqlClient),
-                        begin
-                            functionName = %atrim(instruction.structure_name) + "_Create"
-                            status = %xsubr(functionName,dberrtxt)
-                        end
-                        endusing
+                        status = %xsubr(functionName,dberrtxt)
 
                         if (status) then
                         begin
-                            if (Settings.CanSendEmail())
+                            if (EmailSettings.CanSendEmail())
                             begin
                                 data subject, string, "SQL replicator " + Settings.InstanceName + " created table " + %atrimtostring(instruction.structure_name)
                                 xcall SendEmail(subject,^null,false)
@@ -1709,23 +1640,19 @@ DoLoadTable,
 
     Logger.VerboseLog(" - Checking if table exists")
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Exists"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Exists"
+    endusing
+
     repeat
     begin
         data doReturn, boolean, false
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Exists"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Exists"
-                status = %xsubr(functionName,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -1799,21 +1726,17 @@ DoCreateCsv,
 
     Logger.Log(" - Export starting at " + %TimeNow)
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Csv"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Csv"
+    endusing
+
     try
     begin
         data csvFileSpec, string, Settings.LocalExportPath + %atrim(instruction.structure_name) + ".Csv"
         data recordCount, i4, 0
-
-        using Settings.DatabaseConnectMode select
-        (DatabaseConnectionMode.SqlConnection),
-        begin
-            functionName = %atrim(instruction.structure_name) + "Csv"
-        end
-        (DatabaseConnectionMode.SqlClient),
-        begin
-            functionName = %atrim(instruction.structure_name) + "_Csv"
-        end
-        endusing
 
         status = %xsubr(functionName,(a)csvFileSpec,0,recordCount,dberrtxt)
 
@@ -1839,27 +1762,24 @@ DoCreateCsv,
     ;;
 DoDeleteAllRows,
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Clear"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Clear"
+    endusing
+
     repeat
     begin
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Clear"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Clear"
-                status = %xsubr(functionName,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,dberrtxt)
+
             if (status) then
             begin
                 Logger.VerboseLog(" - Table truncated")
 
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "SQL replicator " + Settings.InstanceName + " truncated table " + %atrim(instruction.structure_name)
                     xcall SendEmail(subject,^null,false)
@@ -1910,20 +1830,16 @@ DoDeleteTable,
 
     repeat
     begin
+        using Settings.DatabaseConnectMode select
+        (DatabaseConnectionMode.SqlConnection),
+            functionName = %atrim(instruction.structure_name) + "Exists"
+        (DatabaseConnectionMode.SqlClient),
+            functionName = %atrim(instruction.structure_name) + "_Exists"
+        endusing
+
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Exists"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Exists"
-                status = %xsubr(functionName,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,dberrtxt)
 
             using status select
             (0),
@@ -1937,26 +1853,22 @@ DoDeleteTable,
 
                 repeat
                 begin
+                    using Settings.DatabaseConnectMode select
+                    (DatabaseConnectionMode.SqlConnection),
+                        functionName = %atrim(instruction.structure_name) + "Drop"
+                    (DatabaseConnectionMode.SqlClient),
+                        functionName = %atrim(instruction.structure_name) + "_Drop"
+                    endusing
+
                     try
                     begin
-                        using Settings.DatabaseConnectMode select
-                        (DatabaseConnectionMode.SqlConnection),
-                        begin
-                            functionName = %atrim(instruction.structure_name) + "Drop"
-                            status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
-                        end
-                        (DatabaseConnectionMode.SqlClient),
-                        begin
-                            functionName = %atrim(instruction.structure_name) + "_Drop"
-                            status = %xsubr(functionName,dberrtxt)
-                        end
-                        endusing
+                        status = %xsubr(functionName,dberrtxt)
 
                         if (status) then
                         begin
                             Logger.VerboseLog(" - Table deleted")
 
-                            if (Settings.CanSendEmail())
+                            if (EmailSettings.CanSendEmail())
                             begin
                                 data subject, string, "SQL replicator " + Settings.InstanceName + " deleted table " + %atrim(instruction.structure_name)
                                 xcall SendEmail(subject,^null,false)
@@ -2024,27 +1936,24 @@ DoDeleteTable,
     ;;
 DoAddIndexes,
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "Index"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_Index"
+    endusing
+
     repeat
     begin
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "Index"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),(i)(Settings.DatabaseTimeout),(i)(Settings.BulkLoadTimeout),(i)(Settings.DataCompressionMode),(i)(Settings.LogFileChannel),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_Index"
-                status = %xsubr(functionName,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,dberrtxt)
+
             if (status) then
             begin
                 Logger.VerboseLog(" - Indexes added")
 
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "SQL replicator " + Settings.InstanceName + " added indexes to table " + %atrim(instruction.structure_name)
                     xcall SendEmail(subject,^null,false)
@@ -2089,27 +1998,24 @@ DoAddIndexes,
     ;;
 DoDeleteIndexes,
 
+    using Settings.DatabaseConnectMode select
+    (DatabaseConnectionMode.SqlConnection),
+        functionName = %atrim(instruction.structure_name) + "UnIndex"
+    (DatabaseConnectionMode.SqlClient),
+        functionName = %atrim(instruction.structure_name) + "_UnIndex"
+    endusing
+
     repeat
     begin
         try
         begin
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                functionName = %atrim(instruction.structure_name) + "UnIndex"
-                status = %xsubr(functionName,(i)(Settings.DatabaseChannel),(i)(Settings.DatabaseCommitMode),dberrtxt)
-            end
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                functionName = %atrim(instruction.structure_name) + "_UnIndex"
-                status = %xsubr(functionName,dberrtxt)
-            end
-            endusing
+            status = %xsubr(functionName,dberrtxt)
+
             if (status) then
             begin
                 Logger.VerboseLog(" - Indexes removed")
 
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "SQL replicator " + Settings.InstanceName + " removed indexes from table " + %atrim(instruction.structure_name)
                     xcall SendEmail(subject,^null,false)

@@ -1,6 +1,6 @@
 ;;*****************************************************************************
 ;;
-;; File:        RollbackTransactionSqlConnection.dbl
+;; File:        RollbackSqlConnection.dbl
 ;;
 ;; Description: Rolls back a database transaction (SQL Connection mode)
 ;;
@@ -37,7 +37,7 @@
 
 import ReplicationLibrary
 
-function RollbackTransactionSqlConnection, ^val
+function RollbackSqlConnection, ^val
     required in  a_dbchn,  i
     required out errtxt, a
 

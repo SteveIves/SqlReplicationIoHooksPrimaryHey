@@ -73,9 +73,7 @@ namespace ReplicationLibrary
                 Settings.TerminalChannel = tmpchn
             end
 
-            ;Shared settings
-            SmtpPort                = 25
-            SmtpFailMax             = 3
+            EmailSettings.Initialize()
 
         endmethod
 
@@ -246,61 +244,6 @@ namespace ReplicationLibrary
         public static readwrite property VerboseLogging, boolean
 
         ;------------------------------------------------------------------------------------------------
-        ; Shared settings
-
-        ;;; <summary>
-        ;;; The DNS name or IP address of the SMTP server to use to send email messages.
-        ;;; The SMTP server must be configured to accept messages from unauthenticated sources.
-        ;;; </summary>
-        public static readwrite property SmtpServer, string
-
-        ;;; <summary>
-        ;;; The IP port of the SMTP server to use to send email messages.
-        ;;; </summary>
-        public static readwrite property SmtpPort, int
-
-        ;;; <summary>
-        ;;; If authentication is required, the username to present to the SMTP server (.NET only).
-        ;;; </summary>
-        public static readwrite property SmtpUsername, string
-
-        ;;; <summary>
-        ;;; If authentication is required, the password to present to the SMTP server (.NET only).
-        ;;; </summary>
-        public static readwrite property SmtpPassword, string
-
-        ;;; <summary>
-        ;;; Does the SMTP server expect an SSL connection? (.NET only)
-        ;;; </summary>
-        public static readwrite property SmtpUseSSL, boolean
-
-        ;;; <summary>
-        ;;; The maximum number of send failures before giving up for a while.
-        ;;; </summary>
-        public static readwrite property SmtpFailMax, int
-
-        ;;; <summary>
-        ;;; The How many minutes to pause following SmtpFailMax SMTP send failures
-        ;;; </summary>
-        public static readwrite property SmtpPauseMinutes, i4
-
-        ;;; <summary>
-        ;;; The email address to be used as the sender of status messages.
-        ;;; </summary>
-        public static readwrite property EmailSenderAddress, string
-
-        ;;; <summary>
-        ;;; The name associated with the email sender address.
-        ;;; </summary>
-        public static readwrite property EmailSenderName, string
-
-        ;;; <summary>
-        ;;; The email address or addresses to send status messages to.
-        ;;; One or more email addresses seperated by commas.
-        ;;; </summary>
-        public static readwrite property EmailRecipients, [#]string
-
-        ;------------------------------------------------------------------------------------------------
         ; Internal stuff below here
 
 .region "Internal properties"
@@ -368,21 +311,6 @@ namespace ReplicationLibrary
         public static readwrite property RunningOnTerminal, boolean
 
         ;;; <summary>
-        ;;; Is sending SMTP messages currently disabled because od errors?
-        ;;; </summary>
-        public static readwrite property SmtpDisabled, boolean
-
-        ;;; <summary>
-        ;;; The number of SMTP send failures
-        ;;; </summary>
-        public static readwrite property SmtpFailCount, i4
-
-        ;;; <summary>
-        ;;; The time of the last SMTP send failure in microseconds
-        ;;; </summary>
-        public static readwrite property SmtpPausedTime, i8
-
-        ;;; <summary>
         ;;; If running interactively, the channel number of the terminal.
         ;;; Channel opened and set automatically if RunningOnTerminal is true.
         ;;; </summary>
@@ -413,40 +341,6 @@ namespace ReplicationLibrary
                 mreturn false
             end
             endusing
-        endmethod
-
-        ;;; <summary>
-        ;;; Are we able to send email messages. In order for this to return true we must have values
-        ;;; for EmailError, SmtpServer, EmailSender and EmailDomain.
-        ;;; </summary>
-        ;;; <returns>Returns true if we have all the data, but does not guarantee that email can be sent!</returns>
-        public static method CanSendEmail, boolean
-        proc
-            if (String.IsNullOrWhitespace(EmailSenderName))
-            begin
-                EmailSenderName = EmailSenderAddress
-            end
-
-            mreturn (EmailRecipients!=^null && EmailRecipients.Length>0 && SmtpServer!=^null && SmtpServer.Length>0 && SmtpPort!=0 && EmailSenderAddress!=^null && EmailSenderAddress.Length>0)
-        endmethod
-
-        public static method GetEmailRecipientsString, string
-        proc
-            if (EmailRecipients != ^null && EmailRecipients.Length > 0)
-            begin
-                data sb = new StringBuilder()
-                data ix, int
-                for ix from 1 thru EmailRecipients.Length
-                begin
-                    sb.Append(EmailRecipients[ix])
-                    if (ix < EmailRecipients.Length)
-                    begin
-                        sb.Append(",")
-                    end
-                end
-                mreturn sb.ToString()
-            end
-            mreturn ""
         endmethod
 
         ;;; <summary>

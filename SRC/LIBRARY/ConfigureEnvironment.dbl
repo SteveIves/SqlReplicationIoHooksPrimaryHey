@@ -266,7 +266,7 @@ proc
         Logger.Log("--- Processing instructions ----------------------")
 
         ;If we're sending emails then let's record the server startup
-        if (Settings.CanSendEmail())
+        if (EmailSettings.CanSendEmail())
         begin
             data subject = "SQL replicator " + Settings.InstanceName  + " was started."
             data body = new string[13]
@@ -342,21 +342,21 @@ proc
                 tmpmsg += "Replicator will attempt to continue if errors are encountered" + %char(13) + %char(10)
             end
 
-            if (Settings.CanSendEmail()) then
+            if (EmailSettings.CanSendEmail()) then
             begin
                 data sb = new StringBuilder()
                 data ix, int
-                for ix from 1 thru Settings.EmailRecipients.Length
+                for ix from 1 thru EmailSettings.Recipients.Length
                 begin
-                    sb.Append(Settings.EmailRecipients[ix])
-                    if (ix < Settings.EmailRecipients.Length)
+                    sb.Append(EmailSettings.Recipients[ix])
+                    if (ix < EmailSettings.Recipients.Length)
                     begin
                         sb.Append(",")
                     end
                 end
-                tmpmsg += "Replicator is configured to send email messages to " + Settings.GetEmailRecipientsString() + %char(13) + %char(10)
-                tmpmsg += "Emails will be sent from " + Settings.EmailSenderAddress + %char(13) + %char(10)
-                tmpmsg += "Email server is " + Settings.SmtpServer + %char(13) + %char(10)
+                tmpmsg += "Replicator is configured to send email messages to " + EmailSettings.GetRecipientsString() + %char(13) + %char(10)
+                tmpmsg += "Emails will be sent from " + EmailSettings.SenderAddress + %char(13) + %char(10)
+                tmpmsg += "Email server is " + EmailSettings.SmtpServer + %char(13) + %char(10)
             end
             else
             begin

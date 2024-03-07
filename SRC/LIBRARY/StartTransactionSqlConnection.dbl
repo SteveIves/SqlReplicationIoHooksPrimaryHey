@@ -38,7 +38,6 @@
 import ReplicationLibrary
 
 function StartTransactionSqlConnection, ^val
-    required in  dbchn,  i
     required out transaction, boolean
     required out errtxt, a
 
@@ -53,12 +52,12 @@ proc
     ok = true
     errtxt = ""
 
-    if (%ssc_commit(dbchn,SSQL_TXON)==SSQL_NORMAL) then
+    if (%ssc_commit(Settings.DatabaseChannel,SSQL_TXON)==SSQL_NORMAL) then
         transaction=1
     else
     begin
         ok = false
-        if (%ssc_getemsg(dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to start transaction"
         xcall ThrowOnCommunicationError(dberror,errtxt)
     end

@@ -52,7 +52,7 @@ proc
 
                 ;If we're sending emails then let's record the error
 
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject = "ERROR: SQL replicator " + Settings.InstanceName + " failed to set database timeout!"
                     data body = new string[5]
@@ -75,7 +75,7 @@ proc
             ok = false
 
             ;;If we're sending emails then let's record the connect failure
-            if (Settings.CanSendEmail())
+            if (EmailSettings.CanSendEmail())
             begin
                 data subject = "ERROR: SQL replicator " + Settings.InstanceName + " failed to connect to database!"
                 data body = new string[5]
@@ -139,7 +139,7 @@ proc
             ok = false
 
             ;;If we're sending emails then send a message about the failure
-            if (Settings.CanSendEmail())
+            if (EmailSettings.CanSendEmail())
             begin
                 data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to start!"
                 data body = new string[4]
@@ -183,7 +183,7 @@ proc
                 ok = false
 
                 ;;If we're sending emails then send a message about the failure
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to start!"
                     data body = new string[3]
@@ -212,7 +212,7 @@ proc
                 Logger.ErrorLog(errorMessage)
 
                 ;;If we're sending emails then send a message about the failure
-                if (Settings.CanSendEmail())
+                if (EmailSettings.CanSendEmail())
                 begin
                     data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to start!"
                     data body = new string[2]

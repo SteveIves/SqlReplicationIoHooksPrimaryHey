@@ -77,23 +77,18 @@ import System.IO
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
 .endc
 
-.define writelog(x) if ^passed(a_logchannel) && a_logchannel && %chopen(a_logchannel) writes(a_logchannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
-.define writett(x)  if ^passed(a_ttchannel) && a_ttchannel writes(a_ttchannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX ") + x)
+.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
+.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX ") + x)
 
 ;;*****************************************************************************
 ;;; <summary>
 ;;; Determines if the <StructureName> table exists in the database.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
 function <StructureName>Exists, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
-    optional out a_errtxt, a
+    required out a_errtxt, a
     endparams
 
     .include "CONNECTDIR:ssql.def"
@@ -113,10 +108,10 @@ proc
 
     ;;Open a cursor for the SELECT statement
 
-    if (%ssc_open(a_dbchn,cursor,"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>'",SSQL_SELECT)==SSQL_FAILURE)
+    if (%ssc_open(Settings.DatabaseChannel,cursor,"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>'",SSQL_SELECT)==SSQL_FAILURE)
     begin
         error=-1
-        if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to open cursor"
     end
 
@@ -124,10 +119,10 @@ proc
 
     if (!error)
     begin
-        if (%ssc_define(a_dbchn,cursor,1,table_name)==SSQL_FAILURE)
+        if (%ssc_define(Settings.DatabaseChannel,cursor,1,table_name)==SSQL_FAILURE)
         begin
             error=-1
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variable"
         end
     end
@@ -136,13 +131,13 @@ proc
 
     if (!error)
     begin
-        if (%ssc_move(a_dbchn,cursor,1)==SSQL_NORMAL) then
+        if (%ssc_move(Settings.DatabaseChannel,cursor,1)==SSQL_NORMAL) then
         begin
             error = 1 ;; Table exists
         end
         else
         begin
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             begin
                 errtxt="Failed to execute SQL Statement"
             end
@@ -154,12 +149,12 @@ proc
 
     if (cursor)
     begin
-        if (%ssc_close(a_dbchn,cursor)==SSQL_FAILURE)
+        if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
         begin
             if (!error)
             begin
                 error=-1
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to close cursor"
             end
         end
@@ -167,13 +162,10 @@ proc
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (error) then
-            a_errtxt = errtxt
-        else
-            clear a_errtxt
-    end
+    if (error) then
+        a_errtxt = errtxt
+    else
+        clear a_errtxt
 
     freturn error
 
@@ -183,19 +175,11 @@ endfunction
 ;;; <summary>
 ;;; Creates the <StructureName> table in the database.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
-;;; <param name="a_data_compression">Data compression mode</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Create, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
-    required in  a_data_compression, i
-    optional out a_errtxt, a
-    endparams
+    required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -217,9 +201,9 @@ proc
 
     ;;If we're in manual commit mode, start a transaction
 
-    if (a_commit_mode==3)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
     ;;Create the database table and primary key constraint
@@ -264,10 +248,10 @@ proc
 </IF STRUCTURE_ISAM>
         & + ')'
 
-        using a_data_compression select
-        (2),
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Row),
             sql = sql + " WITH(DATA_COMPRESSION=ROW)"
-        (3),
+        (DatabaseDataCompression.Page),
             sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
         endusing
 
@@ -297,38 +281,35 @@ proc
 
     ;;If we're in manual commit mode, commit or rollback the transaction
 
-    if ((a_commit_mode==3) && transaction)
+    if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = errtxt
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = errtxt
 
     freturn ok
 
 open_cursor,
 
-    if (%ssc_open(a_dbchn,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
+    if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to open cursor"
     end
 
@@ -336,10 +317,10 @@ open_cursor,
 
 execute_cursor,
 
-    if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
+    if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to execute SQL statement"
         xcall ThrowOnCommunicationError(dberror,errtxt)
     end
@@ -350,12 +331,12 @@ close_cursor,
 
     if (cursor)
     begin
-        if (%ssc_close(a_dbchn,cursor)==SSQL_FAILURE)
+        if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
         begin
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to close cursor"
             end
         end
@@ -371,25 +352,11 @@ endfunction
 ;;; <summary>
 ;;; Add alternate key indexes to the <StructureName> table if they do not exist.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
-;;; <param name="a_db_timeout">Database timeout in seconds.</param>
-;;; <param name="a_bl_timeout">Bulk load timeout in seconds.</param>
-;;; <param name="a_data_compression">Data compression mode.</param>
-;;; <param name="a_logchannel">Log file channel to log messages on.</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Index, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
-    required in  a_db_timeout, n
-    required in  a_bl_timeout, n
-    required in  a_data_compression, n
-    optional in  a_logchannel, n
-    optional out a_errtxt, a
-    endparams
+    required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -412,9 +379,9 @@ proc
 
     ;;If we're in manual commit mode, start a transaction
 
-    if (a_commit_mode==3)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
     ;;Set the SQL statement execution timeout to the bulk load value
@@ -422,11 +389,11 @@ proc
     if (ok)
     begin
         now = %datetime
-        writelog(" - Setting database timeout to " + %string(a_bl_timeout) + " seconds")
-        if (%ssc_cmd(a_dbchn,,SSQL_TIMEOUT,%string(a_bl_timeout))==SSQL_FAILURE)
+        writelog(" - Setting database timeout to " + %string(Settings.BulkLoadTimeout) + " seconds")
+        if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.BulkLoadTimeout))==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to set database timeout"
         end
     end
@@ -434,14 +401,14 @@ proc
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
     ;;The structure has no unique primary key, so no primary key constraint was added to the table. Create an index instead.
 
-    if (ok && !IndexExists(a_dbchn,"IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>",errtxt))
+    if (ok && !IndexExists(Settings.DatabaseChannel,"IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>",errtxt))
     begin
         sql = '<PRIMARY_KEY>CREATE INDEX IX_<StructureName>_<KeyName> ON "<StructureName>"(<SEGMENT_LOOP>"<FieldSqlName>" <SEGMENT_ORDER><,></SEGMENT_LOOP>)</PRIMARY_KEY>'
 
-        using a_data_compression select
-        (2),
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Row),
             sql = sql + " WITH(DATA_COMPRESSION=ROW)"
-        (3),
+        (DatabaseDataCompression.Page),
             sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
         endusing
 
@@ -470,14 +437,14 @@ proc
   <ALTERNATE_KEY_LOOP>
     ;;Create index <KEY_NUMBER> (<KEY_DESCRIPTION>)
 
-    if (ok && !%IndexExists(a_dbchn,"IX_<StructureName>_<KeyName>",errtxt))
+    if (ok && !%IndexExists(Settings.DatabaseChannel,"IX_<StructureName>_<KeyName>",errtxt))
     begin
         sql = 'CREATE <IF FIRST_UNIQUE_KEY>CLUSTERED<ELSE><KEY_UNIQUE></IF FIRST_UNIQUE_KEY> INDEX IX_<StructureName>_<KeyName> ON "<StructureName>"(<SEGMENT_LOOP>"<FieldSqlName>" <SEGMENT_ORDER><,></SEGMENT_LOOP>)'
 
-        using a_data_compression select
-        (2),
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Row),
             sql = sql + " WITH(DATA_COMPRESSION=ROW)"
-        (3),
+        (DatabaseDataCompression.Page),
             sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
         endusing
 
@@ -506,45 +473,42 @@ proc
 
     ;;If we're in manual commit mode, commit or rollback the transaction
 
-    if ((a_commit_mode==3) && transaction)
+    if ((Settings.DatabaseCommitMode == DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;Set the database timeout back to the regular value
 
     now = %datetime
-    writelog(" - Resetting database timeout to " + %string(a_db_timeout) + " seconds")
-    if (%ssc_cmd(a_dbchn,,SSQL_TIMEOUT,%string(a_db_timeout))==SSQL_FAILURE)
+    writelog(" - Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
+    if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))==SSQL_FAILURE)
         nop
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = errtxt
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = errtxt
 
     freturn ok
 
 open_cursor,
 
-    if (%ssc_open(a_dbchn,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
+    if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to open cursor"
     end
 
@@ -552,10 +516,10 @@ open_cursor,
 
 execute_cursor,
 
-    if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
+    if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to execute SQL statement"
         xcall ThrowOnCommunicationError(dberror,errtxt)
     end
@@ -566,12 +530,12 @@ close_cursor,
 
     if (cursor)
     begin
-        if (%ssc_close(a_dbchn,cursor)==SSQL_FAILURE)
+        if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
         begin
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to close cursor"
             end
         end
@@ -586,17 +550,11 @@ endfunction
 ;;; <summary>
 ;;; Removes alternate key indexes from the <StructureName> table in the database.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>UnIndex, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
-    optional out a_errtxt, a
-    endparams
+    required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -618,9 +576,9 @@ proc
 
     ;;If we're in manual commit mode, start a transaction
 
-    if (a_commit_mode==3)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
@@ -657,38 +615,35 @@ proc
   </ALTERNATE_KEY_LOOP>
     ;;If we're in manual commit mode, commit or rollback the transaction
 
-    if ((a_commit_mode==3) && transaction)
+    if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = errtxt
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = errtxt
 
     freturn ok
 
 open_cursor,
 
-    if (%ssc_open(a_dbchn,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
+    if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to open cursor"
     end
 
@@ -696,10 +651,10 @@ open_cursor,
 
 execute_cursor,
 
-    if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
+    if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to execute SQL statement"
         xcall ThrowOnCommunicationError(dberror,errtxt)
     end
@@ -710,12 +665,12 @@ close_cursor,
 
     if (cursor)
     begin
-        if (%ssc_close(a_dbchn,cursor)==SSQL_FAILURE)
+        if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
         begin
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to close cursor"
             end
         end
@@ -731,8 +686,6 @@ endfunction
 ;;; <summary>
 ;;; Insert a row into the <StructureName> table.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 <IF STRUCTURE_RELATIVE>
 ;;; <param name="a_recnum">Relative record number to be inserted.</param>
 </IF STRUCTURE_RELATIVE>
@@ -741,15 +694,11 @@ endfunction
 ;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
 function <StructureName>Insert, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
 <IF STRUCTURE_RELATIVE>
     required in  a_recnum, n
 </IF STRUCTURE_RELATIVE>
     required in  a_data,   a
-    optional out a_errtxt, a
-    endparams
+    required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -829,20 +778,20 @@ proc
 
     ;;If we're in manual commit mode, start a transaction
 
-    if (a_commit_mode==3)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
     ;;Open a cursor for the INSERT statement
 
     if (ok && openAndBind)
     begin
-        if (%ssc_open(a_dbchn,c1<StructureName>,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
+        if (%ssc_open(Settings.DatabaseChannel,c1<StructureName>,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to open cursor"
         end
     end
@@ -852,11 +801,11 @@ proc
 <IF STRUCTURE_RELATIVE>
     if (ok && openAndBind)
     begin
-        if (%ssc_bind(a_dbchn,c1<StructureName>,1,recordNumber)==SSQL_FAILURE)
+        if (%ssc_bind(Settings.DatabaseChannel,c1<StructureName>,1,recordNumber)==SSQL_FAILURE)
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variables"
         end
     end
@@ -869,7 +818,7 @@ proc
     <IF COUNTER_1_EQ_1>
     if (ok && openAndBind)
     begin
-        if (%ssc_bind(a_dbchn,c1<StructureName>,<REPLICATION_REMAINING_INCLUSIVE_MAX_250>,
+        if (%ssc_bind(Settings.DatabaseChannel,c1<StructureName>,<REPLICATION_REMAINING_INCLUSIVE_MAX_250>,
     </IF COUNTER_1_EQ_1>
     <IF CUSTOM_DBL_TYPE>
         &    tmp<FieldSqlName><IF NOMORE>)==SSQL_FAILURE)<ELSE><IF COUNTER_1_LT_250>,<ELSE>)==SSQL_FAILURE)</IF COUNTER_1_LT_250></IF NOMORE>
@@ -896,7 +845,7 @@ proc
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variables"
         end
     end
@@ -905,7 +854,7 @@ proc
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variables"
         end
     end
@@ -996,11 +945,11 @@ proc
 
         ;;Execute the INSERT statement
 
-        if (%ssc_execute(a_dbchn,c1<StructureName>,SSQL_STANDARD)==SSQL_FAILURE)
+        if (%ssc_execute(Settings.DatabaseChannel,c1<StructureName>,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_NORMAL) then
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
             begin
                 ;;If it's a "row exists" then return 2
                 using dberror select
@@ -1026,29 +975,26 @@ proc
 
     ;;If we're in manual commit mode, commit or rollback the transaction
 
-    if ((a_commit_mode==3) && transaction)
+    if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = errtxt
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = errtxt
 
     freturn sts
 
@@ -1058,23 +1004,15 @@ endfunction
 ;;; <summary>
 ;;; Inserts multiple rows into the <StructureName> table.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 ;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <param name="a_exception">Memory handle to load exception data records into.</param>
-;;; <param name="a_terminal">Terminal number channel to log errors on.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>InsertRows, ^val
-
-    required in  a_dbchn,     i
-    required in  a_commit_mode, i
     required in  a_data,      i
-    optional out a_errtxt,    a
-    optional out a_exception, i
-    optional in  a_terminal,  i
-    endparams
+    required out a_errtxt,    a
+    required out a_exception, i
 
     .include "CONNECTDIR:ssql.def"
 
@@ -1158,8 +1096,7 @@ proc
 
     openAndBind = (c2<StructureName> == 0)
 
-    if (^passed(a_exception)&&a_exception)
-        clear a_exception
+    clear a_exception
 
     ;;Figure out how many rows to insert
 
@@ -1167,12 +1104,12 @@ proc
 
     ;;If enabled, disable auto-commit
 
-    if (a_commit_mode==1)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Automatic)
     begin
-        if (%ssc_cmd(a_dbchn,,SSQL_ODBC_AUTOCOMMIT,"no")!=SSQL_NORMAL)
+        if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"no")!=SSQL_NORMAL)
         begin
             data dberrtxt, a1024
-            xcall ssc_getemsg(a_dbchn,dberrtxt,length)
+            xcall ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
             errtxt = "Failed to disable auto-commit. Error was: " + dberrtxt(1,length)
             ok = false
         end
@@ -1182,17 +1119,17 @@ proc
 
     if (ok)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
     ;;Open a cursor for the INSERT statement
 
     if (ok && openAndBind)
     begin
-        if (%ssc_open(a_dbchn,c2<StructureName>,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
+        if (%ssc_open(Settings.DatabaseChannel,c2<StructureName>,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to open cursor"
         end
     end
@@ -1202,10 +1139,10 @@ proc
 <IF STRUCTURE_RELATIVE>
     if (ok && openAndBind)
     begin
-        if (%ssc_bind(a_dbchn,c2<StructureName>,1,recordNumber)==SSQL_FAILURE)
+        if (%ssc_bind(Settings.DatabaseChannel,c2<StructureName>,1,recordNumber)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variables"
         end
     end
@@ -1218,7 +1155,7 @@ proc
     <IF COUNTER_1_EQ_1>
     if (ok && openAndBind)
     begin
-        if (%ssc_bind(a_dbchn,c2<StructureName>,<REPLICATION_REMAINING_INCLUSIVE_MAX_250>,
+        if (%ssc_bind(Settings.DatabaseChannel,c2<StructureName>,<REPLICATION_REMAINING_INCLUSIVE_MAX_250>,
     </IF COUNTER_1_EQ_1>
     <IF CUSTOM_DBL_TYPE>
         &    tmp<FieldSqlName><IF NOMORE>)==SSQL_FAILURE)<ELSE><IF COUNTER_1_LT_250>,<ELSE>)==SSQL_FAILURE)</IF COUNTER_1_LT_250></IF NOMORE>
@@ -1242,7 +1179,7 @@ proc
     <IF COUNTER_1_EQ_250>
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variables"
         end
     end
@@ -1250,7 +1187,7 @@ proc
     <ELSE NOMORE>
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variables"
         end
     end
@@ -1346,9 +1283,9 @@ proc
 
             ;;Execute the statement
 
-            if (%ssc_execute(a_dbchn,c2<StructureName>,SSQL_STANDARD)==SSQL_FAILURE)
+            if (%ssc_execute(Settings.DatabaseChannel,c2<StructureName>,SSQL_STANDARD)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to execute SQL statement"
 
                 xcall ThrowOnCommunicationError(dberror,errtxt)
@@ -1356,25 +1293,22 @@ proc
                 clear continue
 
                 ;;Are we logging errors?
-                if (^passed(a_terminal)&&(a_terminal))
+                if (Settings.RunningOnTerminal)
                 begin
-                    writes(a_terminal,errtxt(1:length))
+                    writes(Settings.TerminalChannel,errtxt(1:length))
                     continue=1
                 end
 
-                ;;Are we processing exceptions?
-                if (^passed(a_exception))
+                if (ex_mc==ex_ms)
                 begin
-                    if (ex_mc==ex_ms)
-                    begin
-                        if (!a_exception) then
-                            a_exception = %mem_proc(DM_ALLOC|DM_STATIC,^size(inpbuf)*(ex_ms=EXCEPTION_BUFSZ))
-                        else
-                            a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),a_exception)
-                    end
-                    ^m(inpbuf[ex_mc+=1],a_exception)=<structure_name>
-                    continue=1
+                    if (!a_exception) then
+                        a_exception = %mem_proc(DM_ALLOC|DM_STATIC,^size(inpbuf)*(ex_ms=EXCEPTION_BUFSZ))
+                    else
+                        a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),a_exception)
                 end
+
+                ^m(inpbuf[ex_mc+=1],a_exception)=<structure_name>
+                continue=1
 
                 if (continue) then
                     nextloop
@@ -1394,42 +1328,39 @@ proc
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;If necessary, re-enable auto-commit
 
-    if (a_commit_mode==1)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Automatic)
     begin
-        if (%ssc_cmd(a_dbchn,,SSQL_ODBC_AUTOCOMMIT,"yes")!=SSQL_NORMAL)
+        if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_ODBC_AUTOCOMMIT,"yes")!=SSQL_NORMAL)
         begin
             data dberrtxt, a1024
-            xcall ssc_getemsg(a_dbchn,dberrtxt,length)
+            xcall ssc_getemsg(Settings.DatabaseChannel,dberrtxt,length)
             errtxt = "Failed to enable auto-commit. Error was: " + dberrtxt(1,length)
             ok = false
         end
     end
 
-    ;;If we're returning exceptions then resize the buffer to the correct size
+    ;;Resize the returned exceptions buffer to the correct size
 
-    if (^passed(a_exception)&&a_exception)
+    if (a_exception)
         a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*ex_mc,a_exception)
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = %atrim(errtxt)+" [Database error "+%string(dberror)+"]"
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = %atrim(errtxt)+" [Database error "+%string(dberror)+"]"
 
     freturn ok
 
@@ -1439,8 +1370,6 @@ endfunction
 ;;; <summary>
 ;;; Updates a row in the <StructureName> table.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 <IF STRUCTURE_RELATIVE>
 ;;; <param name="a_recnum">record number.</param>
 </IF STRUCTURE_RELATIVE>
@@ -1450,16 +1379,12 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Update, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
 <IF STRUCTURE_RELATIVE>
     required in  a_recnum, n
 </IF STRUCTURE_RELATIVE>
     required in  a_data,   a
-    optional out a_rows,   i
-    optional out a_errtxt, a
-    endparams
+    required out a_rows,   i
+    required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -1530,8 +1455,7 @@ proc
 
     openAndBind = (c3<StructureName> == 0)
 
-    if (^passed(a_rows))
-        clear a_rows
+    clear a_rows
 
     ;;Load the data into the bound record
 
@@ -1543,19 +1467,19 @@ proc
 
     ;;If we're in manual commit mode, start a transaction
 
-    if (a_commit_mode==3)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
     ;;Open a cursor for the UPDATE statement
 
     if (ok && openAndBind)
     begin
-        if (%ssc_open(a_dbchn,c3<StructureName>,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
+        if (%ssc_open(Settings.DatabaseChannel,c3<StructureName>,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to open cursor"
         end
     end
@@ -1569,7 +1493,7 @@ proc
 
     if (ok && openAndBind)
     begin
-        if (%ssc_bind(a_dbchn,c3<StructureName>,<REPLICATION_REMAINING_INCLUSIVE_MAX_250>,
+        if (%ssc_bind(Settings.DatabaseChannel,c3<StructureName>,<REPLICATION_REMAINING_INCLUSIVE_MAX_250>,
     </IF COUNTER_1_EQ_1>
     <IF CUSTOM_DBL_TYPE>
         &    tmp<FieldSqlName><IF NOMORE>)==SSQL_FAILURE)<ELSE><IF COUNTER_1_LT_250>,<ELSE>)==SSQL_FAILURE)</IF COUNTER_1_LT_250></IF NOMORE>
@@ -1593,7 +1517,7 @@ proc
     <IF COUNTER_1_EQ_250>
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variables"
         end
     end
@@ -1601,7 +1525,7 @@ proc
     <ELSE NOMORE>
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind variables"
         end
     end
@@ -1614,13 +1538,13 @@ proc
     if (ok && openAndBind)
     begin
 <IF STRUCTURE_ISAM>
-        if (%ssc_bind(a_dbchn,c3<StructureName>,<UNIQUE_KEY><KEY_SEGMENTS>,<SEGMENT_LOOP><IF DATEORTIME>^a(</IF DATEORTIME><structure_name>.<segment_name><IF DATEORTIME>)</IF DATEORTIME><,></SEGMENT_LOOP></UNIQUE_KEY>)==SSQL_FAILURE)
+        if (%ssc_bind(Settings.DatabaseChannel,c3<StructureName>,<UNIQUE_KEY><KEY_SEGMENTS>,<SEGMENT_LOOP><IF DATEORTIME>^a(</IF DATEORTIME><structure_name>.<segment_name><IF DATEORTIME>)</IF DATEORTIME><,></SEGMENT_LOOP></UNIQUE_KEY>)==SSQL_FAILURE)
 <ELSE STRUCTURE_RELATIVE>
-        if (%ssc_bind(a_dbchn,c3<StructureName>,1,a_recnum)==SSQL_FAILURE)
+        if (%ssc_bind(Settings.DatabaseChannel,c3<StructureName>,1,a_recnum)==SSQL_FAILURE)
 </IF STRUCTURE_ISAM>
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to bind key variables"
         end
     end
@@ -1694,15 +1618,14 @@ proc
   </IF CUSTOM_DBL_TYPE>
 </FIELD_LOOP>
 
-        if (%ssc_execute(a_dbchn,c3<StructureName>,SSQL_STANDARD,,rows)==SSQL_NORMAL) then
+        if (%ssc_execute(Settings.DatabaseChannel,c3<StructureName>,SSQL_STANDARD,,rows)==SSQL_NORMAL) then
         begin
-            if (^passed(a_rows))
-                a_rows = rows
+            a_rows = rows
         end
         else
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to execute SQL statement"
             xcall ThrowOnCommunicationError(dberror,errtxt)
         end
@@ -1710,29 +1633,26 @@ proc
 
     ;;If we're in manual commit mode, commit or rollback the transaction
 
-    if ((a_commit_mode==3) && transaction)
+    if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;Return error message
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = errtxt
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = errtxt
 
     freturn ok
 
@@ -1743,19 +1663,13 @@ endfunction
 ;;; <summary>
 ;;; Deletes a row from the <StructureName> table.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 ;;; <param name="a_key">Unique key of row to be deleted.</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Delete, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
     required in  a_key,    a
-    optional out a_errtxt, a
-    endparams
+    required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
     .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>"
@@ -1788,9 +1702,9 @@ proc
 
     ;;If we're in manual commit mode, start a transaction
 
-    if (a_commit_mode==3)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
     ;;Open a cursor for the DELETE statement
@@ -1811,10 +1725,10 @@ proc
       </IF ALPHA>
     </SEGMENT_LOOP>
   </UNIQUE_KEY>
-        if (%ssc_open(a_dbchn,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
+        if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to open cursor"
         end
     end
@@ -1823,10 +1737,10 @@ proc
 
     if (ok)
     begin
-        if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
+        if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to execute SQL statement"
             xcall ThrowOnCommunicationError(dberror,errtxt)
         end
@@ -1836,12 +1750,12 @@ proc
 
     if (cursor)
     begin
-        if (%ssc_close(a_dbchn,cursor)==SSQL_FAILURE)
+        if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
         begin
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to close cursor"
             end
         end
@@ -1849,29 +1763,26 @@ proc
 
     ;;If we're in manual commit mode, commit or rollback the transaction
 
-    if ((a_commit_mode==3) && transaction)
+    if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = errtxt
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = errtxt
 
     freturn ok
 
@@ -1882,17 +1793,11 @@ endfunction
 ;;; <summary>
 ;;; Deletes all rows from the <StructureName> table.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Clear, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
-    optional out a_errtxt, a
-    endparams
+    required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -1913,9 +1818,9 @@ proc
 
     ;;If we're in manual commit mode, start a transaction
 
-    if (a_commit_mode==3)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
     ;;Open cursor for the SQL statement
@@ -1923,10 +1828,10 @@ proc
     if (ok)
     begin
         sql = 'TRUNCATE TABLE "<StructureName>"'
-        if (%ssc_open(a_dbchn,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
+        if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to open cursor"
         end
     end
@@ -1935,10 +1840,10 @@ proc
 
     if (ok)
     begin
-        if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
+        if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to execute SQL statement"
             xcall ThrowOnCommunicationError(dberror,errtxt)
         end
@@ -1948,12 +1853,12 @@ proc
 
     if (cursor)
     begin
-        if (%ssc_close(a_dbchn,cursor)==SSQL_FAILURE)
+        if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
         begin
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to close cursor"
             end
         end
@@ -1966,24 +1871,21 @@ proc
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = errtxt
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = errtxt
 
     freturn ok
 
@@ -1993,17 +1895,11 @@ endfunction
 ;;; <summary>
 ;;; Deletes the <StructureName> table from the database.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Drop, ^val
-
-    required in  a_dbchn,  i
-    required in  a_commit_mode, i
-    optional out a_errtxt, a
-    endparams
+    required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -2023,23 +1919,23 @@ proc
 
     ;;Close any open cursors
 
-    xcall <StructureName>Close(a_dbchn)
+    xcall <StructureName>Close()
 
     ;;If we're in manual commit mode, start a transaction
 
-    if (a_commit_mode==3)
+    if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+        ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
     ;;Open cursor for DROP TABLE statement
 
     if (ok)
     begin
-        if (%ssc_open(a_dbchn,cursor,"DROP TABLE <StructureName>",SSQL_NONSEL)==SSQL_FAILURE)
+        if (%ssc_open(Settings.DatabaseChannel,cursor,"DROP TABLE <StructureName>",SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                 errtxt="Failed to open cursor"
         end
     end
@@ -2048,9 +1944,9 @@ proc
 
     if (ok)
     begin
-        if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
+        if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
         begin
-            if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_NORMAL) then
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
             begin
                 ;;Check if the error was that the table did not exist
                 if (dberror==-3701) then
@@ -2071,12 +1967,12 @@ proc
 
     if (cursor)
     begin
-        if (%ssc_close(a_dbchn,cursor)==SSQL_FAILURE)
+        if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
         begin
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to close cursor"
             end
         end
@@ -2084,29 +1980,26 @@ proc
 
     ;;If we're in manual commit mode, commit or rollback the transaction
 
-    if ((a_commit_mode==3) && transaction)
+    if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
             ;;Success, commit the transaction
-            ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
             ;;There was an error, rollback the transaction
-            ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+            ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
     ;;If there was an error message, return it to the calling routine
 
-    if (^passed(a_errtxt))
-    begin
-        if (ok) then
-            clear a_errtxt
-        else
-            a_errtxt = errtxt
-    end
+    if (ok) then
+        clear a_errtxt
+    else
+        a_errtxt = errtxt
 
     freturn ok
 
@@ -2116,28 +2009,17 @@ endfunction
 ;;; <summary>
 ;;; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <param name="a_logex">Log exception records?</param>
-;;; <param name="a_terminal">Terminal channel to log errors on.</param>
+;;; <param name="a_maxrows">Maximum number of rows to load.</param>
 ;;; <param name="a_added">Total number of successful inserts.</param>
 ;;; <param name="a_failed">Total number of failed inserts.</param>
-;;; <param name="a_progress">Report progress.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Load, ^val
-
-    required in    a_dbchn,         i
-    required in    a_maxrows,       n
-    required in    a_commit_mode,   i
-    optional out   a_errtxt,        a
-    optional in    a_logex,	        i
-    optional in    a_terminal,      i
-    optional inout a_added,         n
-    optional out   a_failed,        n
-    optional in    a_progress,      n
-    endparams
+    required in  a_maxrows,       n
+    required out a_added,         n
+    required out a_failed,        n
+    required out a_errtxt,        a
 
     .include "CONNECTDIR:ssql.def"
 <IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
@@ -2194,17 +2076,17 @@ proc
 </IF STRUCTURE_RELATIVE>
 
     ;;If we are logging exceptions, delete any existing exceptions file.
-    if (^passed(a_logex) && a_logex)
+    if (Settings.LogBulkLoadExceptions)
     begin
         xcall delet("REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
     end
 
     ;;Open the data file associated with the structure
 
-    if (!(filechn = %<StructureName>OpenInput))
+    if (!(filechn = %<StructureName>OpenInput(errtxt)))
     begin
+        errtxt = "Failed to open data file! Error was " + errtxt
         ok = false
-        errtxt = "Failed to open data file!"
     end
 
     ;;Were we passed a max # records to load
@@ -2308,26 +2190,19 @@ proc
     end
 
     ;;Close the file
-
     if (filechn && %chopen(filechn))
         close filechn
 
     ;;Close the exceptions log file
-
     if (ex_ch && %chopen(ex_ch))
         close ex_ch
 
-    ;;Return the error text
-
-    if (^passed(a_errtxt))
-        a_errtxt = errtxt
+    ;;Return any error text
+    a_errtxt = errtxt
 
     ;;Return totals
-
-    if (^passed(a_added))
-        a_added = ttl_added
-    if (^passed(a_failed))
-        a_failed = ttl_failed
+    a_added = ttl_added
+    a_failed = ttl_failed
 
     freturn ok
 
@@ -2335,7 +2210,7 @@ insert_data,
 
     attempted = (%mem_proc(DM_GETSIZE,mh)/^size(inpbuf))
 
-    if (%<StructureName>InsertRows(a_dbchn,a_commit_mode,mh,errtxt,ex_mh,a_terminal))
+    if (%<StructureName>InsertRows(mh,errtxt,ex_mh))
     begin
         ;;Any exceptions?
         if (ex_mh) then
@@ -2346,7 +2221,7 @@ insert_data,
             ttl_failed+=ex_mc
             ttl_added+=(attempted-ex_mc)
             ;;Are we logging exceptions?
-            if (^passed(a_logex)&&a_logex) then
+            if (Settings.LogBulkLoadExceptions) then
             begin
                 data cnt, int
                 ;;Open the log file
@@ -2355,8 +2230,8 @@ insert_data,
                 ;;Log the exceptions
                 for cnt from 1 thru ex_mc
                     writes(ex_ch,^m(inpbuf[cnt],ex_mh))
-                if (^passed(a_terminal)&&a_terminal)
-                    writes(a_terminal,"Exceptions were logged to REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
+                if (Settings.RunningOnTerminal)
+                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
             end
             else
             begin
@@ -2370,8 +2245,10 @@ insert_data,
         begin
             ;;No exceptions
             ttl_added += attempted
-            if ^passed(a_terminal) && a_terminal && ^passed(a_progress) && a_progress
-                writes(a_terminal," - " + %string(ttl_added) + " rows inserted")
+            if (Settings.RunningOnTerminal && Settings.LogLoadProgress)
+            begin
+                writes(Settings.TerminalChannel," - " + %string(ttl_added) + " rows inserted")
+            end
         end
     end
 
@@ -2385,34 +2262,16 @@ endfunction
 ;;; <summary>
 ;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel.</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
-;;; <param name="a_localpath">Path to local export directory</param>
-;;; <param name="a_remotepath">Remote export directory or URL</param>
-;;; <param name="a_db_timeout">Database timeout in seconds.</param>
-;;; <param name="a_bl_timeout">Bulk load timeout in seconds.</param>
-;;; <param name="a_bl_batchsz">Bulk load batch size in rows.</param>
-;;; <param name="a_logchannel">Log file channel to log messages on.</param>
 ;;; <param name="a_records">Total number of records processed</param>
 ;;; <param name="a_exceptions">Total number of exception records detected</param>
 ;;; <param name="a_errtxt">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>BulkLoad, ^val
-    required in  a_dbchn,      i
-    required in  a_commit_mode,i
-    required in  a_localpath,  a
-    required in  a_server,     a
-    required in  a_port,       i
-    required in  a_db_timeout, n
-    required in  a_bl_timeout, n
-    required in  a_bl_batchsz, n
-    optional in  a_logchannel, n
-    optional in  a_ttchannel,  n
-    optional out a_records,    n
-    optional out a_exceptions, n
-    optional out a_errtxt,     a
-    endparams
+    required in recordsToLoad, n
+    required out a_records,    n
+    required out a_exceptions, n
+    required out a_errtxt,     a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -2447,9 +2306,9 @@ proc
 
     ;;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
-    if (remoteBulkLoad = (a_server.nes." "))
+    if (remoteBulkLoad = (Settings.FileServiceHost.nes." "))
     begin
-        fsc = new FileServiceClient(a_server,a_port)
+        fsc = new FileServiceClient(Settings.FileServiceHost,Settings.FileServicePort)
 
         now = %datetime
         writelog("Verifying FileService connection")
@@ -2469,13 +2328,13 @@ proc
         ;;Determine temporary file names
 
         .ifdef OS_WINDOWS7
-        localCsvFile = a_localpath + "\<StructureName>.csv"
+        localCsvFile = Settings.LocalExportPath + "\<StructureName>.csv"
         .endc
         .ifdef OS_UNIX
-        localCsvFile = a_localpath + "/<StructureName>.csv"
+        localCsvFile = Settings.LocalExportPath + "/<StructureName>.csv"
         .endc
         .ifdef OS_VMS
-        localCsvFile = a_localpath + "<StructureName>.csv"
+        localCsvFile = Settings.LocalExportPath + "<StructureName>.csv"
         .endc
         localExceptionsFile  = localCsvFile + "_err"
         localExceptionsLog   = localExceptionsFile + ".Error.Txt"
@@ -2512,17 +2371,13 @@ proc
             fsc.Delete(remoteExceptionsLog)
         end
 
-        ;;Were we asked to load a specific number of records?
-
-        recordCount =  (^passed(a_records) && a_records > 0) ? a_records : 0
-
         ;;And export the data
 
         now = %datetime
         writelog("Exporting delimited file")
         writett("Exporting delimited file")
 
-        ok = %<StructureName>Csv(localCsvFile,0,recordCount,errtxt)
+        ok = %<StructureName>Csv(localCsvFile,recordsToLoad,recordCount,errtxt)
     end
 
     if (ok)
@@ -2548,11 +2403,11 @@ proc
 
         ;;If we're in manual commit mode, start a transaction
 
-        if (a_commit_mode==3)
+        if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
         begin
             now = %datetime
             writelog("Starting transaction")
-            ok = %StartTransactionSqlConnection(a_dbchn,transaction,errtxt)
+            ok = %StartTransactionSqlConnection(transaction,errtxt)
         end
 
         ;;Open a cursor for the statement
@@ -2564,19 +2419,19 @@ proc
 
             sql = "BULK INSERT <StructureName> FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + fileToLoad + "_err'"
 
-            if (a_bl_batchsz > 0)
+            if (Settings.BulkLoadBatchSize > 0)
             begin
-                sql = sql + ",BATCHSIZE=" + %string(a_bl_batchsz)
+                sql = sql + ",BATCHSIZE=" + %string(Settings.BulkLoadBatchSize)
             end
 
            sql = sql + ")"
 
-            if (%ssc_open(a_dbchn,cursor,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_NORMAL) then
+            if (%ssc_open(Settings.DatabaseChannel,cursor,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_NORMAL) then
                 cursorOpen = true
             else
             begin
                 ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to open cursor"
             end
         end
@@ -2586,12 +2441,12 @@ proc
         if (ok)
         begin
             now = %datetime
-            writelog("Setting database timeout to " + %string(a_bl_timeout) + " seconds")
-            writett("Setting database timeout to " + %string(a_bl_timeout) + " seconds")
-            if (%ssc_cmd(a_dbchn,,SSQL_TIMEOUT,%string(a_bl_timeout))==SSQL_FAILURE)
+            writelog("Setting database timeout to " + %string(Settings.BulkLoadTimeout) + " seconds")
+            writett("Setting database timeout to " + %string(Settings.BulkLoadTimeout) + " seconds")
+            if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.BulkLoadTimeout))==SSQL_FAILURE)
             begin
                 ok = false
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to set database timeout"
             end
         end
@@ -2603,9 +2458,9 @@ proc
             now = %datetime
             writelog("Executing BULK INSERT")
             writett("Executing BULK INSERT")
-            if (%ssc_execute(a_dbchn,cursor,SSQL_STANDARD)==SSQL_FAILURE)
+            if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_NORMAL) then
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
                 begin
                     xcall ThrowOnCommunicationError(dberror,errtxt)
 
@@ -2663,14 +2518,14 @@ proc
 
         ;;If we're in manual commit mode, commit or rollback the transaction
 
-        if ((a_commit_mode==3) && transaction)
+        if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
         begin
             if (ok) then
             begin
                 now = %datetime
                 writelog("COMMIT")
                 writett("COMMIT")
-                ok = %CommitTransactionSqlConnection(a_dbchn,errtxt)
+                ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
             end
             else
             begin
@@ -2678,16 +2533,16 @@ proc
                 now = %datetime
                 writelog("ROLLBACK")
                 writett("ROLLBACK")
-                ok = %RollbackTransactionSqlConnection(a_dbchn,errtxt)
+                ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
             end
         end
 
         ;;Set the database timeout back to the regular value
 
         now = %datetime
-        writelog("Resetting database timeout to " + %string(a_db_timeout) + " seconds")
-        writett("Resetting database timeout to " + %string(a_db_timeout) + " seconds")
-        if (%ssc_cmd(a_dbchn,,SSQL_TIMEOUT,%string(a_db_timeout))==SSQL_FAILURE)
+        writelog("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
+        writett("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
+        if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))==SSQL_FAILURE)
             nop
 
         ;;Close the cursor
@@ -2697,29 +2552,23 @@ proc
             now = %datetime
             writelog("Closing cursor")
             writett("Closing cursor")
-            if (%ssc_close(a_dbchn,cursor)==SSQL_FAILURE)
+            if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
                     errtxt="Failed to close cursor"
             end
         end
     end
 
-    ;; Return the record count
+    ;; Return the record and exception count
+    a_records = recordCount
+    a_exceptions = exceptionCount
 
-    if (^passed(a_records))
-        a_records = recordCount
+    ;;Return any error text
+    a_errtxt = errtxt
 
-    if (^passed(a_exceptions))
-        a_exceptions = exceptionCount
-
-    ;;Return the error text
-
-    if (^passed(a_errtxt))
-        a_errtxt = errtxt
-
-      now = %datetime
-      writelog("BULK ULOAD COMPLETE")
+    now = %datetime
+    writelog("BULK ULOAD COMPLETE")
 
     freturn ok
 
@@ -2864,12 +2713,8 @@ endfunction
 ;;; <summary>
 ;;; Close cursors associated with the <StructureName> table.
 ;;; </summary>
-;;; <param name="a_dbchn">Connected database channel</param>
-;;; <param name="a_commit_mode">What commit mode are we using?</param>
 
 subroutine <StructureName>Close
-    required in  a_dbchn, i
-    endparams
 
     .include "CONNECTDIR:ssql.def"
 
@@ -2888,7 +2733,7 @@ proc
     begin
         try
         begin
-            if (%ssc_close(a_dbchn,c1<StructureName>))
+            if (%ssc_close(Settings.DatabaseChannel,c1<StructureName>))
                 nop
         end
         catch (ex, @Exception)
@@ -2906,7 +2751,7 @@ proc
     begin
         try
         begin
-            if (%ssc_close(a_dbchn,c2<StructureName>))
+            if (%ssc_close(Settings.DatabaseChannel,c2<StructureName>))
                 nop
         end
         catch (ex, @Exception)
@@ -2925,7 +2770,7 @@ proc
     begin
         try
         begin
-            if (%ssc_close(a_dbchn,c3<StructureName>))
+            if (%ssc_close(Settings.DatabaseChannel,c3<StructureName>))
                 nop
         end
         catch (ex, @Exception)
@@ -2999,10 +2844,10 @@ proc
 
     ;;Open the data file associated with the structure
 
-    if (!(filechn=%<StructureName>OpenInput))
+    if (!(filechn=%<StructureName>OpenInput(errtxt)))
     begin
+        errtxt = "Failed to open data file! Error was " + errtxt
         ok = false
-        errtxt = "Failed to open data file!"
     end
 
     ;;Create the local CSV file
@@ -3147,9 +2992,8 @@ eof,
     ;;Return the record count
     recordCount = records
 
-    ;;Return the error text
-    if (^passed(errorMessage))
-        errorMessage = errtxt
+    ;;Return any error text
+    errorMessage = errtxt
 
     freturn ok
 
@@ -3163,8 +3007,8 @@ endfunction
 ;;; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
 function <StructureName>OpenInput, ^val
-    optional out errorMessage, a  ;;Returned error text
-    endparams
+    required out errorMessage, a  ;;Returned error text
+
     stack record
         ch, int
         errmsg, a128
@@ -3183,8 +3027,7 @@ proc
     end
     endtry
 
-    if (^passed(errorMessage))
-        errorMessage = errmsg
+    errorMessage = errmsg
 
     freturn ch
 
@@ -3199,9 +3042,7 @@ endfunction
 ;;; <returns>Returns a record containig only the unique key segment data.</returns>
 
 function <StructureName>KeyToRecord, a
-
     required in aKeyValue, a
-    endparams
 
     .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>", end
 
@@ -3244,13 +3085,15 @@ endfunction
 ;;; This function behaves like %KEYVAL but without requiring an open channel.
 ;;; </summary>
 ;;; <param name="aRecord">Record containing key data</param>
-;;; <returns>Returned key value.</returns>
+;;; <param name="aKeyVal">Returned key value</param>
+;;; <param name="aKeyLen">Returned key length</param>
+;;; <returns>Always returns true</returns>
 
 function <StructureName>KeyVal, ^val
     required in  aRecord, str<StructureName>
     required out aKeyVal, a
     required out aKeyLen, n
-    endparams
+
     .align
     stack record
         pos,    int
@@ -3321,7 +3164,7 @@ endfunction
 
 function <structure_name>_map, a
     .include "<MAPPED_STRUCTURE>" repository, required in group="<mapped_structure>"
-    endparams
+
     .include "<STRUCTURE_NAME>" repository, stack record="<structure_name>"
 proc
     init <structure_name>
@@ -3341,7 +3184,7 @@ endfunction
 
 function <structure_name>_unmap, a
     .include "<STRUCTURE_NAME>" repository, required in group="<structure_name>"
-    endparams
+
     .include "<MAPPED_STRUCTURE>" repository, stack record="<mapped_structure>"
 proc
     init <mapped_structure>

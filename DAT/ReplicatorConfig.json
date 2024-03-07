@@ -1,22 +1,24 @@
 {
   "Instances": [
     {
+      "Enabled": true,
       "InstanceName": "DEFAULT",
       "BulkLoadBatchSize": 10000,
       "BulkLoadTimeout": 900,
       "CommitBatchSize": 1000,
       "DatabaseCommitMode": "Manual",
-      "DatabaseConnectMode": "SQLCLIENT",
-      "DatabaseConnectString": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
-      "DatabaseConnectString_SqlConnection": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes",
-      "DatabaseConnectString_SqlClient": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
+      "DatabaseConnectMode": "SQLCONNECTION",
+      "DatabaseConnectString": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:25.11.12.104!VTX12_SQLNATIVE",
+      "DatabaseConnectString_SqlConnection_LOCALHOST": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes",
+      "DatabaseConnectString_SqlConnection_PSGSRV": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:25.11.12.104!VTX12_SQLNATIVE",
+      "DatabaseConnectString_SqlClient_LOCALHOST": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
+      "DatabaseConnectString_SqlClient_PSGSRV": "Data Source=25.11.12.104;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;",
       "DatabaseRetryDelay": 30,
       "DatabaseRetryMax": 10,
       "DatabaseTimeout": 60,
       "DataCompressionMode": "None",
-      "Enabled": true,
       "ErrorSleepTime": 0.01,
-      "FileServiceHost": "LOCALHOST",
+      "FileServiceHost": "25.11.12.104",
       "FileServicePort": 8080,
       "LocalExportPath": "C:\\DEV_SYNERGEX\\SqlReplication\\CSV\\",
       "LogBulkLoadExceptions": false,
@@ -34,14 +36,19 @@
     }
   ],
   "EmailSettings": {
+    "Enabled": false,
     "SmtpServer": "localhost",
     "SmtpPort": 25,
+    "SmtpUsername": "",
+    "SmtpPassword": "",
     "SmtpUseSSL": false,
-    "EmailSenderAddress": "replicator@me.local",
-    "EmailSenderName": "SQL Replicator",
-    "EmailRecipients": [
+    "SenderAddress": "replicator@me.local",
+    "SenderName": "SQL Replicator",
+    "Recipients": [
       "admin1@me.local"
-    ]
+    ],
+    "ErrorsBeforePause": 3,
+    "ErrorPauseMinutes": 10
   },
   "DefaultInstance": "DEFAULT",
   "TableMaps": [

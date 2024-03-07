@@ -12,20 +12,20 @@ subroutine SendEmail
         DoSendEmail, boolean
     endexternal
 proc
-    if (Settings.SmtpDisabled)
+    if (EmailSettings.EmailPaused)
     begin
         ;Is it time to start sending emails again?
         data timeNow, i8, %datetime_to_i8(%datetime)
-        if (timeNow > (Settings.SmtpPausedTime+(Settings.SmtpPauseMinutes*60000000)))
+        if (timeNow > (EmailSettings.TimePaused+(EmailSettings.ErrorPauseMinutes*60000000)))
         begin
             ;Yes, the pause period has expired.
-            Settings.SmtpFailCount = 0
-            Settings.SmtpDisabled = false
-            Logger.Log("Email notification resuming after a " + %string(Settings.SmtpPauseMinutes) + " minute pause")
+            EmailSettings.ErrorCount = 0
+            EmailSettings.EmailPaused = false
+            Logger.Log("Email notification resuming after a " + %string(EmailSettings.ErrorPauseMinutes) + " minute pause")
         end
     end
 
-    if (!Settings.SmtpDisabled)
+    if (!EmailSettings.EmailPaused)
     begin
         if (aBody == ^null) then
         begin
@@ -40,15 +40,15 @@ proc
         if (!%DoSendEmail(aSubject,bodyToSend,aBodyHtml))
         begin
             Logger.ErrorLog("Failed to send email!")
-            Settings.SmtpFailCount = Settings.SmtpFailCount + 1
+            EmailSettings.ErrorCount = EmailSettings.ErrorCount + 1
 
             ;Have we exceded the SmtpMaxFail threshold?
-            if (Settings.SmtpFailCount > Settings.SmtpFailMax)
+            if (EmailSettings.ErrorCount > EmailSettings.ErrorsBeforePause)
             begin
                 ;Yes, pause email delivery
-                Settings.SmtpDisabled = true
-                Settings.SmtpPausedTime = %datetime_to_i8(%datetime)
-                Logger.ErrorLog("Email notifications will be paused for " + %string(Settings.SmtpPauseMinutes)+ " following " + %string(Settings.SmtpFailMax) + " failures")
+                EmailSettings.EmailPaused = true
+                EmailSettings.TimePaused = %datetime_to_i8(%datetime)
+                Logger.ErrorLog("Email notifications will be paused for " + %string(EmailSettings.ErrorPauseMinutes)+ " following " + %string(EmailSettings.ErrorsBeforePause) + " failures")
             end
         end
     end
@@ -86,7 +86,7 @@ proc
     ;Create a new MailMessage
 
     disposable data message = new MailMessage() {
-    &   From = new MailAddress(Settings.EmailSenderAddress,Settings.EmailSenderName),
+    &   From = new MailAddress(EmailSettings.SenderAddress,EmailSettings.SenderName),
     &   Subject = aSubject,
     &   Body = bodyBuilder.ToString(),
     &   IsBodyHtml = aBodyHtml
@@ -94,7 +94,7 @@ proc
 
     ;Add recipient(s)
     data recipient, string
-    foreach recipient in Settings.EmailRecipients
+    foreach recipient in EmailSettings.Recipients
     begin
         message.To.Add(new MailAddress(recipient))
     end
@@ -102,16 +102,16 @@ proc
     ;Create an SmtpClient
 
     disposable data client = new SmtpClient() {
-    &   Host = Settings.SmtpServer,
-    &   Port = Settings.SmtpPort,
-    &   EnableSsl = Settings.SmtpUseSSL
+    &   Host = EmailSettings.SmtpServer,
+    &   Port = EmailSettings.SmtpPort,
+    &   EnableSsl = EmailSettings.SmtpUseSSL
     & }
 
     ;Do we have SMTP credentials?
 
-    if (!String.IsNullOrWhiteSpace(Settings.SmtpUsername) && !String.IsNullOrWhiteSpace(Settings.SmtpPassword))
+    if (!String.IsNullOrWhiteSpace(EmailSettings.SmtpUsername) && !String.IsNullOrWhiteSpace(EmailSettings.SmtpPassword))
     begin
-        client.Credentials = new NetworkCredential(Settings.SmtpUsername,Settings.SmtpPassword)
+        client.Credentials = new NetworkCredential(EmailSettings.SmtpUsername,EmailSettings.SmtpPassword)
     end
 
     ;Send the message
@@ -150,11 +150,11 @@ proc
     emailStatus = 0
 
     if emailStatus=%SmtpMail(
-    &   Settings.SmtpServer,
-    &   Settings.EmailSenderAddress,
-    &   Settings.EmailSenderName,
+    &   EmailSettings.SmtpServer,
+    &   EmailSettings.SenderAddress,
+    &   EmailSettings.SenderName,
     &   ,
-    &   Settings.GetEmailRecipientsString(),
+    &   EmailSettings.GetRecipientsString(),
     &   ,
     &   aSubject,
     &   aBody,
