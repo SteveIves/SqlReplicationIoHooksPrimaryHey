@@ -7,8 +7,8 @@
       "BulkLoadTimeout": 900,
       "CommitBatchSize": 1000,
       "DatabaseCommitMode": "Manual",
-      "DatabaseConnectMode": "SQLCONNECTION",
-      "DatabaseConnectString": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:25.11.12.104!VTX12_SQLNATIVE",
+      "DatabaseConnectMode": "SQLCLIENT",
+      "DatabaseConnectString": "Data Source=25.11.12.104;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;",
       "DatabaseConnectString_SqlConnection_LOCALHOST": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes",
       "DatabaseConnectString_SqlConnection_PSGSRV": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:25.11.12.104!VTX12_SQLNATIVE",
       "DatabaseConnectString_SqlClient_LOCALHOST": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
@@ -30,7 +30,7 @@
       "QueueReconnectDelay": 30,
       "QueueType": "IsamFile",
       "SleepTime": 2,
-      "StopOnError": true,
+      "StopOnError": false,
       "SystemLogging": false,
       "VerboseLogging": true
     }

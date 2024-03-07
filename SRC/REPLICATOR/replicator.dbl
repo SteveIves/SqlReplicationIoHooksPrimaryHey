@@ -1044,7 +1044,7 @@ BulkLoadTable,
 
             status = %xsubr(functionName,maxRowsToLoad,totalRows,failRows,dberrtxt)
 
-            if (status) then
+            sdif (status) then
             begin
                 Logger.Log(" - Bulk load complete at " + %TimeNow)
                 Logger.Log("   - " + %string(totalRows) + " records processed, " + %string(failRows) + " failed.")

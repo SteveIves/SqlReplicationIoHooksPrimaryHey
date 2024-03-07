@@ -852,25 +852,25 @@ proc
 
     rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
-    ;If enabled, disable auto-commit
-
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-    begin
-        try
-        begin
-            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.DatabaseTimeout
-            &    }
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
-            ok = false
-        end
-        endtry
-    end
-
+;//    ;If enabled, disable auto-commit
+;//
+;//    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+;//    begin
+;//        try
+;//        begin
+;//            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { 
+;//            &    CommandTimeout = Settings.DatabaseTimeout
+;//            &    }
+;//            command.ExecuteNonQuery()
+;//        end
+;//        catch (ex, @SqlException)
+;//        begin
+;//            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
+;//            ok = false
+;//        end
+;//        endtry
+;//    end
+;//
     ;Start a database transaction
 
     if (ok)
@@ -976,7 +976,6 @@ proc
 <IF STRUCTURE_RELATIVE>
 <COUNTER_1_INCREMENT>
                 command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",recordNumber)
-
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1003,6 +1002,36 @@ proc
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
+;//<COUNTER_1_RESET>
+;//<IF STRUCTURE_RELATIVE>
+;//<COUNTER_1_INCREMENT>
+;//                command.Parameters["@<COUNTER_1_VALUE>"],recordNumber)
+;//</IF STRUCTURE_RELATIVE>
+;//<FIELD_LOOP>
+;//  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+;//    <COUNTER_1_INCREMENT>
+;//    <IF CUSTOM_DBL_TYPE>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = tmp<FieldSqlName>
+;//    <ELSE ALPHA>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = <structure_name>.<field_original_name_modified>
+;//    <ELSE DECIMAL>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = <structure_name>.<field_original_name_modified>
+;//    <ELSE INTEGER>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = <structure_name>.<field_original_name_modified>
+;//    <ELSE DATE>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = ^a(<structure_name>.<field_original_name_modified>)
+;//    <ELSE TIME>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = tmp<FieldSqlName>
+;//    <ELSE USER AND USERTIMESTAMP>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = tmp<FieldSqlName>
+;//    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = <structure_name>.<field_original_name_modified>
+;//    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = tmp<FieldSqlName>
+;//    </IF CUSTOM_DBL_TYPE>
+;//  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+;//</FIELD_LOOP>
+;//
                 command.ExecuteNonQuery()
                 errorMessage = ""
             end
@@ -1058,29 +1087,30 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            data rollbackError, string
+            ok = %RollbackSqlClient(rollbackError)
         end
     end
 
-    ;If necessary, re-enable auto-commit
-
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-    begin
-        try
-        begin
-            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.DatabaseTimeout
-            &    }
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
-            ok = false
-        end
-        endtry
-    end
-
+;//    ;If necessary, re-enable auto-commit
+;//
+;//    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+;//    begin
+;//        try
+;//        begin
+;//            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
+;//            &    CommandTimeout = Settings.DatabaseTimeout
+;//            &    }
+;//            command.ExecuteNonQuery()
+;//        end
+;//        catch (ex, @SqlException)
+;//        begin
+;//            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
+;//            ok = false
+;//        end
+;//        endtry
+;//    end
+;//
     ;If we're returning exceptions then resize the buffer to the correct size
 
     if (^passed(a_exception) && a_exception)
@@ -2279,24 +2309,33 @@ proc
         else
         begin
             ;There was an error, rollback the transaction
+            data rollbackOk, boolean, false
+            data rollbackErrorMessage, string
             now = %datetime
             writelog("ROLLBACK")
             writett("ROLLBACK")
-            ok = %RollbackSqlClient(errorMessage)
+            rollbackOk = %RollbackSqlClient(rollbackErrorMessage)
+            if (!rollbackOk)
+            begin
+                errorMessage = String.Format("{0}. Also: {1}",errorMessage,rollbackErrorMessage)
+            end
         end
     end
 
-    ;Return the record count
-    a_records = recordCount
-
-    ;Return the number of exceptions
-    a_exceptions = exceptionCount
-
-    ;Return any error message
-    aErrorMessage = errorMessage
+    ;Return the record and exceptions count
 
     now = %datetime
-    writelog("BULK LOAD COMPLETE")
+    if (ok) then
+    begin
+        a_records = recordCount
+        a_exceptions = exceptionCount
+        writelog("BULK LOAD COMPLETE")
+    end
+    else
+    begin
+        aErrorMessage = errorMessage
+        writelog("BULK LOAD FAILED!")
+    end
 
     freturn ok
 
