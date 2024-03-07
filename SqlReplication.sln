@@ -28,7 +28,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		regen.bat = regen.bat
 		RegisterFileService.bat = RegisterFileService.bat
 		RegisterReplicatorService.bat = RegisterReplicatorService.bat
-		DAT\ReplicatorConfig.json = DAT\ReplicatorConfig.json
 		RpsExport.bat = RpsExport.bat
 		RpsImport.bat = RpsImport.bat
 		SendToLinux.bat = SendToLinux.bat
@@ -38,20 +37,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		SignFile.bat = SignFile.bat
 		UnregisterFileService.bat = UnregisterFileService.bat
 		UnregisterReplicatorService.bat = UnregisterReplicatorService.bat
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "VMS", "VMS", "{D858AA93-37A9-4551-A62F-5F1AE2DDE2A8}"
-	ProjectSection(SolutionItems) = preProject
-		VMS\BUILD.COM = VMS\BUILD.COM
-		VMS\DEPARTMENT.FDL = VMS\DEPARTMENT.FDL
-		VMS\EMPLOYEE.FDL = VMS\EMPLOYEE.FDL
-		VMS\MAKESHARE.DBL = VMS\MAKESHARE.DBL
-		VMS\REPLICATION.FDL = VMS\REPLICATION.FDL
-		VMS\REPLICATOR.OPT = VMS\REPLICATOR.OPT
-		VMS\REPLICATOR_DETACH.COM = VMS\REPLICATOR_DETACH.COM
-		VMS\REPLICATOR_RUN.COM = VMS\REPLICATOR_RUN.COM
-		VMS\REPLICATOR_SETUP_EXAMPLE.COM = VMS\REPLICATOR_SETUP_EXAMPLE.COM
-		VMS\SETUP.COM = VMS\SETUP.COM
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "LINUX", "LINUX", "{8D5C12A2-DA99-49AF-A21C-35ADD94E780B}"
@@ -72,13 +57,6 @@ Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "FileService", "FileService\
 EndProject
 Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "FileServiceSetup", "FileServiceSetup\FileServiceSetup.wixproj", "{8D11BDFD-BFD7-473F-9199-D34D2CDA2D94}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "File Definitions", "File Definitions", "{085E387B-6DDD-4056-AC7E-78B01B414ED7}"
-	ProjectSection(SolutionItems) = preProject
-		XDL\DEPARTMENT.XDL = XDL\DEPARTMENT.XDL
-		XDL\EMPLOYEE.XDL = XDL\EMPLOYEE.XDL
-		XDL\REPLICATION.XDL = XDL\REPLICATION.XDL
-	EndProjectSection
-EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "tools", "PRJVS\tools\tools.synproj", "{123F18A8-DB24-4ED3-91BF-ED7917BEF4C1}"
 EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetReplicator", "PRJVS\NetReplicator\NetReplicator.synproj", "{36F63F9A-2E5A-4542-AC06-A8EAE8732507}"
@@ -88,6 +66,37 @@ EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetReplicatorMenu", "PRJVS\NetReplicatorMenu\NetReplicatorMenu.synproj", "{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}"
 EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetKafkaClientTest", "PRJVS\NetMqClientTest\NetKafkaClientTest.synproj", "{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DAT", "DAT", "{9C0C9260-545E-4B29-B8EE-F471D1FE83C3}"
+	ProjectSection(SolutionItems) = preProject
+		DAT\.gitignore = DAT\.gitignore
+		DAT\DEPARTMENT.SEQ = DAT\DEPARTMENT.SEQ
+		DAT\EMPLOYEE.SEQ = DAT\EMPLOYEE.SEQ
+		DAT\ReplicatorConfig.json = DAT\ReplicatorConfig.json
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "VMS", "VMS", "{7F265779-4E2A-4A5E-BE13-328B3180AC9F}"
+	ProjectSection(SolutionItems) = preProject
+		VMS\.gitignore = VMS\.gitignore
+		VMS\BUILD.COM = VMS\BUILD.COM
+		VMS\DEPARTMENT.FDL = VMS\DEPARTMENT.FDL
+		VMS\EMPLOYEE.FDL = VMS\EMPLOYEE.FDL
+		VMS\MAKESHARE.DBL = VMS\MAKESHARE.DBL
+		VMS\REPLICATION.FDL = VMS\REPLICATION.FDL
+		VMS\REPLICATOR.OPT = VMS\REPLICATOR.OPT
+		VMS\REPLICATOR_DETACH.COM = VMS\REPLICATOR_DETACH.COM
+		VMS\REPLICATOR_RUN.COM = VMS\REPLICATOR_RUN.COM
+		VMS\REPLICATOR_SETUP.COM = VMS\REPLICATOR_SETUP.COM
+		VMS\REPLICATOR_SETUP_EXAMPLE.COM = VMS\REPLICATOR_SETUP_EXAMPLE.COM
+		VMS\SETUP.COM = VMS\SETUP.COM
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "XDL", "XDL", "{432DB05E-7646-4F34-B8C3-BE682D60992D}"
+	ProjectSection(SolutionItems) = preProject
+		XDL\DEPARTMENT.XDL = XDL\DEPARTMENT.XDL
+		XDL\EMPLOYEE.XDL = XDL\EMPLOYEE.XDL
+		XDL\REPLICATION.XDL = XDL\REPLICATION.XDL
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -275,6 +284,9 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{8D5C12A2-DA99-49AF-A21C-35ADD94E780B} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
+		{9C0C9260-545E-4B29-B8EE-F471D1FE83C3} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
+		{7F265779-4E2A-4A5E-BE13-328B3180AC9F} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
+		{432DB05E-7646-4F34-B8C3-BE682D60992D} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {09DE7623-A783-489C-842F-C7D857603C5F}
