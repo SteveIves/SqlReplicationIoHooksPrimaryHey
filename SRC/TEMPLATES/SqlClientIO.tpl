@@ -81,8 +81,8 @@ import System.IO
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
 .endc
 
-.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
-.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX ") + x)
+.define writelog(x) if (Settings.LogFileChannel && %chopen(Settings.LogFileChannel)) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
+.define writett(x)  if (Settings.TerminalChannel) writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
 
 ;*****************************************************************************
 ;;; <summary>
@@ -1925,10 +1925,10 @@ proc
 
         if (!fsc.Ping(errtxt))
         begin
+            errorMessage = "No response from FileService, bulk load cancelled"
             now = %datetime
-            writelog(errtxt = "No response from FileService, bulk upload cancelled")
-            writett(errtxt = "No response from FileService, bulk upload cancelled")
-            errorMessage = %atrimtostring(errtxt)
+            writelog(errorMessage)
+            writett(errorMessage)
             ok = false
         end
     end
@@ -2000,8 +2000,8 @@ proc
         if (remoteBulkLoad)
         begin
             now = %datetime
-            writelog("Deleting remote files")
-            writett("Deleting remote files")
+            writelog("Deleting remote temp files")
+            writett("Deleting remote temp files")
 
             fsc.Delete(remoteCsvFile)
             fsc.Delete(remoteExceptionsFile)
@@ -2015,8 +2015,8 @@ proc
         ;And export the data
 
         now = %datetime
-        writelog("Exporting delimited file")
-        writett("Exporting delimited file")
+        writelog("Exporting data to delimited file")
+        writett("Exporting data to delimited file")
 
         ok = %<StructureName>Csv(localCsvFile,0,recordCount,errtxt)
 
@@ -2030,8 +2030,8 @@ proc
         if (remoteBulkLoad) then
         begin
             now = %datetime
-            writelog("Uploading delimited file to database host")
-            writett("Uploading delimited file to database host")
+            writelog("Uploading delimited file to database server")
+            writett("Uploading delimited file to database server")
             ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
             errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
         end
@@ -2045,8 +2045,6 @@ proc
 
     if (ok && Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        now = %datetime
-        writelog("Starting transaction")
         ok = %StartTransactionSqlClient(transaction,errorMessage)
     end
 
@@ -2080,8 +2078,8 @@ proc
             xcall ThrowOnSqlClientError(errorMessage,ex)
 
             now = %datetime
-            writelog("Bulk insert error")
-            writett("Bulk insert error")
+            writelog("Bulk insert failed. " + ex.Message)
+            writett("Bulk insert failed. " + ex.Message)
 
             using ex.Number select
             (-4864),
@@ -2302,8 +2300,6 @@ proc
         begin
             ;Success, commit the transaction
             now = %datetime
-            writelog("COMMIT")
-            writett("COMMIT")
             ok = %CommitTransactionSqlClient(errorMessage)
         end
         else
@@ -2312,8 +2308,6 @@ proc
             data rollbackOk, boolean, false
             data rollbackErrorMessage, string
             now = %datetime
-            writelog("ROLLBACK")
-            writett("ROLLBACK")
             rollbackOk = %RollbackSqlClient(rollbackErrorMessage)
             if (!rollbackOk)
             begin
