@@ -1,13 +1,13 @@
  
 ;  SYNERGY DATA LANGUAGE OUTPUT
 ;
-;  REPOSITORY     : D:\SqlReplication\RPS\rpsmain.ism
-;                 : D:\SqlReplication\RPS\rpstext.ism
-;                 : Version 11.1.1b
+;  REPOSITORY     : C:\DEV_SYNERGEX\SqlReplication\RPS\rpsmain.ism
+;                 : C:\DEV_SYNERGEX\SqlReplication\RPS\rpstext.ism
+;                 : Version 12.2.1
 ;
-;  GENERATED      : 30-JAN-2020, 18:12:04
-;                 : Version 11.1.1c
-;  EXPORT OPTIONS : [ALL-K-R-A] 
+;  GENERATED      : 07-MAR-2024, 14:42:22
+;                 : Version 12.2.1
+;  EXPORT OPTIONS : [ALL] 
  
  
 Format PHONE   Type NUMERIC   "(XXX) XXX-XXXX"   Justify LEFT
@@ -34,7 +34,7 @@ Template DEPARTMENT_NAME   Type ALPHA   Size 50
    Description "Department name"
    Required
  
-Template EMPLOYEE_ID   Type DECIMAL   Size 6
+Template EMPLOYEE_ID   Type DECIMAL   Size 8
    Description "Employee ID"
    Prompt "Employee ID"
    Required
@@ -66,6 +66,10 @@ Field DEPT_NAME   Template DEPARTMENT_NAME   Dimension 1
 Field DEPT_MANAGER   Template EMPLOYEE_ID
    Description "Department manager"
    Prompt "Manager"
+ 
+Field MONAME_001   Type ALPHA   Size 27   Language Noview   Script Noview
+   Report Noview   Nonamelink
+   Description "Spare space"
  
 Key DEPT_ID   ACCESS   Order ASCENDING   Dups NO
    Description "Department ID"
@@ -169,7 +173,7 @@ Field EMP_ADDRESS_ZIP   Type DECIMAL   Size 5
    Prompt "Zip code"   Info Line "What is the employees home ZIP code?"
    ODBC Name ZIP_CODE
  
-Field NONAME_001   Type ALPHA   Size 78   Language Noview   Script Noview
+Field NONAME_001   Type ALPHA   Size 76   Language Noview   Script Noview
    Report Noview   Nonamelink
    Description "Spare space"
    ODBC Name SPARE_SPACE_1
@@ -242,7 +246,7 @@ Structure REPLICATION_VMS   DBL ISAM
  
 Field TRANSACTION_ID   Type ALPHA   Size 20
    Description "Unique transaction ID (timestamp)"
-   Report Just LEFT   Input Just LEFT   Readonly
+   Readonly
    Nonull
  
 Field ACTION   Type DECIMAL   Size 2

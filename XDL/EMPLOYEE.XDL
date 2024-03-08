@@ -1,6 +1,6 @@
-!	Synergy ISAM XDL File created Mon Sep 26 09:16:27 2016
+!	Synergy ISAM XDL File created Thu Mar  7 14:50:19 2024
 FILE
-	NAME		"REPLICATOR_DATA:EMPLOYEE.ISM"
+	NAME		"EMPLOYEE.ISM"
 	ADDRESSING	32
 	PAGE_SIZE	1024
 	NETWORK_ENCRYPT	no
@@ -16,9 +16,10 @@ RECORD
 	!Static vectoring enabled
 	!Default R6 file attributes:
 	!  Static RFAs enabled (Required)
-	!Creation version 10.3.3a {Compat Level 6.0}
+	!Creation version 12.2.1.1010 {Compat Level 6.0}
 	!0 of 32 byte file text allocation in use, @0x16a8
-	!File created on Mon Sep 26 09:16:03 2016
+	!Update revision count 0
+	!File created on Thu Mar  7 14:49:46 2024
 	!23 byte longest key
 	!0 free index blocks, 0x0 free list head
 	!0 records, 0 free
@@ -26,7 +27,7 @@ RECORD
 KEY 0
 	!Primary key
 	START		1
-	LENGTH		6
+	LENGTH		8
 	TYPE		alpha
 	ORDER		ascending
 	NAME		"EMP_ID"
@@ -35,11 +36,11 @@ KEY 0
 	DENSITY		50
 
 	!Root 0x2000, index depth 1
-	!Minimum keys per block 42
+	!Minimum keys per block 36
 
 KEY 1
 	!Alternate key #1
-	START		47
+	START		49
 	LENGTH		15
 	TYPE		alpha
 	ORDER		ascending
@@ -55,7 +56,7 @@ KEY 1
 
 KEY 2
 	!Alternate key #2
-	START		27
+	START		29
 	LENGTH		20
 	TYPE		nocase
 	ORDER		ascending
@@ -71,7 +72,7 @@ KEY 2
 
 KEY 3
 	!Alternate key #3
-	START		216
+	START		218
 	LENGTH		2
 	TYPE		alpha
 	ORDER		ascending
@@ -87,7 +88,7 @@ KEY 3
 
 KEY 4
 	!Alternate key #4
-	START		218
+	START		220
 	LENGTH		5
 	TYPE		alpha
 	ORDER		ascending

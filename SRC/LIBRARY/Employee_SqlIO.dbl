@@ -112,7 +112,7 @@ proc
     if (ok && createTableCommand == ^null)
     begin
         createTableCommand = 'CREATE TABLE "Employee" ('
-        & + '"EmpId" DECIMAL(6) NOT NULL,'
+        & + '"EmpId" DECIMAL(8) NOT NULL,'
         & + '"EmpFirstName" VARCHAR(20) NOT NULL,'
         & + '"EmpLastName" VARCHAR(20) NOT NULL,'
         & + '"EmpDept" VARCHAR(15) NOT NULL,'

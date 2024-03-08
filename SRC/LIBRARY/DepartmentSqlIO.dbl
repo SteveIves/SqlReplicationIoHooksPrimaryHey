@@ -155,7 +155,7 @@ proc
         sql = 'CREATE TABLE "Department" ('
         & + '"DeptId" VARCHAR(15) NOT NULL,'
         & + '"DeptName" VARCHAR(50) NOT NULL,'
-        & + '"DeptManager" DECIMAL(6) NOT NULL,'
+        & + '"DeptManager" DECIMAL(8) NOT NULL,'
         & + 'CONSTRAINT PK_Department PRIMARY KEY CLUSTERED("DeptId" ASC)'
         & + ')'
 
@@ -2399,7 +2399,7 @@ endfunction
 
 function DepartmentLength ,^val
 proc
-    freturn 71
+    freturn 100
 endfunction
 
 ;;*****************************************************************************

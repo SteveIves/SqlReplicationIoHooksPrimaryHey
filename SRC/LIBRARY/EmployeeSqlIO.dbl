@@ -153,7 +153,7 @@ proc
     if (ok)
     begin
         sql = 'CREATE TABLE "Employee" ('
-        & + '"EmpId" DECIMAL(6) NOT NULL,'
+        & + '"EmpId" DECIMAL(8) NOT NULL,'
         & + '"EmpFirstName" VARCHAR(20) NOT NULL,'
         & + '"EmpLastName" VARCHAR(20) NOT NULL,'
         & + '"EmpDept" VARCHAR(15) NOT NULL,'
@@ -2639,8 +2639,8 @@ proc
     clear employee
     segPos = 1
 
-    employee.emp_id = ^d(aKeyValue(segPos:6))
-    segPos += 6
+    employee.emp_id = ^d(aKeyValue(segPos:8))
+    segPos += 8
 
     freturn employee
 
@@ -2673,8 +2673,8 @@ proc
     len = 0
 
     ; Key segment 1 (Field)
-    keyval(pos:6) = aRecord(1:6)
-    len += 6
+    keyval(pos:8) = aRecord(1:8)
+    len += 8
 
     aKeyVal = keyval(1,len)
     aKeyLen = len

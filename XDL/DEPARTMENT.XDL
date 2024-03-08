@@ -1,28 +1,28 @@
-!	Synergy ISAM XDL File created Thu Sep 15 15:20:51 2016
+!	Synergy ISAM XDL File created Thu Mar  7 14:50:12 2024
 FILE
-	NAME		"REPLICATOR_DATA:DEPARTMENT.ISM"
+	NAME		"DEPARTMENT.ISM"
 	ADDRESSING	32
+	PAGE_SIZE	1024
 	NETWORK_ENCRYPT	no
 	TRACK_CHANGES	no
 	KEYS		2
 
 RECORD
-	SIZE		71
+	SIZE		100
 	FORMAT		fixed
-	COMPRESS_DATA	no
+	COMPRESS_DATA	yes
 
-	!5ca5 magic, revision 6, 4 byte record overhead
-	!Static vectoring disabled
+	!5ca5 magic, revision 6, 12 byte record overhead
+	!Static vectoring enabled
 	!Default R6 file attributes:
 	!  Static RFAs enabled (Required)
-	!  Page size 4K
-	!Creation version 10.3.3a {Compat Level 6.0}
+	!Creation version 12.2.1.1010 {Compat Level 6.0}
 	!0 of 32 byte file text allocation in use, @0x1698
-	!File created on Thu Sep 15 10:41:42 2016
-	!Last re-indexed on Thu Sep 15 10:41:42 2016
+	!Update revision count 0
+	!File created on Thu Mar  7 14:49:26 2024
 	!15 byte longest key
 	!0 free index blocks, 0x0 free list head
-	!3 records, 0 free
+	!0 records, 0 free
 
 KEY 0
 	!Primary key
@@ -30,24 +30,26 @@ KEY 0
 	LENGTH		15
 	TYPE		alpha
 	ORDER		ascending
-	NAME		"dept_id"
+	NAME		"DEPT_ID"
 	DUPLICATES	no
 	MODIFIABLE	no
+	DENSITY		50
 
 	!Root 0x2000, index depth 1
-	!Minimum keys per block 107
+	!Minimum keys per block 24
 
 KEY 1
 	!Alternate key #1
 	START		66
-	LENGTH		6
+	LENGTH		8
 	TYPE		alpha
 	ORDER		ascending
-	NAME		"dept_manager"
+	NAME		"DEPT_MANAGER"
 	DUPLICATES	yes
 	DUPLICATE_ORDER	fifo
 	MODIFIABLE	yes
+	DENSITY		50
 
-	!Root 0x3000, index depth 1
-	!Qualifier offset 1
-	!Minimum keys per block 157
+	!Root 0x2400, index depth 1
+	!Qualifier offset 9
+	!Minimum keys per block 30
