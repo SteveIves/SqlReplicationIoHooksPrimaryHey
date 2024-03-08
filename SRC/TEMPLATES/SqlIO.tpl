@@ -2262,12 +2262,15 @@ endfunction
 ;;; <summary>
 ;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
 ;;; </summary>
-;;; <param name="a_records">Total number of records processed</param>
-;;; <param name="a_exceptions">Total number of exception records detected</param>
-;;; <param name="a_errtxt">Returned error text.</param>
+;;; <param name="totalRecords">Total number of records in the file</param>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="a_records">Records loaded</param>
+;;; <param name="a_exceptions">Records failes</param>
+;;; <param name="a_errtxt">Error message (if return value is false)</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>BulkLoad, ^val
+    required in totalRecords,  n
     required in recordsToLoad, n
     required out a_records,    n
     required out a_exceptions, n
@@ -2303,6 +2306,10 @@ proc
 
     init local_data
     ok = true
+
+    now = %datetime
+    writelog("Starting bulk load with " + %string(totalRecords) + " records")
+    writett("Starting bulk load with " + %string(totalRecords) + " records")
 
     ;;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
@@ -3255,3 +3262,41 @@ proc
     freturn <COUNTER_1_VALUE>
 
 endfunction
+
+;;*****************************************************************************
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <param name="fileType"></param>
+;;; <returns></returns>
+
+function <StructureName>Recs, ^val
+    required out recordCount, n
+    required out errorMessage, a
+    stack record
+        ok, boolean
+        ch, int
+    endrecord
+proc
+    try
+    begin
+        open(ch=0,<IF STRUCTURE_ISAM>i:i<ELSE STRUCTURE_RELATIVE>i:r</IF>,"<FILE_NAME>")
+        recordCount = %isinfo(ch,"NUMRECS")
+        errorMessage = ""
+        ok = true
+    end
+    catch (ex, @Exception)
+    begin
+        recordCount = -1
+        errorMessage = ex.Message
+        ok = false
+    end
+    finally
+    begin
+        if (ch && %chopen(ch))
+            close ch
+    end
+    endtry
+    freturn ok
+endfunction
+

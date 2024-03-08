@@ -1874,13 +1874,15 @@ endfunction
 ;;; <summary>
 ;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
 ;;; </summary>
-;;; <param name="recordsToLoad">The number of records to load, or 0 for all records.</param>
-;;; <param name="a_records">Total number of records processed</param>
-;;; <param name="a_exceptions">Total number of exception records detected</param>
-;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <param name="totalRecords">Total number of records in the file</param>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="a_records">Records loaded</param>
+;;; <param name="a_exceptions">Records failes</param>
+;;; <param name="aErrorMessage">Error message (if return value is false)</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_BulkLoad, ^val
+    required in totalRecords,   n
     required in recordsToLoad,  n
     required out a_records,     n
     required out a_exceptions,  n
@@ -1912,6 +1914,10 @@ function <StructureName>_BulkLoad, ^val
 proc
     init local_data
     ok = true
+
+    now = %datetime
+    writelog("Starting bulk load with " + %string(totalRecords) + " records")
+    writett("Starting bulk load with " + %string(totalRecords) + " records")
 
     ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 

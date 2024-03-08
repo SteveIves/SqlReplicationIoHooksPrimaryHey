@@ -62,11 +62,13 @@ main replicator
         doCheckCommit,              boolean             ;;Do we need to check if it's time to commit?
         doForceCommit,              boolean             ;;Do we need to force a commit?
         shutdownRequested,          boolean             ;;A shutdown instruction was received and processed
+        doReturn,                   boolean             ;;Need to return from the current internal subroutine
         nsptr,                      i4                  ;;Namespace pointer
         status,                     i4                  ;;General working status return
         rows,                       i4                  ;;Number of rows affected
         oldSleepTime,               i4                  ;;Previous sleep time value
         maxRowsToLoad,              i4                  ;;Maximum rows to load
+        recordCount,                i4                  ;;Number of records in a file
         functionName,               string              ;;External function to call
         keyValue,                   a256                ;;Key value of the current ISAM record
         keyLength,                  i4                  ;;Key length of the current ISAM record
@@ -1020,6 +1022,22 @@ BulkLoadTable,
 
     Logger.Log(" - Bulk load starting at " + %TimeNow)
 
+    try
+    begin
+        doReturn = false
+        functionName = %atrim(instruction.structure_name) + "Recs"
+        status = %xsubr(functionName,recordCount,dberrtxt)
+    end
+    catch (ex, @SynException)
+    begin
+        ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+        doReturn = true
+    end
+    endtry
+
+    if (doReturn)
+        return
+
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
         functionName = %atrim(instruction.structure_name) + "BulkLoad"
@@ -1030,7 +1048,10 @@ BulkLoadTable,
     if (EmailSettings.CanSendEmail())
     begin
         data subject, string, "SQL replicator " + Settings.InstanceName + " is starting to bulk load table " + %atrim(instruction.structure_name)
-        xcall SendEmail(subject,^null,false)
+        data body, [#]string
+        body = new string[1]
+        body[1] = "The file contains " + %string(recordCount) + " records"
+        xcall SendEmail(subject,body,false)
     end
 
     repeat
@@ -1042,7 +1063,7 @@ BulkLoadTable,
             data totalRows, int, 0
             data failRows,  int, 0
 
-            status = %xsubr(functionName,maxRowsToLoad,totalRows,failRows,dberrtxt)
+            status = %xsubr(functionName,recordCount,maxRowsToLoad,totalRows,failRows,dberrtxt)
 
             if (status) then
             begin
