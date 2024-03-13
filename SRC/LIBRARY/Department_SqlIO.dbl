@@ -373,7 +373,7 @@ function Department_Insert, ^val
         & + '"DeptId",'
         & + '"DeptName",'
         & + '"DeptManager"'
-        & + ") VALUES(@1,@2,@3)"
+        & + ") VALUES(@DeptId,@DeptName,@DeptManager)"
     endliteral
 
     static record
@@ -428,9 +428,9 @@ proc
             &   CommandTimeout = Settings.DatabaseTimeout
             & }
 
-            command.Parameters.AddWithValue("@1",department.dept_id)
-            command.Parameters.AddWithValue("@2",department.dept_name)
-            command.Parameters.AddWithValue("@3",department.dept_manager)
+            command.Parameters.AddWithValue("@DeptId",department.dept_id)
+            command.Parameters.AddWithValue("@DeptName",department.dept_name)
+            command.Parameters.AddWithValue("@DeptManager",department.dept_manager)
 
             command.ExecuteNonQuery()
         end
@@ -510,7 +510,7 @@ function Department_InsertRows, ^val
         & + '"DeptId",'
         & + '"DeptName",'
         & + '"DeptManager"'
-        & + ") VALUES(@1,@2,@3)"
+        & + ") VALUES(@DeptId,@DeptName,@DeptManager)"
     endliteral
 
     .include "DEPARTMENT" repository, structure="inpbuf", nofields, end
@@ -578,9 +578,9 @@ proc
 
                 ;Bind the host variables for data to be inserted
 
-                command.Parameters.AddWithValue("@1",department.dept_id)
-                command.Parameters.AddWithValue("@2",department.dept_name)
-                command.Parameters.AddWithValue("@3",department.dept_manager)
+                command.Parameters.AddWithValue("@DeptId",department.dept_id)
+                command.Parameters.AddWithValue("@DeptName",department.dept_name)
+                command.Parameters.AddWithValue("@DeptManager",department.dept_manager)
 
                 command.ExecuteNonQuery()
                 errorMessage = ""
@@ -678,10 +678,10 @@ function Department_Update, ^val
 
     literal
         sql, string, 'UPDATE Department SET '
-        & + '"DeptId"=@1,'
-        & + '"DeptName"=@2,'
-        & + '"DeptManager"=@3'
-        & + ' WHERE "DeptId"=:4  '
+        & + '"DeptId"=@DeptId,'
+        & + '"DeptName"=@DeptName,'
+        & + '"DeptManager"=@DeptManager'
+        & + ' WHERE "DeptId"=@DeptId  '
     endliteral
 
     static record
@@ -729,12 +729,12 @@ proc
             &    }
 
             ;Bind the host variables for data to be updated
-            command.Parameters.AddWithValue("@1",department.dept_id)
-            command.Parameters.AddWithValue("@2",department.dept_name)
-            command.Parameters.AddWithValue("@3",department.dept_manager)
+            command.Parameters.AddWithValue("@DeptId",department.dept_id)
+            command.Parameters.AddWithValue("@DeptName",department.dept_name)
+            command.Parameters.AddWithValue("@DeptManager",department.dept_manager)
 
             ;Bind the host variables for the key segments / WHERE clause
-            command.Parameters.AddWithValue("@4",department.dept_id)
+            command.Parameters.AddWithValue("@DeptId",department.dept_id)
 
             rows = command.ExecuteNonQuery()
 

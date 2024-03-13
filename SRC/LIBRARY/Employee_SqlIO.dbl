@@ -574,7 +574,7 @@ function Employee_Insert, ^val
         & + '"EmpAddressCity",'
         & + '"EmpAddressState",'
         & + '"EmpAddressZip"'
-        & + ") VALUES(@1,@2,@3,@4,@5,@6,@7,@8,@9,@10,@11,@12,@13,@14,@15)"
+        & + ") VALUES(@EmpId,@EmpFirstName,@EmpLastName,@EmpDept,@EmpHireDate,@EmpPhoneWork,@EmpPhoneCell,@EmpPaid,@EmpDateOfBirth,@EmpHireTime,@EmpEmail,@EmpAddressStreet,@EmpAddressCity,@EmpAddressState,@EmpAddressZip)"
     endliteral
 
     static record
@@ -649,21 +649,21 @@ proc
             &   CommandTimeout = Settings.DatabaseTimeout
             & }
 
-            command.Parameters.AddWithValue("@1",employee.emp_id)
-            command.Parameters.AddWithValue("@2",employee.emp_first_name)
-            command.Parameters.AddWithValue("@3",employee.emp_last_name)
-            command.Parameters.AddWithValue("@4",employee.emp_dept)
-            command.Parameters.AddWithValue("@5",^a(employee.emp_hire_date))
-            command.Parameters.AddWithValue("@6",employee.emp_phone_work)
-            command.Parameters.AddWithValue("@7",employee.emp_phone_cell)
-            command.Parameters.AddWithValue("@8",employee.emp_paid)
-            command.Parameters.AddWithValue("@9",^a(employee.emp_date_of_birth))
-            command.Parameters.AddWithValue("@10",tmpEmpHireTime)
-            command.Parameters.AddWithValue("@11",employee.emp_email)
-            command.Parameters.AddWithValue("@12",employee.emp_address_street)
-            command.Parameters.AddWithValue("@13",employee.emp_address_city)
-            command.Parameters.AddWithValue("@14",employee.emp_address_state)
-            command.Parameters.AddWithValue("@15",employee.emp_address_zip)
+            command.Parameters.AddWithValue("@EmpId",employee.emp_id)
+            command.Parameters.AddWithValue("@EmpFirstName",employee.emp_first_name)
+            command.Parameters.AddWithValue("@EmpLastName",employee.emp_last_name)
+            command.Parameters.AddWithValue("@EmpDept",employee.emp_dept)
+            command.Parameters.AddWithValue("@EmpHireDate",^a(employee.emp_hire_date))
+            command.Parameters.AddWithValue("@EmpPhoneWork",employee.emp_phone_work)
+            command.Parameters.AddWithValue("@EmpPhoneCell",employee.emp_phone_cell)
+            command.Parameters.AddWithValue("@EmpPaid",employee.emp_paid)
+            command.Parameters.AddWithValue("@EmpDateOfBirth",^a(employee.emp_date_of_birth))
+            command.Parameters.AddWithValue("@EmpHireTime",tmpEmpHireTime)
+            command.Parameters.AddWithValue("@EmpEmail",employee.emp_email)
+            command.Parameters.AddWithValue("@EmpAddressStreet",employee.emp_address_street)
+            command.Parameters.AddWithValue("@EmpAddressCity",employee.emp_address_city)
+            command.Parameters.AddWithValue("@EmpAddressState",employee.emp_address_state)
+            command.Parameters.AddWithValue("@EmpAddressZip",employee.emp_address_zip)
 
             command.ExecuteNonQuery()
         end
@@ -755,7 +755,7 @@ function Employee_InsertRows, ^val
         & + '"EmpAddressCity",'
         & + '"EmpAddressState",'
         & + '"EmpAddressZip"'
-        & + ") VALUES(@1,@2,@3,@4,@5,@6,@7,@8,@9,@10,@11,@12,@13,@14,@15)"
+        & + ") VALUES(@EmpId,@EmpFirstName,@EmpLastName,@EmpDept,@EmpHireDate,@EmpPhoneWork,@EmpPhoneCell,@EmpPaid,@EmpDateOfBirth,@EmpHireTime,@EmpEmail,@EmpAddressStreet,@EmpAddressCity,@EmpAddressState,@EmpAddressZip)"
     endliteral
 
     .include "EMPLOYEE" repository, structure="inpbuf", nofields, end
@@ -843,21 +843,21 @@ proc
 
                 ;Bind the host variables for data to be inserted
 
-                command.Parameters.AddWithValue("@1",employee.emp_id)
-                command.Parameters.AddWithValue("@2",employee.emp_first_name)
-                command.Parameters.AddWithValue("@3",employee.emp_last_name)
-                command.Parameters.AddWithValue("@4",employee.emp_dept)
-                command.Parameters.AddWithValue("@5",^a(employee.emp_hire_date))
-                command.Parameters.AddWithValue("@6",employee.emp_phone_work)
-                command.Parameters.AddWithValue("@7",employee.emp_phone_cell)
-                command.Parameters.AddWithValue("@8",employee.emp_paid)
-                command.Parameters.AddWithValue("@9",^a(employee.emp_date_of_birth))
-                command.Parameters.AddWithValue("@10",tmpEmpHireTime)
-                command.Parameters.AddWithValue("@11",employee.emp_email)
-                command.Parameters.AddWithValue("@12",employee.emp_address_street)
-                command.Parameters.AddWithValue("@13",employee.emp_address_city)
-                command.Parameters.AddWithValue("@14",employee.emp_address_state)
-                command.Parameters.AddWithValue("@15",employee.emp_address_zip)
+                command.Parameters.AddWithValue("@EmpId",employee.emp_id)
+                command.Parameters.AddWithValue("@EmpFirstName",employee.emp_first_name)
+                command.Parameters.AddWithValue("@EmpLastName",employee.emp_last_name)
+                command.Parameters.AddWithValue("@EmpDept",employee.emp_dept)
+                command.Parameters.AddWithValue("@EmpHireDate",^a(employee.emp_hire_date))
+                command.Parameters.AddWithValue("@EmpPhoneWork",employee.emp_phone_work)
+                command.Parameters.AddWithValue("@EmpPhoneCell",employee.emp_phone_cell)
+                command.Parameters.AddWithValue("@EmpPaid",employee.emp_paid)
+                command.Parameters.AddWithValue("@EmpDateOfBirth",^a(employee.emp_date_of_birth))
+                command.Parameters.AddWithValue("@EmpHireTime",tmpEmpHireTime)
+                command.Parameters.AddWithValue("@EmpEmail",employee.emp_email)
+                command.Parameters.AddWithValue("@EmpAddressStreet",employee.emp_address_street)
+                command.Parameters.AddWithValue("@EmpAddressCity",employee.emp_address_city)
+                command.Parameters.AddWithValue("@EmpAddressState",employee.emp_address_state)
+                command.Parameters.AddWithValue("@EmpAddressZip",employee.emp_address_zip)
 
                 command.ExecuteNonQuery()
                 errorMessage = ""
@@ -955,22 +955,22 @@ function Employee_Update, ^val
 
     literal
         sql, string, 'UPDATE Employee SET '
-        & + '"EmpId"=@1,'
-        & + '"EmpFirstName"=@2,'
-        & + '"EmpLastName"=@3,'
-        & + '"EmpDept"=@4,'
-        & + '"EmpHireDate"=@5,'
-        & + '"EmpPhoneWork"=@6,'
-        & + '"EmpPhoneCell"=@7,'
-        & + '"EmpPaid"=@8,'
-        & + '"EmpDateOfBirth"=@9,'
-        & + '"EmpHireTime"=@10,'
-        & + '"EmpEmail"=@11,'
-        & + '"EmpAddressStreet"=@12,'
-        & + '"EmpAddressCity"=@13,'
-        & + '"EmpAddressState"=@14,'
-        & + '"EmpAddressZip"=@15'
-        & + ' WHERE "EmpId"=:16  '
+        & + '"EmpId"=@EmpId,'
+        & + '"EmpFirstName"=@EmpFirstName,'
+        & + '"EmpLastName"=@EmpLastName,'
+        & + '"EmpDept"=@EmpDept,'
+        & + '"EmpHireDate"=@EmpHireDate,'
+        & + '"EmpPhoneWork"=@EmpPhoneWork,'
+        & + '"EmpPhoneCell"=@EmpPhoneCell,'
+        & + '"EmpPaid"=@EmpPaid,'
+        & + '"EmpDateOfBirth"=@EmpDateOfBirth,'
+        & + '"EmpHireTime"=@EmpHireTime,'
+        & + '"EmpEmail"=@EmpEmail,'
+        & + '"EmpAddressStreet"=@EmpAddressStreet,'
+        & + '"EmpAddressCity"=@EmpAddressCity,'
+        & + '"EmpAddressState"=@EmpAddressState,'
+        & + '"EmpAddressZip"=@EmpAddressZip'
+        & + ' WHERE "EmpId"=@EmpId  '
     endliteral
 
     static record
@@ -1038,24 +1038,24 @@ proc
             &    }
 
             ;Bind the host variables for data to be updated
-            command.Parameters.AddWithValue("@1",employee.emp_id)
-            command.Parameters.AddWithValue("@2",employee.emp_first_name)
-            command.Parameters.AddWithValue("@3",employee.emp_last_name)
-            command.Parameters.AddWithValue("@4",employee.emp_dept)
-            command.Parameters.AddWithValue("@5",^a(employee.emp_hire_date))
-            command.Parameters.AddWithValue("@6",employee.emp_phone_work)
-            command.Parameters.AddWithValue("@7",employee.emp_phone_cell)
-            command.Parameters.AddWithValue("@8",employee.emp_paid)
-            command.Parameters.AddWithValue("@9",^a(employee.emp_date_of_birth))
-            command.Parameters.AddWithValue("@10",tmpEmpHireTime)
-            command.Parameters.AddWithValue("@11",employee.emp_email)
-            command.Parameters.AddWithValue("@12",employee.emp_address_street)
-            command.Parameters.AddWithValue("@13",employee.emp_address_city)
-            command.Parameters.AddWithValue("@14",employee.emp_address_state)
-            command.Parameters.AddWithValue("@15",employee.emp_address_zip)
+            command.Parameters.AddWithValue("@EmpId",employee.emp_id)
+            command.Parameters.AddWithValue("@EmpFirstName",employee.emp_first_name)
+            command.Parameters.AddWithValue("@EmpLastName",employee.emp_last_name)
+            command.Parameters.AddWithValue("@EmpDept",employee.emp_dept)
+            command.Parameters.AddWithValue("@EmpHireDate",^a(employee.emp_hire_date))
+            command.Parameters.AddWithValue("@EmpPhoneWork",employee.emp_phone_work)
+            command.Parameters.AddWithValue("@EmpPhoneCell",employee.emp_phone_cell)
+            command.Parameters.AddWithValue("@EmpPaid",employee.emp_paid)
+            command.Parameters.AddWithValue("@EmpDateOfBirth",^a(employee.emp_date_of_birth))
+            command.Parameters.AddWithValue("@EmpHireTime",tmpEmpHireTime)
+            command.Parameters.AddWithValue("@EmpEmail",employee.emp_email)
+            command.Parameters.AddWithValue("@EmpAddressStreet",employee.emp_address_street)
+            command.Parameters.AddWithValue("@EmpAddressCity",employee.emp_address_city)
+            command.Parameters.AddWithValue("@EmpAddressState",employee.emp_address_state)
+            command.Parameters.AddWithValue("@EmpAddressZip",employee.emp_address_zip)
 
             ;Bind the host variables for the key segments / WHERE clause
-            command.Parameters.AddWithValue("@16",employee.emp_id)
+            command.Parameters.AddWithValue("@EmpId",employee.emp_id)
 
             rows = command.ExecuteNonQuery()
 

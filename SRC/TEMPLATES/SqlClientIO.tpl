@@ -540,17 +540,15 @@ function <StructureName>_Insert, ^val
 
     literal
         sql, string, "INSERT INTO <StructureName> ("
-<COUNTER_1_RESET>
 <IF STRUCTURE_RELATIVE>
         & + '"RecordNumber",'
-<COUNTER_1_INCREMENT>
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
         & + '"<FieldSqlName>"<,>'
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
-        & + ") VALUES(<IF STRUCTURE_RELATIVE>@1,</IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><COUNTER_1_INCREMENT><IF USERTIMESTAMP>CONVERT(DATETIME2,@<COUNTER_1_VALUE>,21)<,><ELSE>@<COUNTER_1_VALUE><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
+        & + ") VALUES(<IF STRUCTURE_RELATIVE>RecordNumber,</IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><IF USERTIMESTAMP>CONVERT(DATETIME2,@<FieldSqlName>,21)<,><ELSE>@<FieldSqlName><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
     endliteral
 
     static record
@@ -683,31 +681,29 @@ proc
             & }
 
 <IF STRUCTURE_RELATIVE>
-            command.Parameters.AddWithValue("@1",recordNumber)
+            command.Parameters.AddWithValue("@RecordNumber",recordNumber)
 </IF STRUCTURE_RELATIVE>
-<COUNTER_1_RESET>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <COUNTER_1_INCREMENT>
     <IF CUSTOM_DBL_TYPE>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE ALPHA>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE DECIMAL>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE INTEGER>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE DATE>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",^a(<structure_name>.<field_original_name_modified>))
+            command.Parameters.AddWithValue("@<FieldSqlName>",^a(<structure_name>.<field_original_name_modified>))
     <ELSE TIME>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND USERTIMESTAMP>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND NOT USERTIMESTAMP>
       <IF DEFINED_ASA_TIREMAX>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
       <ELSE>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
       </IF DEFINED_ASA_TIREMAX>
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -795,21 +791,17 @@ function <StructureName>_InsertRows, ^val
 </IF STRUCTURE_RELATIVE>
     endrecord
 
-<COUNTER_1_RESET>
     literal
         sql, string, "INSERT INTO <StructureName> ("
 <IF STRUCTURE_RELATIVE>
-  <COUNTER_1_INCREMENT>
         & + '"RecordNumber",'
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <COUNTER_1_INCREMENT>
         & + '"<FieldSqlName>"<,>'
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
-<COUNTER_1_RESET>
-        & + ") VALUES(<IF STRUCTURE_RELATIVE>@1,<COUNTER_1_INCREMENT></IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><COUNTER_1_INCREMENT><IF USERTIMESTAMP>CONVERT(DATETIME2,@<COUNTER_1_VALUE>,21)<,><ELSE>@<COUNTER_1_VALUE><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
+        & + ") VALUES(<IF STRUCTURE_RELATIVE>@RecordNumber,</IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><IF USERTIMESTAMP>CONVERT(DATETIME2,@<FieldSqlName>,21)<,><ELSE>@<FieldSqlName><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
     endliteral
 
 <IF STRUCTURE_ISAM>
@@ -972,62 +964,56 @@ proc
 
                 ;Bind the host variables for data to be inserted
 
-<COUNTER_1_RESET>
 <IF STRUCTURE_RELATIVE>
-<COUNTER_1_INCREMENT>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",recordNumber)
+                command.Parameters.AddWithValue("@RecordNumber",recordNumber)
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <COUNTER_1_INCREMENT>
     <IF CUSTOM_DBL_TYPE>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+                command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE ALPHA>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+                command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE DECIMAL>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+                command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE INTEGER>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+                command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE DATE>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",^a(<structure_name>.<field_original_name_modified>))
+                command.Parameters.AddWithValue("@<FieldSqlName>",^a(<structure_name>.<field_original_name_modified>))
     <ELSE TIME>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+                command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND USERTIMESTAMP>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+                command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+                command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
-                command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+                command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-;//<COUNTER_1_RESET>
 ;//<IF STRUCTURE_RELATIVE>
-;//<COUNTER_1_INCREMENT>
-;//                command.Parameters["@<COUNTER_1_VALUE>"],recordNumber)
+;//                command.Parameters["@RecordNumber"],recordNumber)
 ;//</IF STRUCTURE_RELATIVE>
 ;//<FIELD_LOOP>
 ;//  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-;//    <COUNTER_1_INCREMENT>
 ;//    <IF CUSTOM_DBL_TYPE>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = tmp<FieldSqlName>
+;//                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
 ;//    <ELSE ALPHA>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = <structure_name>.<field_original_name_modified>
+;//                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
 ;//    <ELSE DECIMAL>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = <structure_name>.<field_original_name_modified>
+;//                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
 ;//    <ELSE INTEGER>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = <structure_name>.<field_original_name_modified>
+;//                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
 ;//    <ELSE DATE>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = ^a(<structure_name>.<field_original_name_modified>)
+;//                command.Parameters["@<FieldSqlName>"].Value = ^a(<structure_name>.<field_original_name_modified>)
 ;//    <ELSE TIME>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = tmp<FieldSqlName>
+;//                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
 ;//    <ELSE USER AND USERTIMESTAMP>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = tmp<FieldSqlName>
+;//                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
 ;//    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = <structure_name>.<field_original_name_modified>
+;//                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
 ;//    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
-;//                command.Parameters["@<COUNTER_1_VALUE>"].Value = tmp<FieldSqlName>
+;//                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
 ;//    </IF CUSTOM_DBL_TYPE>
 ;//  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 ;//</FIELD_LOOP>
@@ -1159,23 +1145,19 @@ function <StructureName>_Update, ^val
 
     literal
         sql, string, 'UPDATE <StructureName> SET '
-<COUNTER_1_RESET>
-<COUNTER_2_RESET>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <COUNTER_1_INCREMENT>
-    <COUNTER_2_INCREMENT>
     <IF USERTIMESTAMP>
-        & + '"<FieldSqlName>"=CONVERT(DATETIME2,@<COUNTER_1_VALUE>,21)<,>'
+        & + '"<FieldSqlName>"=CONVERT(DATETIME2,@<FieldSqlName>,21)<,>'
     <ELSE>
-        & + '"<FieldSqlName>"=@<COUNTER_1_VALUE><,>'
+        & + '"<FieldSqlName>"=@<FieldSqlName><,>'
     </IF USERTIMESTAMP>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 <IF STRUCTURE_ISAM>
-        & + ' WHERE <UNIQUE_KEY><SEGMENT_LOOP><COUNTER_1_INCREMENT>"<FieldSqlName>"=:<COUNTER_1_VALUE> <AND> </SEGMENT_LOOP></UNIQUE_KEY>'
+        & + ' WHERE <UNIQUE_KEY><SEGMENT_LOOP>"<FieldSqlName>"=@<FieldSqlName> <AND> </SEGMENT_LOOP></UNIQUE_KEY>'
 <ELSE STRUCTURE_RELATIVE>
-        & + ' WHERE "RecordNumber"=@<COUNTER_1_INCREMENT><COUNTER_1_VALUE>'
+        & + ' WHERE "RecordNumber"=@RecordNumber'
 </IF STRUCTURE_ISAM>
     endliteral
 
@@ -1287,28 +1269,26 @@ proc
             &    }
 
             ;Bind the host variables for data to be updated
-<COUNTER_1_RESET>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <COUNTER_1_INCREMENT>
     <IF CUSTOM_DBL_TYPE>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE ALPHA>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE DECIMAL>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE INTEGER>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE DATE>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",^a(<structure_name>.<field_original_name_modified>))
+            command.Parameters.AddWithValue("@<FieldSqlName>",^a(<structure_name>.<field_original_name_modified>))
     <ELSE TIME>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND USERTIMESTAMP>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<structure_name>.<field_original_name_modified>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
     <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",tmp<FieldSqlName>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
@@ -1317,13 +1297,11 @@ proc
 <IF STRUCTURE_ISAM>
   <UNIQUE_KEY>
     <SEGMENT_LOOP>
-      <COUNTER_1_INCREMENT>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",<IF DATEORTIME>^a(</IF DATEORTIME><structure_name>.<segment_name><IF DATEORTIME>)</IF DATEORTIME>)
+            command.Parameters.AddWithValue("@<FieldSqlName>",<IF DATEORTIME>^a(</IF DATEORTIME><structure_name>.<segment_name><IF DATEORTIME>)</IF DATEORTIME>)
     </SEGMENT_LOOP>
   </UNIQUE_KEY>
 <ELSE STRUCTURE_RELATIVE>
-<COUNTER_1_INCREMENT>
-            command.Parameters.AddWithValue("@<COUNTER_1_VALUE>",a_recnum)
+            command.Parameters.AddWithValue("@RecordNumber",a_recnum)
 </IF STRUCTURE_ISAM>
 
             rows = command.ExecuteNonQuery()
