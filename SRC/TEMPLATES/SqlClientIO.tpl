@@ -1,5 +1,5 @@
 <CODEGEN_FILENAME><StructureName>_SqlIO.dbl</CODEGEN_FILENAME>
-<REQUIRES_CODEGEN_VERSION>6.0.2</REQUIRES_CODEGEN_VERSION>
+<REQUIRES_CODEGEN_VERSION>6.0.3</REQUIRES_CODEGEN_VERSION>
 ;//****************************************************************************
 ;//
 ;// Guard against REPLICATOR_EXCLUDE being used on key segments
