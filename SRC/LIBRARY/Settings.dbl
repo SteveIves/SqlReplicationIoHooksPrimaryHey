@@ -330,7 +330,7 @@ namespace ReplicationLibrary
             using Settings.DatabaseConnectMode select
             (DatabaseConnectionMode.SqlConnection),
             begin
-                mreturn (!DatabaseConnectString.ToLower().StartsWith("net:") || (FileServiceHost!=^null && FileServicePort > 0))
+                mreturn (!DatabaseConnectString.ToLower().StartsWith("net:") || (!String.IsNullOrWhitespace(FileServiceHost) && FileServicePort > 0))
             end
             (DatabaseConnectionMode.SqlClient),
             begin
@@ -341,6 +341,15 @@ namespace ReplicationLibrary
                 mreturn false
             end
             endusing
+        endmethod
+
+        ;;; <summary>
+        ;;; Is the database that we are connecting to with SQL Connection remote?
+        ;;; </summary>
+        ;;; <returns>Returns true if the database is remote, otherwise false.</returns>
+        public static method DatabaseIsRemote, boolean
+        proc
+            mreturn DatabaseConnectString.ToLower().StartsWith("net:")
         endmethod
 
         ;;; <summary>

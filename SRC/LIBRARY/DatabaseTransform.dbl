@@ -1,0 +1,345 @@
+;*****************************************************************************
+;
+; Routine:      DatabaseTransform
+;
+; Description:  Perform various transformations in the database.
+;
+; Author:       Steve Ives, Synergex Professional Services Group
+;
+; Created:      21th March 2024
+;
+;*****************************************************************************
+;
+; Transformations:
+;
+;   1   Add a new Ax / VARCHAR(x) column
+;   2   Increase the size of a Ax / VARCHAR(x) column
+;
+;   3   Add a new Dx / DECMMAL(x) column
+;   4   Increase the size of a Dx / DECMMAL(x) column
+;   5   Change a Dx / DECIMAL(x) column to a Dx.y / DECIMAL(x,y) column
+;
+;   6   Add a new Dx.y / DECMMAL(x,y) column
+;   7   Increase the size of a Dx.y / DECIMAL(x,y) column
+;   8   Increase the precision of a Dx.y / DECIMAL(x,y) column
+;
+;   9   Remove a column
+;
+
+import ReplicationLibrary
+
+.include "REPLICATION_TRANSFORM" repository, enum, end
+
+.ifdef DBLNET
+
+import System.Data.SqlClient
+
+function DatabaseTransformSqlClient, boolean
+    required in transformType, REPLICATION_TRANSFORM
+    required in tableName, string
+    required in columnName, string
+    required in transformData, string
+    required out errorMessage, string
+
+    stack record
+        ;Return status and error message
+        ok, boolean
+
+        ;Work variables
+        sql, string
+        transaction, boolean
+
+    endrecord
+proc
+    ok = true
+    errorMessage = ""
+    transaction = false
+
+    using transformType select
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.ADD_ALPHA),
+    begin
+        ;Add a new Ax / VARCHAR(x) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.EXTEND_ALPHA),
+    begin
+        ;Increase the size of an Ax / VARCHAR(x) column
+        ;Transform data should be the new integer length
+
+        data columnType, string
+        data currentSize, int
+        data newSize, int
+        data isNullable, string
+
+        ;Check that the table and column exist and get the type and size
+
+        sql = "SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME=@TableName AND COLUMN_NAME=@ColumnName"
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+
+            command.Parameters.AddWithValue("@TableName",tableName)
+            command.Parameters.AddWithValue("@ColumnName",columnName)
+
+            disposable data reader = command.ExecuteReader()
+            if (reader.Read()) then
+            begin
+                columnType = (string)reader["DATA_TYPE"]
+                newSize = (int)reader["CHARACTER_MAXIMUM_LENGTH"]
+                isNullable = (string)reader["IS_NULLABLE"] ;YES or NO
+            end
+            else
+            begin
+                errorMessage = "Table or column not found!"
+                ok = false
+            end
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = ex.Message
+            ok = false
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+        end
+        endtry
+
+        ;Check that the column is the correct type
+
+        if (ok && !columnType.Equals("varchar"))
+        begin
+            errorMessage = String.Format("Table {0} column {1} is not type VARCHAR!",tableName,columnName)
+            ok = false
+        end
+
+        ;Check aTransformData contains a number that is larger than the current size
+
+        if (ok && (String.IsNullOrWhiteSpace(transformData) || !int.TryParse(transformData,newSize) || newSize < 1))
+        begin
+            errorMessage = "Invalid trasnformation data!"
+            ok = false
+        end
+
+        ;Check that we are being asked to INCREASE the size
+
+        if (ok && (newSize <= currentSize))
+        begin
+            errorMessage = "New column size must be larger than current column size!"
+            ok = false
+        end
+
+        ;If necessary, start a transaction
+
+        if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+        begin
+            ok = %StartTransactionSqlClient(transaction,errorMessage)
+        end
+
+        ;Increase the size
+
+        if (ok)
+        begin
+            data allowNullConstraint = isNullable.Equals("YES") ? "NULL" : "NOT NULL"
+            ;Have to make a string because parameter substitution can't be used for table or column names in DDL statements
+            sql = String.Format("ALTER TABLE {0} ALTER COLUMN {1} VARCHAR({2}) {3}",tableName,columnName,newSize,allowNullConstraint)
+            try
+            begin
+                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
+                &    CommandTimeout = Settings.DatabaseTimeout
+                &    }
+                command.ExecuteNonQuery()
+            end
+            catch (ex, @SqlException)
+            begin
+                errorMessage = String.Format("Failed to change table {0} column {1} to size {2}. Error was {3}",tableName,columnName,newSize,ex.Message)
+                ok = false
+                xcall ThrowOnSqlClientError(errorMessage,ex)
+            end
+            endtry
+        end
+
+        ;If necessary, commit the transaction
+
+        if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+        begin
+            if (ok) then
+            begin
+                ;Success, commit the transaction
+                ok = %CommitTransactionSqlClient(errorMessage)
+            end
+            else
+            begin
+                ;There was an error, rollback the transaction
+                ok = %RollbackSqlClient(errorMessage)
+            end
+        end
+
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.ADD_DECIMAL),
+    begin
+        ;Add a new Dx / DECMMAL(x) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.EXTEND_DECIMAL),
+    begin
+        ;Increase the size of a Dx / DECMMAL(x) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.DECIMAL_TO_IMPLIED),
+    begin
+        ;Change a Dx / DECIMAL(x) column to a Dx.y / DECIMAL(x,y) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.ADD_IMPLIED),
+    begin
+        ;Add a new Dx.y / DECMMAL(x,y) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.EXTEND_IMPLIED_LENGTH),
+    begin
+        ;Increase the size of a Dx.y / DECIMAL(x,y) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.EXTEND_IMPLIED_PRECISION),
+    begin
+        ;Increase the precision of a Dx.y / DECIMAL(x,y) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.REMOVE),
+    begin
+        ;Remove a column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    endusing
+
+    ;---------------------------------------------------------------------------
+
+    freturn ok
+
+endfunction
+
+.endc
+
+function DatabaseTransformSqlConnection, boolean
+    required in transformType, REPLICATION_TRANSFORM
+    required in tableName, string
+    required in columnName, string
+    required in transformData, string
+    required out errorMessage, string
+
+    stack record
+        ok, boolean
+    endrecord
+proc
+    ok = true
+    errorMessage = ""
+
+    using transformType select
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.ADD_ALPHA),
+    begin
+        ;Add a new Ax / VARCHAR(x) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.EXTEND_ALPHA),
+    begin
+        ;Increase the size of an Ax / VARCHAR(x) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.ADD_DECIMAL),
+    begin
+        ;Add a new Dx / DECMMAL(x) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.EXTEND_DECIMAL),
+    begin
+        ;Increase the size of a Dx / DECMMAL(x) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.DECIMAL_TO_IMPLIED),
+    begin
+        ;Change a Dx / DECIMAL(x) column to a Dx.y / DECIMAL(x,y) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.ADD_IMPLIED),
+    begin
+        ;Add a new Dx.y / DECMMAL(x,y) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.EXTEND_IMPLIED_LENGTH),
+    begin
+        ;Increase the size of a Dx.y / DECIMAL(x,y) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.EXTEND_IMPLIED_PRECISION),
+    begin
+        ;Increase the precision of a Dx.y / DECIMAL(x,y) column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    ;---------------------------------------------------------------------------
+    (REPLICATION_TRANSFORM.REMOVE),
+    begin
+        ;Remove a column
+        errorMessage = "That transform operation is not implemented yet!"
+        ok = false
+    end
+
+    endusing
+
+    ;---------------------------------------------------------------------------
+
+    freturn ok
+
+endfunction

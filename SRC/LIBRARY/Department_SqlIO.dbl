@@ -400,12 +400,6 @@ proc
         if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
             clear department.dept_manager
 
-        ;Clean up any date fields
-
-
-        ;Clean up any time fields
-
-
         ;Assign data to any temporary time or user-defined timestamp fields
 
 
@@ -428,9 +422,9 @@ proc
             &   CommandTimeout = Settings.DatabaseTimeout
             & }
 
-            command.Parameters.AddWithValue("@DeptId",department.dept_id)
-            command.Parameters.AddWithValue("@DeptName",department.dept_name)
-            command.Parameters.AddWithValue("@DeptManager",department.dept_manager)
+            command.Parameters.AddWithValue("@DeptId",SynToCsConvert.AlphaToString(department.dept_id))
+            command.Parameters.AddWithValue("@DeptName",SynToCsConvert.AlphaToString(department.dept_name))
+            command.Parameters.AddWithValue("@DeptManager",SynToCsConvert.SmallDecimalToInt(department.dept_manager))
 
             command.ExecuteNonQuery()
         end
@@ -558,12 +552,6 @@ proc
             if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
                 clear department.dept_manager
 
-            ;Clean up any date variables
-
-
-            ;Clean up any time variables
-
-
             ;Assign any time or user-defined timestamp fields
 
 
@@ -578,9 +566,9 @@ proc
 
                 ;Bind the host variables for data to be inserted
 
-                command.Parameters.AddWithValue("@DeptId",department.dept_id)
-                command.Parameters.AddWithValue("@DeptName",department.dept_name)
-                command.Parameters.AddWithValue("@DeptManager",department.dept_manager)
+                command.Parameters.AddWithValue("@DeptId",SynToCsConvert.AlphaToString(department.dept_id))
+                command.Parameters.AddWithValue("@DeptName",SynToCsConvert.AlphaToString(department.dept_name))
+                command.Parameters.AddWithValue("@DeptManager",SynToCsConvert.SmallDecimalToInt(department.dept_manager))
 
                 command.ExecuteNonQuery()
                 errorMessage = ""
@@ -705,10 +693,6 @@ proc
     ;Clean up decimal fields
     if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
         clear department.dept_manager
-
-    ;Clean up date fields
-
-    ;Clean up time fields
 
     ;Assign time and user-defined timestamp fields
 
@@ -1041,12 +1025,17 @@ function Department_Load, ^val
         errnum,         int         ;Error number
         tmperrmsg,      a512        ;Temporary error message
         errorMessage,   string      ;Error message text
+        now,            a20        ;;Current date and time
+        timer,          @Timer
     endrecord
 
 proc
     init local_data
     ok = true
     errorMessage = String.Empty
+
+    timer = new Timer()
+    timer.Start()
 
     ;If we are logging exceptions, delete any existing exceptions file.
     if (Settings.LogBulkLoadExceptions)
@@ -1140,6 +1129,20 @@ proc
 
     ;Return any error message to the calling routine
     aErrorMessage = ok ? String.Empty : errorMessage
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog("Load COMPLETE after " + timer.ElapsedTimeString)
+        writett("Load COMPLETE after " + timer.ElapsedTimeString)
+    end
+    else
+    begin
+        writelog("Load FAILED after " + timer.ElapsedTimeString)
+        writett("Load FAILED after " + timer.ElapsedTimeString)
+    end
 
     freturn ok
 
@@ -1251,11 +1254,15 @@ function Department_BulkLoad, ^val
         errorMessage,           string      ;Error message
         fsc,                    @FileServiceClient
         now,                    a20
+        timer,                  @Timer
     endrecord
 
 proc
     init local_data
     ok = true
+
+    timer = new Timer()
+    timer.Start()
 
     now = %datetime
     writelog("Starting bulk load with " + %string(totalRecords) + " records")
@@ -1664,6 +1671,8 @@ proc
         end
     end
 
+    timer.Stop()
+
     ;Return the record and exceptions count
 
     now = %datetime
@@ -1671,12 +1680,14 @@ proc
     begin
         a_records = recordCount
         a_exceptions = exceptionCount
-        writelog("BULK LOAD COMPLETE")
+        writelog("Bulk load COMPLETE after " + timer.ElapsedTimeString)
+        writett("Bulk load COMPLETE after " + timer.ElapsedTimeString)
     end
     else
     begin
         aErrorMessage = errorMessage
-        writelog("BULK LOAD FAILED!")
+        writelog("Bulk load FAILED after " + timer.ElapsedTimeString)
+        writett("Bulk load FAILED after " + timer.ElapsedTimeString)
     end
 
     freturn ok

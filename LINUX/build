@@ -18,6 +18,7 @@ dbl -do REPLICATOR_OBJ:library.dbo \
   LIBSRC:DatabaseConnect.dbl \
   LIBSRC:DatabaseDisconnect.dbl \
   LIBSRC:DatabaseReconnect.dbl \
+  LIBSRC:DatabaseTransform.dbl \
   LIBSRC:DataConversionTools.dbl \
   LIBSRC:DepartmentSqlIO.dbl \
   LIBSRC:EmailSettings.dbl \
@@ -62,6 +63,7 @@ dbl -do REPLICATOR_OBJ:library.dbo \
   LIBSRC:StringTools.dbl \
   LIBSRC:ThrowOnCommunicationError.dbl \
   LIBSRC:TimeNow.dbl \
+  LIBSRC:Timer.dbl \
   LIBSRC:ValidateBasicEnvironment.dbl
 
 dblink -dl REPLICATOR_EXE:library.elb REPLICATOR_OBJ:library.dbo

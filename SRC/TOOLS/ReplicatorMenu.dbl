@@ -40,6 +40,7 @@ import ReplicationLibrary
 
 .ifdef DBLNET
 import System.Diagnostics
+.include "REPLICATION_TRANSFORM" repository, enum, end
 .endc
 
 main ReplicatorMenu
@@ -224,7 +225,9 @@ proc
             xcall w_disp(mainwnd,WD_POS,10,40,"TR. Truncate table")
             xcall w_disp(mainwnd,WD_POS,11,40,"D.  Delete table")
             xcall w_disp(mainwnd,WD_POS,12,40,"X.  Export to CSV")
-
+.ifdef DBLNET
+            xcall w_disp(mainwnd,WD_POS,15,40,"TT. Transform TEST")
+.endc
             if (windows && (tableName=="Employee" || tableName=="Department"))
                 xcall w_disp(mainwnd,WD_POS,13,40,"M.  Maintainance")
         end
@@ -418,6 +421,8 @@ proc
                         outbuf.operation = "Delete indexes"
                     (REPLICATION_INSTRUCTION.CHANGE_INTERVAL),
                         outbuf.operation = "Change interval"
+                    (REPLICATION_INSTRUCTION.TRANSFORM_COLUMN),
+                        outbuf.operation = "Transform column"
                     endusing
 
                     if (stopping)
@@ -611,7 +616,7 @@ proc
                 begin
                     if ((a)(name.ToUpper()).eqs.tableName)
                     begin
-                        tableName = (a)name
+                        tableName = (a)(name.ToUpper())
                         xcall w_disp(mainwnd,WD_POS,1,57,WD_CLR,WDC_EOL,%atrim(tableName))
                         found = true
                         exitloop
@@ -787,6 +792,30 @@ proc
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
         end
 
+.ifdef DBLNET
+        ("TT"),
+        begin
+            ;Transform TEST
+            using tableName select
+            ("DEPARTMENT"),
+            begin
+                data transformData, string, %string(REPLICATION_TRANSFORM.EXTEND_ALPHA) + "|DeptName|60"
+                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,tableName,transformData)
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
+            end
+            ("EMPLOYEE"),
+            begin
+                data transformData, string, %string(REPLICATION_TRANSFORM.EXTEND_ALPHA) + "|EmpFirstName|25"
+                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,tableName,transformData)
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
+            end
+            (),
+            begin
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
+            end
+            endusing
+        end
+.endc
         ("D "),
         begin
             if (tableName) then

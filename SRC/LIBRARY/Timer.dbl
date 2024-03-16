@@ -1,0 +1,200 @@
+;;*****************************************************************************
+;;
+;; File:        Timer.dbl
+;;
+;; Description: A simple timer class.
+;;
+;; Author:      Steve Ives, Synergex Professional Services Group
+;;
+;;*****************************************************************************
+;;
+;; Copyright (c) 2024, Synergex International, Inc.
+;; All rights reserved.
+;;
+;; Redistribution and use in source and binary forms, with or without
+;; modification, are permitted provided that the following conditions are met:
+;;
+;; * Redistributions of source code must retain the above copyright notice,
+;;   this list of conditions and the following disclaimer.
+;;
+;; * Redistributions in binary form must reproduce the above copyright notice,
+;;   this list of conditions and the following disclaimer in the documentation
+;;   and/or other materials provided with the distribution.
+;;
+;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;; POSSIBILITY OF SUCH DAMAGE.
+;;
+;;*****************************************************************************
+
+import System.Collections
+
+namespace ReplicationLibrary
+
+    public class Timer
+
+        private mRunning, boolean, false
+        private mStarted, boolean, false
+        private mStartTime, i8, 0
+        private mStopTime, i8, 0
+
+        public method Start, void
+        proc
+            if (mRunning)
+                throw new ApplicationException("Timer is already running!")
+            mStarted = true
+            mRunning = true
+            mStartTime = %datetime_to_i8(%datetime)
+        endmethod
+
+        public method Stop, void
+        proc
+            if (!mRunning)
+                throw new ApplicationException("Timer is not running!")
+            mStopTime = %datetime_to_i8(%datetime)
+            mRunning = false
+        endmethod
+
+        public property MicroSeconds, long
+            method get
+            proc
+                if (!mStarted) then
+                    throw new ApplicationException("Timer has not been started!")
+                else if (mRunning) then
+                    throw new ApplicationException("Timer is still running!")
+                else
+                    mreturn mStopTime - mStartTime
+            endmethod
+        endproperty
+
+        public property MilliSeconds, long
+            method get
+            proc
+                if (!mStarted) then
+                    throw new ApplicationException("Timer has not been started!")
+                else if (mRunning) then
+                    throw new ApplicationException("Timer is still running!")
+                else
+                    mreturn (mStopTime - mStartTime) / 1000
+            endmethod
+        endproperty
+
+        public property Seconds, int
+            method get
+            proc
+                if (!mStarted) then
+                    throw new ApplicationException("Timer has not been started!")
+                else if (mRunning) then
+                    throw new ApplicationException("Timer is still running!")
+                else
+                    mreturn (mStopTime - mStartTime) / 1000000
+            endmethod
+        endproperty
+
+        public property Minutes, int
+            method get
+            proc
+                if (!mStarted) then
+                    throw new ApplicationException("Timer has not been started!")
+                else if (mRunning) then
+                    throw new ApplicationException("Timer is still running!")
+                else
+                    mreturn (mStopTime - mStartTime) / 60000000
+            endmethod
+        endproperty
+
+        public property ElapsedTimeHMS, string
+            method get
+            proc
+                if (!mStarted) then
+                    throw new ApplicationException("Timer has not been started!")
+                else if (mRunning) then
+                    throw new ApplicationException("Timer is still running!")
+                else
+                begin
+                    data totalSeconds = this.Seconds
+                    data hours = totalSeconds / 3600
+                    data remainingSeconds = totalSeconds - (hours * 3600)
+                    data minutes = remainingSeconds / 60
+                    remainingSeconds = remainingSeconds - (minutes * 60)
+                    mreturn %string(hours) + ":" + %string(minutes,"XX") + ":" + %string(remainingSeconds,"XX")
+                end
+            endmethod
+        endproperty
+
+        public property ElapsedTimeString, string
+            method get
+            proc
+                if (!mStarted) then
+                    throw new ApplicationException("Timer has not been started!")
+                else if (mRunning) then
+                    throw new ApplicationException("Timer is still running!")
+                else
+                begin
+                    data value, string, ""
+                    data totalSeconds = this.Seconds
+                    data hours = totalSeconds / 3600
+                    data remainingSeconds = totalSeconds - (hours * 3600)
+                    data minutes = remainingSeconds / 60
+                    remainingSeconds = remainingSeconds - (minutes * 60)
+
+                    if (hours>1) then
+                    begin
+                        value = %string(hours) + " hours "
+                    end
+                    else if (hours==1)
+                    begin
+                        value = "1 hour "
+                    end
+
+                    if (minutes==0 && hours==0) then
+                    begin
+                        nop
+                    end
+                    else
+                    begin
+                        if (minutes == 0 || minutes > 1) then
+                        begin
+                            value = value + %string(minutes) + " minutes "
+                        end
+                        else
+                        begin
+                            value = value + " 1 minute "
+                        end
+                    end
+
+                    if (remainingSeconds == 0 || remainingSeconds > 1) then
+                    begin
+                        value = value + %string(remainingSeconds) + " seconds"
+                    end
+                    else
+                    begin
+                        value = value + " 1 second"
+                    end
+
+                    mreturn value
+                end
+            endmethod
+        endproperty
+
+        public method AddTestData, void
+            required in aStartTime, a20
+            required in aStopTime, a20
+        proc
+            mStartTime = %datetime_to_i8(aStartTime)
+            mStopTime = %datetime_to_i8(aStopTime)
+            mStarted = true
+            mRunning = false
+        endmethod
+
+    endclass
+
+endnamespace

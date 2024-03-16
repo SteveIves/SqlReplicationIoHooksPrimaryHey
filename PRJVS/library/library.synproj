@@ -123,6 +123,9 @@
     <Compile Include="..\..\SRC\LIBRARY\DatabaseReconnect.dbl">
       <Link>DatabaseReconnect.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseTransform.dbl">
+      <Link>DatabaseTransform.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl">
       <Link>DataConversionTools.dbl</Link>
     </Compile>
@@ -254,6 +257,9 @@
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\TimeNow.dbl">
       <Link>TimeNow.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\Timer.dbl">
+      <Link>Timer.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\ValidateBasicEnvironment.dbl">
       <Link>ValidateBasicEnvironment.dbl</Link>

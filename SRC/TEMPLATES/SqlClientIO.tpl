@@ -1,5 +1,5 @@
 <CODEGEN_FILENAME><StructureName>_SqlIO.dbl</CODEGEN_FILENAME>
-<REQUIRES_CODEGEN_VERSION>5.6.3</REQUIRES_CODEGEN_VERSION>
+<REQUIRES_CODEGEN_VERSION>6.0.2</REQUIRES_CODEGEN_VERSION>
 ;//****************************************************************************
 ;//
 ;// Guard against REPLICATOR_EXCLUDE being used on key segments
@@ -598,47 +598,55 @@ proc
 </IF STRUCTURE_MAPPED>
 
 <IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
         ;Clean up any alpha fields
 
-  <FIELD_LOOP>
-    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
-      <IF NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        <IF NOT FIRST_UNIQUE_KEY_SEGMENT>
         <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
-      </IF FIRST_UNIQUE_KEY_SEGMENT>
-    </IF ALPHA>
-  </FIELD_LOOP>
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
         ;Clean up any decimal fields
 
-  <FIELD_LOOP>
-    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
             clear <structure_name>.<field_original_name_modified>
-    </IF DECIMAL>
-  </FIELD_LOOP>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
         ;Clean up any date fields
 
-  <FIELD_LOOP>
-    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
-      <IF FIRST_UNIQUE_KEY_SEGMENT>
+        <IF FIRST_UNIQUE_KEY_SEGMENT>
             ^a(<structure_name>.<field_original_name_modified>) = "17530101"
-      <ELSE>
+        <ELSE>
             ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
-      </IF FIRST_UNIQUE_KEY_SEGMENT>
-    </IF DATE>
-  </FIELD_LOOP>
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF DATE>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
         ;Clean up any time fields
 
-  <FIELD_LOOP>
-    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
             ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
-    </IF TIME>
-  </FIELD_LOOP>
+      </IF TIME>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
         ;Assign data to any temporary time or user-defined timestamp fields
 
@@ -687,16 +695,8 @@ proc
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF CUSTOM_DBL_TYPE>
             command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
-    <ELSE ALPHA>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE DECIMAL>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE INTEGER>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE DATE>
-            command.Parameters.AddWithValue("@<FieldSqlName>",^a(<structure_name>.<field_original_name_modified>))
-    <ELSE TIME>
-            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+            command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_SYN2CSCSCONVERTER>(<structure_name>.<field_original_name_modified>))
     <ELSE USER AND USERTIMESTAMP>
             command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND NOT USERTIMESTAMP>
@@ -892,45 +892,53 @@ proc
 </IF STRUCTURE_ISAM>
 
 <IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
             ;Clean up any alpha variables
 
-  <FIELD_LOOP>
-    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
             <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
-    </IF ALPHA>
-  </FIELD_LOOP>
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
             ;Clean up any decimal variables
 
-  <FIELD_LOOP>
-    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
                 clear <structure_name>.<field_original_name_modified>
-    </IF DECIMAL>
-  </FIELD_LOOP>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
             ;Clean up any date variables
 
-  <FIELD_LOOP>
-    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
-      <IF FIRST_UNIQUE_KEY_SEGMENT>
+        <IF FIRST_UNIQUE_KEY_SEGMENT>
                 ^a(<structure_name>.<field_original_name_modified>) = "17530101"
-      <ELSE>
+        <ELSE>
                 ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
-      </IF FIRST_UNIQUE_KEY_SEGMENT>
-    </IF DATE>
-  </FIELD_LOOP>
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF DATE>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
             ;Clean up any time variables
 
-  <FIELD_LOOP>
-    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
                 ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
-    </IF TIME>
-  </FIELD_LOOP>
+      </IF TIME>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
             ;Assign any time or user-defined timestamp fields
 
@@ -971,16 +979,8 @@ proc
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF CUSTOM_DBL_TYPE>
                 command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
-    <ELSE ALPHA>
-                command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE DECIMAL>
-                command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE INTEGER>
-                command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE DATE>
-                command.Parameters.AddWithValue("@<FieldSqlName>",^a(<structure_name>.<field_original_name_modified>))
-    <ELSE TIME>
-                command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+                command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_SYN2CSCSCONVERTER>(<structure_name>.<field_original_name_modified>))
     <ELSE USER AND USERTIMESTAMP>
                 command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -991,33 +991,6 @@ proc
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-;//<IF STRUCTURE_RELATIVE>
-;//                command.Parameters["@RecordNumber"],recordNumber)
-;//</IF STRUCTURE_RELATIVE>
-;//<FIELD_LOOP>
-;//  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-;//    <IF CUSTOM_DBL_TYPE>
-;//                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
-;//    <ELSE ALPHA>
-;//                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
-;//    <ELSE DECIMAL>
-;//                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
-;//    <ELSE INTEGER>
-;//                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
-;//    <ELSE DATE>
-;//                command.Parameters["@<FieldSqlName>"].Value = ^a(<structure_name>.<field_original_name_modified>)
-;//    <ELSE TIME>
-;//                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
-;//    <ELSE USER AND USERTIMESTAMP>
-;//                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
-;//    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
-;//                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
-;//    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
-;//                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
-;//    </IF CUSTOM_DBL_TYPE>
-;//  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-;//</FIELD_LOOP>
-;//
                 command.ExecuteNonQuery()
                 errorMessage = ""
             end
@@ -1196,41 +1169,49 @@ proc
 </IF STRUCTURE_MAPPED>
 
 <IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
     ;Clean up alpha fields
-  <FIELD_LOOP>
-    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
     <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
-    </IF ALPHA>
-  </FIELD_LOOP>
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
     ;Clean up decimal fields
-  <FIELD_LOOP>
-    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
     if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
         clear <structure_name>.<field_original_name_modified>
-    </IF DECIMAL>
-  </FIELD_LOOP>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
     ;Clean up date fields
-  <FIELD_LOOP>
-    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
     if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
-      <IF FIRST_UNIQUE_KEY_SEGMENT>
+        <IF FIRST_UNIQUE_KEY_SEGMENT>
         ^a(<structure_name>.<field_original_name_modified>) = "17530101"
-      <ELSE>
+        <ELSE>
         ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
-      </IF FIRST_UNIQUE_KEY_SEGMENT>
-    </IF DATE>
-  </FIELD_LOOP>
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF DATE>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
     ;Clean up time fields
-  <FIELD_LOOP>
-    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
     if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
         ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
-    </IF TIME>
-  </FIELD_LOOP>
+      </IF TIME>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
     ;Assign time and user-defined timestamp fields
 <FIELD_LOOP>
@@ -1644,6 +1625,8 @@ function <StructureName>_Load, ^val
         errnum,         int         ;Error number
         tmperrmsg,      a512        ;Temporary error message
         errorMessage,   string      ;Error message text
+        now,            a20        ;;Current date and time
+        timer,          @Timer
 <IF STRUCTURE_RELATIVE>
         recordNumber,   d28
 </IF STRUCTURE_RELATIVE>
@@ -1653,6 +1636,9 @@ proc
     init local_data
     ok = true
     errorMessage = String.Empty
+
+    timer = new Timer()
+    timer.Start()
 
     ;If we are logging exceptions, delete any existing exceptions file.
     if (Settings.LogBulkLoadExceptions)
@@ -1777,6 +1763,20 @@ proc
     ;Return any error message to the calling routine
     aErrorMessage = ok ? String.Empty : errorMessage
 
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog("Load COMPLETE after " + timer.ElapsedTimeString)
+        writett("Load COMPLETE after " + timer.ElapsedTimeString)
+    end
+    else
+    begin
+        writelog("Load FAILED after " + timer.ElapsedTimeString)
+        writett("Load FAILED after " + timer.ElapsedTimeString)
+    end
+
     freturn ok
 
 insert_data,
@@ -1887,11 +1887,15 @@ function <StructureName>_BulkLoad, ^val
         errorMessage,           string      ;Error message
         fsc,                    @FileServiceClient
         now,                    a20
+        timer,                  @Timer
     endrecord
 
 proc
     init local_data
     ok = true
+
+    timer = new Timer()
+    timer.Start()
 
     now = %datetime
     writelog("Starting bulk load with " + %string(totalRecords) + " records")
@@ -2300,6 +2304,8 @@ proc
         end
     end
 
+    timer.Stop()
+
     ;Return the record and exceptions count
 
     now = %datetime
@@ -2307,12 +2313,14 @@ proc
     begin
         a_records = recordCount
         a_exceptions = exceptionCount
-        writelog("BULK LOAD COMPLETE")
+        writelog("Bulk load COMPLETE after " + timer.ElapsedTimeString)
+        writett("Bulk load COMPLETE after " + timer.ElapsedTimeString)
     end
     else
     begin
         aErrorMessage = errorMessage
-        writelog("BULK LOAD FAILED!")
+        writelog("Bulk load FAILED after " + timer.ElapsedTimeString)
+        writett("Bulk load FAILED after " + timer.ElapsedTimeString)
     end
 
     freturn ok

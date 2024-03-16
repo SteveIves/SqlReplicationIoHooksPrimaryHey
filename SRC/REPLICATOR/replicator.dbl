@@ -40,6 +40,7 @@ import ReplicationLibrary
 import System.Collections
 .ifdef DBLNET
 import System.Data.SqlClient
+.include "REPLICATION_TRANSFORM" repository, enum, end
 .endc
 
 main replicator
@@ -500,6 +501,43 @@ proc
 ;                        end
 ;                        endtry
 ;                    end
+                end
+
+                (REPLICATION_INSTRUCTION.TRANSFORM_COLUMN),
+                begin
+                    ;transFormData will be in the format <instruction#>|<columnName>|<optionalOtherData>
+                    data tableName = %atrimtostring(instruction.structure_name)
+                    data transformDataPartsString = %atrimtostring(instruction.record)
+                    data transformDataParts = transformDataPartsString.Split("|")
+                    data transformType = (REPLICATION_TRANSFORM)%integer(transformDataParts[1])
+                    data columnName = transformDataParts[2]
+                    data transformData = transformDataParts.Length == 3 ? transformDataParts[3] : ""
+                    data errorMessage, string
+                    data transformSuccess = false
+
+                    Logger.Log("Transform column " + tableName + "." + columnName)
+
+                    using Settings.DatabaseConnectMode select
+                    (DatabaseConnectionMode.SqlConnection),
+                    begin
+                        transformSuccess = %DatabaseTransformSqlConnection(transformType,tableName,columnName,transformData,errorMessage)
+                    end
+.ifdef DBLNET
+                    (DatabaseConnectionMode.SqlClient),
+                    begin
+                        transformSuccess = %DatabaseTransformSqlClient(transformType,tableName,columnName,transformData,errorMessage)
+                    end
+.endc
+                    endusing
+
+                    if (transformSuccess) then
+                    begin
+                        doForceCommit = true
+                    end
+                    else
+                    begin
+                        Logger.ErrorLog("Failed to transform column! Error was " + %atrimtostring(errorMessage))
+                    end
                 end
 
                 (REPLICATION_INSTRUCTION.SHUTDOWN),

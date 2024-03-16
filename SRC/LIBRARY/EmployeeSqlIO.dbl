@@ -19,8 +19,8 @@ import System.IO
 .include "EMPLOYEE" repository, structure="strEmployee", end
 .endc
 
-.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
-.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX ") + x)
+.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
+.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
 
 ;;*****************************************************************************
 ;;; <summary>
@@ -1757,11 +1757,16 @@ function EmployeeLoad, ^val
         ttl_failed  ,int        ;;Total failed inserts
         errnum      ,int        ;;Error number
         errtxt      ,a512       ;;Error message text
+        now         ,a20        ;;Current date and time
+        timer       ,@Timer
     endrecord
 
 proc
     init local_data
     ok = true
+
+    timer = new Timer()
+    timer.Start()
 
     ;;If we are logging exceptions, delete any existing exceptions file.
     if (Settings.LogBulkLoadExceptions)
@@ -1862,6 +1867,20 @@ proc
     a_added = ttl_added
     a_failed = ttl_failed
 
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog("Load COMPLETE after " + timer.ElapsedTimeString)
+        writett("Load COMPLETE after " + timer.ElapsedTimeString)
+    end
+    else
+    begin
+        writelog("Load FAILED after " + timer.ElapsedTimeString)
+        writett("Load FAILED after " + timer.ElapsedTimeString)
+    end
+
     freturn ok
 
 insert_data,
@@ -1958,6 +1977,7 @@ function EmployeeBulkLoad, ^val
         errtxt,                 a512        ;;Error message text
         fsc,                    @FileServiceClient
         now,                    a20
+        timer,                  @Timer
     endrecord
 
 proc
@@ -1965,13 +1985,18 @@ proc
     init local_data
     ok = true
 
+    timer = new Timer()
+    timer.Start()
+
     now = %datetime
     writelog("Starting bulk load with " + %string(totalRecords) + " records")
     writett("Starting bulk load with " + %string(totalRecords) + " records")
 
     ;;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
-    if (remoteBulkLoad = (Settings.FileServiceHost.nes." "))
+    remoteBulkLoad = Settings.CanBulkLoad() && Settings.DatabaseIsRemote()
+
+    if (remoteBulkLoad)
     begin
         fsc = new FileServiceClient(Settings.FileServiceHost,Settings.FileServicePort)
 
@@ -2079,9 +2104,6 @@ proc
 
         if (ok)
         begin
-            now = %datetime
-            writelog("Opening cursor")
-
             sql = "BULK INSERT Employee FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + fileToLoad + "_err'"
 
             if (Settings.BulkLoadBatchSize > 0)
@@ -2123,6 +2145,7 @@ proc
             now = %datetime
             writelog("Executing BULK INSERT")
             writett("Executing BULK INSERT")
+
             if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
             begin
                 if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
@@ -2130,15 +2153,16 @@ proc
                     xcall ThrowOnCommunicationError(dberror,errtxt)
 
                     now = %datetime
-                    writelog("Bulk insert error")
-                    writett("Bulk insert error")
+                    writelog("Bulk insert error: " + %atrim(errtxt))
+                    writett("Bulk insert error: " + %atrim(errtxt))
+
                     using dberror select
                     (-4864),
                     begin
                         ;Bulk load data conversion error
                         now = %datetime
-                        writelog("Data conversion errors were reported")
-                        writett("Data conversion errors were reported")
+                        writelog("Data conversion errors reported")
+                        writett("Data conversion errors reported")
                         clear dberror, errtxt
                         call GetExceptionDetails
                     end
@@ -2156,38 +2180,37 @@ proc
                 end
             end
 
-;            ;;Delete temporary files
-;
-;            ;;Delete local files
-;
-;            now = %datetime
-;            writelog("Deleting local files")
-;            writett(Deleting local files")
-;
-;            xcall delet(localCsvFile)
-;            xcall delet(localExceptionsFile)
-;            xcall delet(localExceptionsLog)
-;
-;            ;;Delete remote files
-;
-;            if (remoteBulkLoad)
-;            begin
-;                now = %datetime
-;                writelog("Deleting remote files")
-;                writett("Deleting remote files")
-;                fsc.Delete(remoteCsvFile)
-;                fsc.Delete(remoteExceptionsFile)
-;                fsc.Delete(remoteExceptionsLog)
-;            end
+            ;;Delete local temp files
+
+            now = %datetime
+            writelog("Deleting local temp files")
+            writett("Deleting local temp files")
+
+            xcall delet(localCsvFile)
+            xcall delet(localExceptionsFile)
+            xcall delet(localExceptionsLog)
+
+            ;;Delete remote temp files
+
+            if (remoteBulkLoad)
+            begin
+                now = %datetime
+                writelog("Deleting remote temp files")
+                writett("Deleting remote temp files")
+
+                fsc.Delete(remoteCsvFile)
+                fsc.Delete(remoteExceptionsFile)
+                fsc.Delete(remoteExceptionsLog)
+            end
         end
 
         ;;If we're in manual commit mode, commit or rollback the transaction
 
         if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
         begin
+            now = %datetime
             if (ok) then
             begin
-                now = %datetime
                 writelog("COMMIT")
                 writett("COMMIT")
                 ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
@@ -2195,7 +2218,6 @@ proc
             else
             begin
                 ;;There was an error, rollback the transaction
-                now = %datetime
                 writelog("ROLLBACK")
                 writett("ROLLBACK")
                 ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
@@ -2207,6 +2229,7 @@ proc
         now = %datetime
         writelog("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
         writett("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
+
         if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))==SSQL_FAILURE)
             nop
 
@@ -2214,9 +2237,6 @@ proc
 
         if (cursorOpen)
         begin
-            now = %datetime
-            writelog("Closing cursor")
-            writett("Closing cursor")
             if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
             begin
                 if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
@@ -2232,8 +2252,11 @@ proc
     ;;Return any error text
     a_errtxt = errtxt
 
+    timer.Stop()
+
     now = %datetime
-    writelog("BULK ULOAD COMPLETE")
+    writelog("Bulk load COMPLETE after " + timer.ElapsedTimeString)
+    writett("Bulk load COMPLETE after " + timer.ElapsedTimeString)
 
     freturn ok
 

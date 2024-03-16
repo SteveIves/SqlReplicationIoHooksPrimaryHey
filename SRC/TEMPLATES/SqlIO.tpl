@@ -1,5 +1,5 @@
 <CODEGEN_FILENAME><StructureName>SqlIO.dbl</CODEGEN_FILENAME>
-<REQUIRES_CODEGEN_VERSION>5.6.3</REQUIRES_CODEGEN_VERSION>
+<REQUIRES_CODEGEN_VERSION>6.0.2</REQUIRES_CODEGEN_VERSION>
 ;//****************************************************************************
 ;//
 ;// Guard against REPLICATOR_EXCLUDE being used on key segments
@@ -77,8 +77,8 @@ import System.IO
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
 .endc
 
-.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
-.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX ") + x)
+.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
+.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
 
 ;;*****************************************************************************
 ;;; <summary>
@@ -877,47 +877,55 @@ proc
 </IF STRUCTURE_MAPPED>
 
 <IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
         ;;Clean up any alpha fields
 
-  <FIELD_LOOP>
-    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
-      <IF NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        <IF NOT FIRST_UNIQUE_KEY_SEGMENT>
         <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
-      </IF FIRST_UNIQUE_KEY_SEGMENT>
-    </IF ALPHA>
-  </FIELD_LOOP>
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
         ;;Clean up any decimal fields
 
-  <FIELD_LOOP>
-    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
             clear <structure_name>.<field_original_name_modified>
-    </IF DECIMAL>
-  </FIELD_LOOP>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
         ;;Clean up any date fields
 
-  <FIELD_LOOP>
-    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
-      <IF FIRST_UNIQUE_KEY_SEGMENT>
+        <IF FIRST_UNIQUE_KEY_SEGMENT>
             ^a(<structure_name>.<field_original_name_modified>) = "17530101"
-      <ELSE>
+        <ELSE>
             ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
-      </IF FIRST_UNIQUE_KEY_SEGMENT>
-    </IF DATE>
-  </FIELD_LOOP>
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF DATE>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
         ;;Clean up any time fields
 
-  <FIELD_LOOP>
-    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
             ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
-    </IF TIME>
-  </FIELD_LOOP>
+      </IF TIME>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
         ;;Assign data to any temporary time or user-defined timestamp fields
 
@@ -1217,45 +1225,53 @@ proc
 </IF STRUCTURE_ISAM>
 
 <IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
             ;;Clean up any alpha variables
 
-  <FIELD_LOOP>
-    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
             <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
-    </IF ALPHA>
-  </FIELD_LOOP>
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
             ;;Clean up any decimal variables
 
-  <FIELD_LOOP>
-    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
                 clear <structure_name>.<field_original_name_modified>
-    </IF DECIMAL>
-  </FIELD_LOOP>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
             ;;Clean up any date variables
 
-  <FIELD_LOOP>
-    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
-      <IF FIRST_UNIQUE_KEY_SEGMENT>
+        <IF FIRST_UNIQUE_KEY_SEGMENT>
                 ^a(<structure_name>.<field_original_name_modified>) = "17530101"
-      <ELSE>
+        <ELSE>
                 ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
-      </IF FIRST_UNIQUE_KEY_SEGMENT>
-    </IF DATE>
-  </FIELD_LOOP>
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF DATE>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
             ;;Clean up any time variables
 
-  <FIELD_LOOP>
-    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
                 ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
-    </IF TIME>
-  </FIELD_LOOP>
+      </IF TIME>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
             ;;Assign any time or user-defined timestamp fields
 
@@ -1554,45 +1570,53 @@ proc
     if (ok)
     begin
 <IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
         ;;Clean up any alpha fields
 
-  <FIELD_LOOP>
-    <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
         <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
-    </IF ALPHA>
-  </FIELD_LOOP>
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
         ;;Clean up any decimal fields
 
-  <FIELD_LOOP>
-    <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
             clear <structure_name>.<field_original_name_modified>
-    </IF DECIMAL>
-  </FIELD_LOOP>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
         ;;Clean up any date fields
 
-  <FIELD_LOOP>
-    <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
         <IF FIRST_UNIQUE_KEY_SEGMENT>
             ^a(<structure_name>.<field_original_name_modified>) = "17530101"
         <ELSE>
             ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
         </IF FIRST_UNIQUE_KEY_SEGMENT>
-    </IF DATE>
-  </FIELD_LOOP>
+      </IF DATE>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
         ;;Clean up any time fields
 
-  <FIELD_LOOP>
-    <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
             ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
-    </IF TIME>
-  </FIELD_LOOP>
+      </IF TIME>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
         ;;Assign any time and user-defined timestamp fields
 
@@ -2063,6 +2087,8 @@ function <StructureName>Load, ^val
         ttl_failed  ,int        ;;Total failed inserts
         errnum      ,int        ;;Error number
         errtxt      ,a512       ;;Error message text
+        now         ,a20        ;;Current date and time
+        timer       ,@Timer
 <IF STRUCTURE_RELATIVE>
         recordNumber,d28
 </IF STRUCTURE_RELATIVE>
@@ -2074,6 +2100,9 @@ proc
 <IF STRUCTURE_RELATIVE>
     recordNumber = 0
 </IF STRUCTURE_RELATIVE>
+
+    timer = new Timer()
+    timer.Start()
 
     ;;If we are logging exceptions, delete any existing exceptions file.
     if (Settings.LogBulkLoadExceptions)
@@ -2204,6 +2233,20 @@ proc
     a_added = ttl_added
     a_failed = ttl_failed
 
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog("Load COMPLETE after " + timer.ElapsedTimeString)
+        writett("Load COMPLETE after " + timer.ElapsedTimeString)
+    end
+    else
+    begin
+        writelog("Load FAILED after " + timer.ElapsedTimeString)
+        writett("Load FAILED after " + timer.ElapsedTimeString)
+    end
+
     freturn ok
 
 insert_data,
@@ -2300,6 +2343,7 @@ function <StructureName>BulkLoad, ^val
         errtxt,                 a512        ;;Error message text
         fsc,                    @FileServiceClient
         now,                    a20
+        timer,                  @Timer
     endrecord
 
 proc
@@ -2307,13 +2351,18 @@ proc
     init local_data
     ok = true
 
+    timer = new Timer()
+    timer.Start()
+
     now = %datetime
     writelog("Starting bulk load with " + %string(totalRecords) + " records")
     writett("Starting bulk load with " + %string(totalRecords) + " records")
 
     ;;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
-    if (remoteBulkLoad = (Settings.FileServiceHost.nes." "))
+    remoteBulkLoad = Settings.CanBulkLoad() && Settings.DatabaseIsRemote()
+
+    if (remoteBulkLoad)
     begin
         fsc = new FileServiceClient(Settings.FileServiceHost,Settings.FileServicePort)
 
@@ -2421,9 +2470,6 @@ proc
 
         if (ok)
         begin
-            now = %datetime
-            writelog("Opening cursor")
-
             sql = "BULK INSERT <StructureName> FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + fileToLoad + "_err'"
 
             if (Settings.BulkLoadBatchSize > 0)
@@ -2465,6 +2511,7 @@ proc
             now = %datetime
             writelog("Executing BULK INSERT")
             writett("Executing BULK INSERT")
+
             if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
             begin
                 if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
@@ -2472,15 +2519,16 @@ proc
                     xcall ThrowOnCommunicationError(dberror,errtxt)
 
                     now = %datetime
-                    writelog("Bulk insert error")
-                    writett("Bulk insert error")
+                    writelog("Bulk insert error: " + %atrim(errtxt))
+                    writett("Bulk insert error: " + %atrim(errtxt))
+
                     using dberror select
                     (-4864),
                     begin
                         ;Bulk load data conversion error
                         now = %datetime
-                        writelog("Data conversion errors were reported")
-                        writett("Data conversion errors were reported")
+                        writelog("Data conversion errors reported")
+                        writett("Data conversion errors reported")
                         clear dberror, errtxt
                         call GetExceptionDetails
                     end
@@ -2498,38 +2546,37 @@ proc
                 end
             end
 
-;            ;;Delete temporary files
-;
-;            ;;Delete local files
-;
-;            now = %datetime
-;            writelog("Deleting local files")
-;            writett(Deleting local files")
-;
-;            xcall delet(localCsvFile)
-;            xcall delet(localExceptionsFile)
-;            xcall delet(localExceptionsLog)
-;
-;            ;;Delete remote files
-;
-;            if (remoteBulkLoad)
-;            begin
-;                now = %datetime
-;                writelog("Deleting remote files")
-;                writett("Deleting remote files")
-;                fsc.Delete(remoteCsvFile)
-;                fsc.Delete(remoteExceptionsFile)
-;                fsc.Delete(remoteExceptionsLog)
-;            end
+            ;;Delete local temp files
+
+            now = %datetime
+            writelog("Deleting local temp files")
+            writett("Deleting local temp files")
+
+            xcall delet(localCsvFile)
+            xcall delet(localExceptionsFile)
+            xcall delet(localExceptionsLog)
+
+            ;;Delete remote temp files
+
+            if (remoteBulkLoad)
+            begin
+                now = %datetime
+                writelog("Deleting remote temp files")
+                writett("Deleting remote temp files")
+
+                fsc.Delete(remoteCsvFile)
+                fsc.Delete(remoteExceptionsFile)
+                fsc.Delete(remoteExceptionsLog)
+            end
         end
 
         ;;If we're in manual commit mode, commit or rollback the transaction
 
         if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
         begin
+            now = %datetime
             if (ok) then
             begin
-                now = %datetime
                 writelog("COMMIT")
                 writett("COMMIT")
                 ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
@@ -2537,7 +2584,6 @@ proc
             else
             begin
                 ;;There was an error, rollback the transaction
-                now = %datetime
                 writelog("ROLLBACK")
                 writett("ROLLBACK")
                 ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
@@ -2549,6 +2595,7 @@ proc
         now = %datetime
         writelog("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
         writett("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
+
         if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))==SSQL_FAILURE)
             nop
 
@@ -2556,9 +2603,6 @@ proc
 
         if (cursorOpen)
         begin
-            now = %datetime
-            writelog("Closing cursor")
-            writett("Closing cursor")
             if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
             begin
                 if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
@@ -2574,8 +2618,11 @@ proc
     ;;Return any error text
     a_errtxt = errtxt
 
+    timer.Stop()
+
     now = %datetime
-    writelog("BULK ULOAD COMPLETE")
+    writelog("Bulk load COMPLETE after " + timer.ElapsedTimeString)
+    writett("Bulk load COMPLETE after " + timer.ElapsedTimeString)
 
     freturn ok
 

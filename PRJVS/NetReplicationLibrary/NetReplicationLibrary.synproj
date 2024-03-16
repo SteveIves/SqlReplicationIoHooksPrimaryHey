@@ -11,6 +11,7 @@
     <SignAssembly>false</SignAssembly>
     <AssemblyOriginatorKeyFile />
     <DelaySign>False</DelaySign>
+    <RootNamespace>ReplicationLibrary</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
@@ -57,6 +58,7 @@
     <Compile Include="..\..\SRC\LIBRARY\DatabaseConnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseDisconnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseReconnect.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseTransform.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Department_SqlIO.dbl" />
@@ -106,9 +108,11 @@
     <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringDictionary.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringTools.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\SynToCsConvert.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ThrowOnCommunicationError.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ThrowOnSqlClientError.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\TimeNow.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\Timer.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ValidateBasicEnvironment.dbl" />
   </ItemGroup>
   <ItemGroup>

@@ -27,6 +27,7 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:DatabaseConnect.dbl -
  + LIBSRC:DatabaseDisconnect.dbl -
  + LIBSRC:DatabaseReconnect.dbl -
+ + LIBSRC:DatabaseTransform.dbl -
  + LIBSRC:DataConversionTools.dbl -
  + LIBSRC:DepartmentSqlIO.dbl -
  + LIBSRC:EmailSettings.dbl -
@@ -71,6 +72,7 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:StringTools.dbl -
  + LIBSRC:ThrowOnCommunicationError.dbl -
  + LIBSRC:TimeNow.dbl -
+ + LIBSRC:Timer.dbl -
  + LIBSRC:ValidateBasicEnvironment.dbl
 $ !
 $ WRITE SYS$OUTPUT "Creating object library LIBRARY.OLB..."
