@@ -7,11 +7,11 @@ LOAD            Traditional/SQL Connection    135 seconds        842 seconds    
                 .NET/SqlConnection            130 seconds        808 seconds        ??? seconds
                 .NET/SqlClient                157 seconds        573 seconds        ??? seconds
 
-BULK LOAD       Traditional/SQL Connection     14 seconds         n/a               n/a
-(Local)         .NET/SqlConnection             15 seconds         n/a               n/a
-                .NET/SqlClient                 15 seconds         n/a               n/a
+BULK LOAD       Traditional/SQL Connection     14 seconds
+(Local)         .NET/SqlConnection             15 seconds
+                .NET/SqlClient                 15 seconds
 
-BULK LOAD       Traditional/SQL Connection     16 seconds         17 seconds        ??? seconds
-(FileService)   .NET/SqlConnection             18 seconds         20 seconds        ??? seconds
-                .NET/SqlClient                 16 seconds         20 seconds        ??? seconds
+BULK LOAD       Traditional/SQL Connection     16 seconds         17 seconds         85 seconds
+(FileService)   .NET/SqlConnection             18 seconds         20 seconds         85 seconds
+                .NET/SqlClient                 16 seconds         20 seconds         85 seconds
 
