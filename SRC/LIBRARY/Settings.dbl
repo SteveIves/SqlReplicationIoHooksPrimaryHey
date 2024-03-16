@@ -39,6 +39,7 @@ namespace ReplicationLibrary
             DataCompressionMode     = DatabaseDataCompression.None
             Enabled                 = true
             ErrorSleepTime          = 0.01
+            FileServiceEnabled      = false
             FileServiceHost         = ^null
             FileServicePort         = 0
             LocalExportPath         = ^null
@@ -167,6 +168,11 @@ namespace ReplicationLibrary
         ;;; How many seconds should we sleep after processing an error?
         ;;; </summary>
         public static readwrite property ErrorSleepTime, decimal
+
+        ;;; <summary>
+        ;;; Is the use of FileService enabled?
+        ;;; </summary>
+        public static readwrite property FileServiceEnabled, boolean
 
         ;;; <summary>
         ;;; The name or IP address of the system running FileService
@@ -326,21 +332,20 @@ namespace ReplicationLibrary
         ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
         public static method CanBulkLoad, boolean
         proc
-            ;TODO: ENHANCEMENT: On windows we can also bulk load IF the database is on the same server as the replicator
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
+            if (DatabaseIsRemote()) then
             begin
-                mreturn (!DatabaseConnectString.ToLower().StartsWith("net:") || (!String.IsNullOrWhitespace(FileServiceHost) && FileServicePort > 0))
+                ;If the database is remote we need file service to be enabled, and have a host name or IP and port number
+                mreturn (
+                &    Settings.FileServiceEnabled
+                &    && !String.IsNullOrWhitespace(FileServiceHost)
+                &    && Settings.FileServicePort > 0
+                &    )
             end
-            (DatabaseConnectionMode.SqlClient),
+            else
             begin
-                mreturn !String.IsNullOrWhitespace(FileServiceHost) && Settings.FileServicePort > 0
+                ;If the database is local we can always bulk load
+                mreturn true
             end
-            (),
-            begin
-                mreturn false
-            end
-            endusing
         endmethod
 
         ;;; <summary>
@@ -349,7 +354,23 @@ namespace ReplicationLibrary
         ;;; <returns>Returns true if the database is remote, otherwise false.</returns>
         public static method DatabaseIsRemote, boolean
         proc
-            mreturn DatabaseConnectString.ToLower().StartsWith("net:")
+            using Settings.DatabaseConnectMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                mreturn DatabaseConnectString.ToLower().StartsWith("net:")
+            end
+.ifdef DBLNET
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                data constr=DatabaseConnectString.ToLower()
+                mreturn (!constr.Contains("data source=.") 
+                &   && !constr.Contains("data source=localhost") 
+                &   && !constr.Contains("data source=(local)") 
+                &   && !constr.Contains(String.Format("data source={0}",Environment.MachineName.ToLower())))
+            end
+.endc
+            endusing
+            
         endmethod
 
         ;;; <summary>

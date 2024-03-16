@@ -370,6 +370,24 @@ proc
         end
     end
 
+    ;FileServiceEnabled
+
+    if (ok)
+    begin
+        if (instance.TryGetProperty("FileServiceEnabled",setting))
+        begin
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
+            begin
+                errorMessage = "FileServiceEnabled must be true or false!"
+                ok = false
+            end
+            else
+            begin
+                Settings.FileServiceEnabled = setting.GetBoolean()
+            end
+        end
+    end
+
     ;FileServiceHost
 
     if (ok)

@@ -1903,7 +1903,9 @@ proc
 
     ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
-    if (remoteBulkLoad = Settings.CanBulkLoad())
+    remoteBulkLoad = Settings.CanBulkLoad() && Settings.DatabaseIsRemote()
+
+    if (remoteBulkLoad)
     begin
         fsc = new FileServiceClient(Settings.FileServiceHost,Settings.FileServicePort)
 
