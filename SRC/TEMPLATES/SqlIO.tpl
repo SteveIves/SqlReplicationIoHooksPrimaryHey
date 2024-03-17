@@ -56,22 +56,23 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 ;// POSSIBILITY OF SUCH DAMAGE.
 ;//
-;;*****************************************************************************
-;;
-;; File:        <StructureName>SqlIO.dbl
-;;
-;; Description: Various functions that performs SQL I/O for <STRUCTURE_NAME>
-;;
-;;*****************************************************************************
-;; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
-;;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
-;;*****************************************************************************
+;*****************************************************************************
+;
+; File:        <StructureName>SqlIO.dbl
+;
+; Description: Various functions that performs SQL I/O for <STRUCTURE_NAME>
+;
+;*****************************************************************************
+; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
+;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
+;*****************************************************************************
 
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
 .ifdef DBLNET
 import System.IO
 .endc
+import System.Text
 
 .ifndef str<StructureName>
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
@@ -80,12 +81,12 @@ import System.IO
 .define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
 .define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
 
-;;*****************************************************************************
-;;; <summary>
-;;; Determines if the <StructureName> table exists in the database.
-;;; </summary>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
+;*****************************************************************************
+; <summary>
+; Determines if the <StructureName> table exists in the database.
+; </summary>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
 function <StructureName>Exists, ^val
     required out a_errtxt, a
@@ -94,19 +95,19 @@ function <StructureName>Exists, ^val
     .include "CONNECTDIR:ssql.def"
 
     stack record local_data
-        error       ,int    ;;Returned error number
-        dberror     ,int    ;;Database error number
-        cursor      ,int    ;;Database cursor
-        length      ,int    ;;Length of a string
-        table_name  ,a128   ;;Retrieved table name
-        errtxt      ,a512   ;;Error message text
+        error       ,int    ;Returned error number
+        dberror     ,int    ;Database error number
+        cursor      ,int    ;Database cursor
+        length      ,int    ;Length of a string
+        table_name  ,a128   ;Retrieved table name
+        errtxt      ,a512   ;Error message text
     endrecord
 
 proc
 
     init local_data
 
-    ;;Open a cursor for the SELECT statement
+    ;Open a cursor for the SELECT statement
 
     if (%ssc_open(Settings.DatabaseChannel,cursor,"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>'",SSQL_SELECT)==SSQL_FAILURE)
     begin
@@ -115,7 +116,7 @@ proc
             errtxt="Failed to open cursor"
     end
 
-    ;;Bind host variables to receive the data
+    ;Bind host variables to receive the data
 
     if (!error)
     begin
@@ -127,13 +128,13 @@ proc
         end
     end
 
-    ;;Move data to host variables
+    ;Move data to host variables
 
     if (!error)
     begin
         if (%ssc_move(Settings.DatabaseChannel,cursor,1)==SSQL_NORMAL) then
         begin
-            error = 1 ;; Table exists
+            error = 1 ; Table exists
         end
         else
         begin
@@ -145,7 +146,7 @@ proc
         end
     end
 
-    ;;Close the database cursor
+    ;Close the database cursor
 
     if (cursor)
     begin
@@ -160,7 +161,7 @@ proc
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (error) then
         a_errtxt = errtxt
@@ -171,12 +172,12 @@ proc
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Creates the <StructureName> table in the database.
-;;; </summary>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Creates the <StructureName> table in the database.
+; </summary>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Create, ^val
     required out a_errtxt, a
@@ -185,13 +186,13 @@ function <StructureName>Create, ^val
 
     .align
     stack record local_data
-        ok          ,boolean    ;;Return status
-        dberror     ,int        ;;Database error number
-        cursor      ,int        ;;Database cursor
-        length      ,int        ;;Length of a string
-        transaction ,boolean    ;;Transaction in process
-        errtxt      ,a512       ;;Returned error message text
-        sql         ,string     ;;SQL statement
+        ok          ,boolean    ;Return status
+        dberror     ,int        ;Database error number
+        cursor      ,int        ;Database cursor
+        length      ,int        ;Length of a string
+        transaction ,boolean    ;Transaction in process
+        errtxt      ,a512       ;Returned error message text
+        sql         ,string     ;SQL statement
     endrecord
 
 proc
@@ -199,14 +200,14 @@ proc
     init local_data
     ok = true
 
-    ;;If we're in manual commit mode, start a transaction
+    ;If we're in manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
         ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
-    ;;Create the database table and primary key constraint
+    ;Create the database table and primary key constraint
 
     if (ok)
     begin
@@ -264,7 +265,7 @@ proc
         end
     end
 
-    ;;Grant access permissions
+    ;Grant access permissions
 
     if (ok)
     begin
@@ -279,23 +280,23 @@ proc
         end
     end
 
-    ;;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
     if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (ok) then
         clear a_errtxt
@@ -348,12 +349,12 @@ close_cursor,
 endfunction
 
 <IF STRUCTURE_ISAM>
-;;*****************************************************************************
-;;; <summary>
-;;; Add alternate key indexes to the <StructureName> table if they do not exist.
-;;; </summary>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Add alternate key indexes to the <StructureName> table if they do not exist.
+; </summary>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Index, ^val
     required out a_errtxt, a
@@ -362,29 +363,29 @@ function <StructureName>Index, ^val
 
     .align
     stack record local_data
-        ok,             boolean    ;;Return status
-        dberror,        int        ;;Database error number
-        cursor,         int        ;;Database cursor
-        length,         int        ;;Length of a string
-        transaction,    boolean    ;;Transaction in process
-        keycount,       int        ;;Total number of keys
-        errtxt,         a512       ;;Returned error message text
-        now,            a20        ;;Current date and time
-        sql,            string     ;;SQL statement
+        ok,             boolean    ;Return status
+        dberror,        int        ;Database error number
+        cursor,         int        ;Database cursor
+        length,         int        ;Length of a string
+        transaction,    boolean    ;Transaction in process
+        keycount,       int        ;Total number of keys
+        errtxt,         a512       ;Returned error message text
+        now,            a20        ;Current date and time
+        sql,            string     ;SQL statement
     endrecord
 
 proc
     init local_data
     ok = true
 
-    ;;If we're in manual commit mode, start a transaction
+    ;If we're in manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
-    ;;Set the SQL statement execution timeout to the bulk load value
+    ;Set the SQL statement execution timeout to the bulk load value
 
     if (ok)
     begin
@@ -399,7 +400,7 @@ proc
     end
 
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
-    ;;The structure has no unique primary key, so no primary key constraint was added to the table. Create an index instead.
+    ;The structure has no unique primary key, so no primary key constraint was added to the table. Create an index instead.
 
     if (ok && !IndexExists(Settings.DatabaseChannel,"IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>",errtxt))
     begin
@@ -435,7 +436,7 @@ proc
 
   </IF STRUCTURE_HAS_UNIQUE_PK>
   <ALTERNATE_KEY_LOOP>
-    ;;Create index <KEY_NUMBER> (<KEY_DESCRIPTION>)
+    ;Create index <KEY_NUMBER> (<KEY_DESCRIPTION>)
 
     if (ok && !%IndexExists(Settings.DatabaseChannel,"IX_<StructureName>_<KeyName>",errtxt))
     begin
@@ -471,30 +472,30 @@ proc
 
   </ALTERNATE_KEY_LOOP>
 
-    ;;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
     if ((Settings.DatabaseCommitMode == DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;Set the database timeout back to the regular value
+    ;Set the database timeout back to the regular value
 
     now = %datetime
     writelog(" - Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
     if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))==SSQL_FAILURE)
         nop
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (ok) then
         clear a_errtxt
@@ -546,12 +547,12 @@ close_cursor,
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Removes alternate key indexes from the <StructureName> table in the database.
-;;; </summary>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Removes alternate key indexes from the <StructureName> table in the database.
+; </summary>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>UnIndex, ^val
     required out a_errtxt, a
@@ -560,21 +561,21 @@ function <StructureName>UnIndex, ^val
 
     .align
     stack record local_data
-        ok          ,boolean    ;;Return status
-        dberror     ,int        ;;Database error number
-        cursor      ,int        ;;Database cursor
-        length      ,int        ;;Length of a string
-        transaction ,boolean    ;;Transaction in process
-        keycount    ,int        ;;Total number of keys
-        errtxt      ,a512       ;;Returned error message text
-        sql         ,string     ;;SQL statement
+        ok          ,boolean    ;Return status
+        dberror     ,int        ;Database error number
+        cursor      ,int        ;Database cursor
+        length      ,int        ;Length of a string
+        transaction ,boolean    ;Transaction in process
+        keycount    ,int        ;Total number of keys
+        errtxt      ,a512       ;Returned error message text
+        sql         ,string     ;SQL statement
     endrecord
 
 proc
     init local_data
     ok = true
 
-    ;;If we're in manual commit mode, start a transaction
+    ;If we're in manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
@@ -597,7 +598,7 @@ proc
 
   </IF STRUCTURE_HAS_UNIQUE_PK>
   <ALTERNATE_KEY_LOOP>
-    ;;Drop index <KEY_NUMBER> (<KEY_DESCRIPTION>)
+    ;Drop index <KEY_NUMBER> (<KEY_DESCRIPTION>)
 
     if (ok)
     begin
@@ -613,23 +614,23 @@ proc
     end
 
   </ALTERNATE_KEY_LOOP>
-    ;;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
     if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (ok) then
         clear a_errtxt
@@ -682,16 +683,16 @@ close_cursor,
 endfunction
 
 </IF STRUCTURE_ISAM>
-;;*****************************************************************************
-;;; <summary>
-;;; Insert a row into the <StructureName> table.
-;;; </summary>
+;*****************************************************************************
+; <summary>
+; Insert a row into the <StructureName> table.
+; </summary>
 <IF STRUCTURE_RELATIVE>
-;;; <param name="a_recnum">Relative record number to be inserted.</param>
+; <param name="a_recnum">Relative record number to be inserted.</param>
 </IF STRUCTURE_RELATIVE>
-;;; <param name="a_data">Record to be inserted.</param>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
+; <param name="a_data">Record to be inserted.</param>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
 function <StructureName>Insert, ^val
 <IF STRUCTURE_RELATIVE>
@@ -710,15 +711,15 @@ function <StructureName>Insert, ^val
 </IF DEFINED_ASA_TIREMAX>
     .align
     stack record local_data
-        ok          ,boolean    ;;OK to continue
-        openAndBind ,boolean    ;;Should we open the cursor and bind data this time?
-        sts         ,int        ;;Return status
-        dberror     ,int        ;;Database error number
-        transaction ,boolean    ;;Transaction in progress
-        length      ,int        ;;Length of a string
-        errtxt      ,a512       ;;Error message text
+        ok          ,boolean    ;OK to continue
+        openAndBind ,boolean    ;Should we open the cursor and bind data this time?
+        sts         ,int        ;Return status
+        dberror     ,int        ;Database error number
+        transaction ,boolean    ;Transaction in progress
+        length      ,int        ;Length of a string
+        errtxt      ,a512       ;Error message text
 <IF STRUCTURE_RELATIVE>
-        recordNumber,d28        ;;Relative record number
+        recordNumber,d28        ;Relative record number
 </IF STRUCTURE_RELATIVE>
     endrecord
 
@@ -742,17 +743,17 @@ function <StructureName>Insert, ^val
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF USERTIMESTAMP>
-        tmp<FieldSqlName>, a26     ;;Storage for user-defined timestamp field
+        tmp<FieldSqlName>, a26     ;Storage for user-defined timestamp field
     <ELSE>
       <IF TIME_HHMM>
-        tmp<FieldSqlName>, a5      ;;Storage for HH:MM time field
+        tmp<FieldSqlName>, a5      ;Storage for HH:MM time field
       </IF TIME_HHMM>
       <IF TIME_HHMMSS>
-        tmp<FieldSqlName>, a8      ;;Storage for HH:MM:SS time field
+        tmp<FieldSqlName>, a8      ;Storage for HH:MM:SS time field
       </IF TIME_HHMMSS>
       <IF DEFINED_ASA_TIREMAX>
         <IF USER>
-        tmp<FieldSqlName>, a8      ;;Storage for user defined JJJJJJ date field
+        tmp<FieldSqlName>, a8      ;Storage for user defined JJJJJJ date field
         </IF USER>
       </IF DEFINED_ASA_TIREMAX>
       <IF CUSTOM_DBL_TYPE>
@@ -776,14 +777,14 @@ proc
 </IF STRUCTURE_RELATIVE>
     openAndBind = (c1<StructureName> == 0)
 
-    ;;If we're in manual commit mode, start a transaction
+    ;If we're in manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
         ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
-    ;;Open a cursor for the INSERT statement
+    ;Open a cursor for the INSERT statement
 
     if (ok && openAndBind)
     begin
@@ -796,7 +797,7 @@ proc
         end
     end
 
-    ;;Bind the host variables for data to be inserted
+    ;Bind the host variables for data to be inserted
 
 <IF STRUCTURE_RELATIVE>
     if (ok && openAndBind)
@@ -862,23 +863,23 @@ proc
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-    ;;Insert the row into the database
+    ;Insert the row into the database
 
     if (ok)
     begin
 <IF STRUCTURE_MAPPED>
-        ;;Map the file data into the table data record
+        ;Map the file data into the table data record
 
         <structure_name> = %<structure_name>_map(a_data)
 <ELSE>
-        ;;Load the data into the bound record
+        ;Load the data into the bound record
 
         <structure_name> = a_data
 </IF STRUCTURE_MAPPED>
 
 <IF DEFINED_CLEAN_DATA>
   <IF STRUCTURE_ALPHA_FIELDS>
-        ;;Clean up any alpha fields
+        ;Clean up any alpha fields
 
     <FIELD_LOOP>
       <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -890,7 +891,7 @@ proc
 
   </IF STRUCTURE_ALPHA_FIELDS>
   <IF STRUCTURE_DECIMAL_FIELDS>
-        ;;Clean up any decimal fields
+        ;Clean up any decimal fields
 
     <FIELD_LOOP>
       <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -901,7 +902,7 @@ proc
 
   </IF STRUCTURE_DECIMAL_FIELDS>
   <IF STRUCTURE_DATE_FIELDS>
-        ;;Clean up any date fields
+        ;Clean up any date fields
 
     <FIELD_LOOP>
       <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -916,7 +917,7 @@ proc
 
   </IF STRUCTURE_DATE_FIELDS>
   <IF STRUCTURE_TIME_FIELDS>
-        ;;Clean up any time fields
+        ;Clean up any time fields
 
     <FIELD_LOOP>
       <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -927,7 +928,7 @@ proc
 
   </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
-        ;;Assign data to any temporary time or user-defined timestamp fields
+        ;Assign data to any temporary time or user-defined timestamp fields
 
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -943,7 +944,7 @@ proc
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-        ;;Assign values to temp fields for any fields with custom data types
+        ;Assign values to temp fields for any fields with custom data types
 
 <FIELD_LOOP>
   <IF CUSTOM_DBL_TYPE>
@@ -951,7 +952,7 @@ proc
   </IF CUSTOM_DBL_TYPE>
 </FIELD_LOOP>
 
-        ;;Execute the INSERT statement
+        ;Execute the INSERT statement
 
         if (%ssc_execute(Settings.DatabaseChannel,c1<StructureName>,SSQL_STANDARD)==SSQL_FAILURE)
         begin
@@ -959,11 +960,11 @@ proc
             sts = 0
             if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
             begin
-                ;;If it's a "row exists" then return 2
+                ;If it's a "row exists" then return 2
                 using dberror select
                 (-2627),
                 begin
-                    ;;Duplicate key
+                    ;Duplicate key
                     errtxt = "Duplicate key detected in database!"
                     sts = 2
                 end
@@ -981,23 +982,23 @@ proc
         end
     end
 
-    ;;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
     if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (ok) then
         clear a_errtxt
@@ -1008,14 +1009,14 @@ proc
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Inserts multiple rows into the <StructureName> table.
-;;; </summary>
-;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <param name="a_exception">Memory handle to load exception data records into.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Inserts multiple rows into the <StructureName> table.
+; </summary>
+; <param name="a_data">Memory handle containing one or more rows to insert.</param>
+; <param name="a_errtxt">Returned error text.</param>
+; <param name="a_exception">Memory handle to load exception data records into.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>InsertRows, ^val
     required in  a_data,      i
@@ -1033,16 +1034,16 @@ function <StructureName>InsertRows, ^val
     .define EXCEPTION_BUFSZ 100
 
     stack record local_data
-        ok          ,boolean    ;;Return status
-        openAndBind ,boolean    ;;Should we open the cursor and bind data this time?
-        dberror     ,int        ;;Database error number
-        rows        ,int        ;;Number of rows to insert
-        transaction ,boolean    ;;Transaction in progress
-        length      ,int        ;;Length of a string
-        ex_ms       ,int        ;;Size of exception array
-        ex_mc       ,int        ;;Items in exception array
-        continue    ,int        ;;Continue after an error
-        errtxt      ,a512       ;;Error message text
+        ok          ,boolean    ;Return status
+        openAndBind ,boolean    ;Should we open the cursor and bind data this time?
+        dberror     ,int        ;Database error number
+        rows        ,int        ;Number of rows to insert
+        transaction ,boolean    ;Transaction in progress
+        length      ,int        ;Length of a string
+        ex_ms       ,int        ;Size of exception array
+        ex_mc       ,int        ;Items in exception array
+        continue    ,int        ;Continue after an error
+        errtxt      ,a512       ;Error message text
 <IF STRUCTURE_RELATIVE>
         recordNumber,d28
 </IF STRUCTURE_RELATIVE>
@@ -1081,17 +1082,17 @@ function <StructureName>InsertRows, ^val
     <IF CUSTOM_DBL_TYPE>
         tmp<FieldSqlName>, <FIELD_CUSTOM_DBL_TYPE>
     <ELSE USERTIMESTAMP>
-        tmp<FieldSqlName>, a26     ;;Storage for user-defined timestamp field
+        tmp<FieldSqlName>, a26     ;Storage for user-defined timestamp field
     <ELSE TIME_HHMM>
-        tmp<FieldSqlName>, a5      ;;Storage for HH:MM time field
+        tmp<FieldSqlName>, a5      ;Storage for HH:MM time field
     <ELSE TIME_HHMMSS>
-        tmp<FieldSqlName>, a8      ;;Storage for HH:MM:SS time field
+        tmp<FieldSqlName>, a8      ;Storage for HH:MM:SS time field
     <ELSE DEFINED_ASA_TIREMAX AND USER>
-        tmp<FieldSqlName>, a8      ;;Storage for user defined JJJJJJ date field
+        tmp<FieldSqlName>, a8      ;Storage for user defined JJJJJJ date field
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
-        ,a1                         ;;In case there are no user timestamp, date or JJJJJJ date fields
+        ,a1                         ;In case there are no user timestamp, date or JJJJJJ date fields
     endrecord
 
     global common
@@ -1106,11 +1107,11 @@ proc
 
     clear a_exception
 
-    ;;Figure out how many rows to insert
+    ;Figure out how many rows to insert
 
     rows = (%mem_proc(DM_GETSIZE,a_data)/^size(inpbuf))
 
-    ;;If enabled, disable auto-commit
+    ;If enabled, disable auto-commit
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Automatic)
     begin
@@ -1123,14 +1124,14 @@ proc
         end
     end
 
-    ;;Start a database transaction
+    ;Start a database transaction
 
     if (ok)
     begin
         ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
-    ;;Open a cursor for the INSERT statement
+    ;Open a cursor for the INSERT statement
 
     if (ok && openAndBind)
     begin
@@ -1142,7 +1143,7 @@ proc
         end
     end
 
-    ;;Bind the host variables for data to be inserted
+    ;Bind the host variables for data to be inserted
 
 <IF STRUCTURE_RELATIVE>
     if (ok && openAndBind)
@@ -1203,14 +1204,14 @@ proc
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-    ;;Insert the rows into the database
+    ;Insert the rows into the database
 
     if (ok)
     begin
         data cnt, int
         for cnt from 1 thru rows
         begin
-            ;;Load data into bound record
+            ;Load data into bound record
 
 <IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
             <structure_name> = %<structure_name>_map(^m(inpbuf[cnt],a_data))
@@ -1226,7 +1227,7 @@ proc
 
 <IF DEFINED_CLEAN_DATA>
   <IF STRUCTURE_ALPHA_FIELDS>
-            ;;Clean up any alpha variables
+            ;Clean up any alpha variables
 
     <FIELD_LOOP>
       <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
@@ -1236,7 +1237,7 @@ proc
 
   </IF STRUCTURE_ALPHA_FIELDS>
   <IF STRUCTURE_DECIMAL_FIELDS>
-            ;;Clean up any decimal variables
+            ;Clean up any decimal variables
 
     <FIELD_LOOP>
       <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1247,7 +1248,7 @@ proc
 
   </IF STRUCTURE_DECIMAL_FIELDS>
   <IF STRUCTURE_DATE_FIELDS>
-            ;;Clean up any date variables
+            ;Clean up any date variables
 
     <FIELD_LOOP>
       <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1262,7 +1263,7 @@ proc
 
   </IF STRUCTURE_DATE_FIELDS>
   <IF STRUCTURE_TIME_FIELDS>
-            ;;Clean up any time variables
+            ;Clean up any time variables
 
     <FIELD_LOOP>
       <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1273,7 +1274,7 @@ proc
 
   </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
-            ;;Assign any time or user-defined timestamp fields
+            ;Assign any time or user-defined timestamp fields
 
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1289,7 +1290,7 @@ proc
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-        ;;Assign values to temp fields for any fields with custom data types
+        ;Assign values to temp fields for any fields with custom data types
 
 <FIELD_LOOP>
   <IF CUSTOM_DBL_TYPE>
@@ -1297,7 +1298,7 @@ proc
   </IF CUSTOM_DBL_TYPE>
 </FIELD_LOOP>
 
-            ;;Execute the statement
+            ;Execute the statement
 
             if (%ssc_execute(Settings.DatabaseChannel,c2<StructureName>,SSQL_STANDARD)==SSQL_FAILURE)
             begin
@@ -1308,7 +1309,7 @@ proc
 
                 clear continue
 
-                ;;Are we logging errors?
+                ;Are we logging errors?
                 if (Settings.RunningOnTerminal)
                 begin
                     writes(Settings.TerminalChannel,errtxt(1:length))
@@ -1337,23 +1338,23 @@ proc
         end
     end
 
-    ;;Commit or rollback the transaction
+    ;Commit or rollback the transaction
 
     if (transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;If necessary, re-enable auto-commit
+    ;If necessary, re-enable auto-commit
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Automatic)
     begin
@@ -1366,12 +1367,12 @@ proc
         end
     end
 
-    ;;Resize the returned exceptions buffer to the correct size
+    ;Resize the returned exceptions buffer to the correct size
 
     if (a_exception)
         a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*ex_mc,a_exception)
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (ok) then
         clear a_errtxt
@@ -1382,17 +1383,17 @@ proc
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Updates a row in the <StructureName> table.
-;;; </summary>
+;*****************************************************************************
+; <summary>
+; Updates a row in the <StructureName> table.
+; </summary>
 <IF STRUCTURE_RELATIVE>
-;;; <param name="a_recnum">record number.</param>
+; <param name="a_recnum">record number.</param>
 </IF STRUCTURE_RELATIVE>
-;;; <param name="a_data">Record containing data to update.</param>
-;;; <param name="a_rows">Returned number of rows affected.</param>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+; <param name="a_data">Record containing data to update.</param>
+; <param name="a_rows">Returned number of rows affected.</param>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Update, ^val
 <IF STRUCTURE_RELATIVE>
@@ -1411,14 +1412,14 @@ function <StructureName>Update, ^val
 
 </IF DEFINED_ASA_TIREMAX>
     stack record local_data
-        ok          ,boolean    ;;OK to continue
-        openAndBind ,boolean    ;;Should we open the cursor and bind data this time?
-        transaction ,boolean    ;;Transaction in progress
-        dberror     ,int        ;;Database error number
-        cursor      ,int        ;;Database cursor
-        length      ,int        ;;Length of a string
-        rows        ,int        ;;Number of rows updated
-        errtxt      ,a512       ;;Error message text
+        ok          ,boolean    ;OK to continue
+        openAndBind ,boolean    ;Should we open the cursor and bind data this time?
+        transaction ,boolean    ;Transaction in progress
+        dberror     ,int        ;Database error number
+        cursor      ,int        ;Database cursor
+        length      ,int        ;Length of a string
+        rows        ,int        ;Number of rows updated
+        errtxt      ,a512       ;Error message text
     endrecord
 
     literal
@@ -1450,13 +1451,13 @@ function <StructureName>Update, ^val
     <IF CUSTOM_DBL_TYPE>
         tmp<FieldSqlName>, <FIELD_CUSTOM_DBL_TYPE>
     <ELSE USERTIMESTAMP>
-        tmp<FieldSqlName>, a26     ;;Storage for user-defined timestamp field
+        tmp<FieldSqlName>, a26     ;Storage for user-defined timestamp field
     <ELSE TIME_HHMM>
-        tmp<FieldSqlName>, a5      ;;Storage for HH:MM time field
+        tmp<FieldSqlName>, a5      ;Storage for HH:MM time field
     <ELSE TIME_HHMMSS>
-        tmp<FieldSqlName>, a8      ;;Storage for HH:MM:SS time field
+        tmp<FieldSqlName>, a8      ;Storage for HH:MM:SS time field
     <ELSE DEFINED_ASA_TIREMAX AND USER>
-        tmp<FieldSqlName>, a8      ;;Storage for user defined JJJJJJ date field
+        tmp<FieldSqlName>, a8      ;Storage for user defined JJJJJJ date field
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
@@ -1473,7 +1474,7 @@ proc
 
     clear a_rows
 
-    ;;Load the data into the bound record
+    ;Load the data into the bound record
 
 <IF STRUCTURE_MAPPED>
     <structure_name> = %<structure_name>_map(a_data)
@@ -1481,14 +1482,14 @@ proc
     <structure_name> = a_data
 </IF STRUCTURE_MAPPED>
 
-    ;;If we're in manual commit mode, start a transaction
+    ;If we're in manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
         ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
-    ;;Open a cursor for the UPDATE statement
+    ;Open a cursor for the UPDATE statement
 
     if (ok && openAndBind)
     begin
@@ -1500,7 +1501,7 @@ proc
         end
     end
 
-    ;;Bind the host variables for data to be updated
+    ;Bind the host variables for data to be updated
 <COUNTER_1_RESET>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1549,7 +1550,7 @@ proc
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-    ;;Bind the host variables for the key segments / WHERE clause
+    ;Bind the host variables for the key segments / WHERE clause
 
     if (ok && openAndBind)
     begin
@@ -1565,13 +1566,13 @@ proc
         end
     end
 
-    ;;Update the row in the database
+    ;Update the row in the database
 
     if (ok)
     begin
 <IF DEFINED_CLEAN_DATA>
   <IF STRUCTURE_ALPHA_FIELDS>
-        ;;Clean up any alpha fields
+        ;Clean up any alpha fields
 
     <FIELD_LOOP>
       <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
@@ -1581,7 +1582,7 @@ proc
 
   </IF STRUCTURE_ALPHA_FIELDS>
   <IF STRUCTURE_DECIMAL_FIELDS>
-        ;;Clean up any decimal fields
+        ;Clean up any decimal fields
 
     <FIELD_LOOP>
       <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1592,7 +1593,7 @@ proc
 
   </IF STRUCTURE_DECIMAL_FIELDS>
   <IF STRUCTURE_DATE_FIELDS>
-        ;;Clean up any date fields
+        ;Clean up any date fields
 
     <FIELD_LOOP>
       <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1607,7 +1608,7 @@ proc
 
   </IF STRUCTURE_DATE_FIELDS>
   <IF STRUCTURE_TIME_FIELDS>
-        ;;Clean up any time fields
+        ;Clean up any time fields
 
     <FIELD_LOOP>
       <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1618,7 +1619,7 @@ proc
 
   </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
-        ;;Assign any time and user-defined timestamp fields
+        ;Assign any time and user-defined timestamp fields
 
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -1634,7 +1635,7 @@ proc
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-        ;;Assign values to temp fields for any fields with custom data types
+        ;Assign values to temp fields for any fields with custom data types
 
 <FIELD_LOOP>
   <IF CUSTOM_DBL_TYPE>
@@ -1655,23 +1656,23 @@ proc
         end
     end
 
-    ;;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
     if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;Return error message
+    ;Return error message
 
     if (ok) then
         clear a_errtxt
@@ -1683,13 +1684,13 @@ proc
 endfunction
 
 <IF STRUCTURE_ISAM>
-;;*****************************************************************************
-;;; <summary>
-;;; Deletes a row from the <StructureName> table.
-;;; </summary>
-;;; <param name="a_key">Unique key of row to be deleted.</param>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Deletes a row from the <StructureName> table.
+; </summary>
+; <param name="a_key">Unique key of row to be deleted.</param>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Delete, ^val
     required in  a_key,    a
@@ -1706,13 +1707,13 @@ function <StructureName>Delete, ^val
     endexternal
 
     stack record local_data
-        ok          ,boolean    ;;Return status
-        dberror     ,int        ;;Database error number
-        cursor      ,int        ;;Database cursor
-        length      ,int        ;;Length of a string
-        transaction ,boolean    ;;Transaction in progress
-        errtxt      ,a512       ;;Error message text
-        sql         ,string     ;;SQL statement
+        ok          ,boolean    ;Return status
+        dberror     ,int        ;Database error number
+        cursor      ,int        ;Database cursor
+        length      ,int        ;Length of a string
+        transaction ,boolean    ;Transaction in progress
+        errtxt      ,a512       ;Error message text
+        sql         ,string     ;SQL statement
     endrecord
 
 proc
@@ -1720,18 +1721,18 @@ proc
     init local_data
     ok = true
 
-    ;;Put the unique key value into the record
+    ;Put the unique key value into the record
 
     <structureName> = %<StructureName>KeyToRecord(a_key)
 
-    ;;If we're in manual commit mode, start a transaction
+    ;If we're in manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
         ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
-    ;;Open a cursor for the DELETE statement
+    ;Open a cursor for the DELETE statement
 
     if (ok)
     begin
@@ -1757,7 +1758,7 @@ proc
         end
     end
 
-    ;;Execute the query
+    ;Execute the query
 
     if (ok)
     begin
@@ -1770,7 +1771,7 @@ proc
         end
     end
 
-    ;;Close the database cursor
+    ;Close the database cursor
 
     if (cursor)
     begin
@@ -1785,23 +1786,23 @@ proc
         end
     end
 
-    ;;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
     if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (ok) then
         clear a_errtxt
@@ -1813,12 +1814,12 @@ proc
 endfunction
 
 </IF STRUCTURE_ISAM>
-;;*****************************************************************************
-;;; <summary>
-;;; Deletes all rows from the <StructureName> table.
-;;; </summary>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Deletes all rows from the <StructureName> table.
+; </summary>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Clear, ^val
     required out a_errtxt, a
@@ -1826,13 +1827,13 @@ function <StructureName>Clear, ^val
     .include "CONNECTDIR:ssql.def"
 
     stack record local_data
-        ok          ,boolean    ;;Return status
-        dberror     ,int        ;;Database error number
-        cursor      ,int        ;;Database cursor
-        length      ,int        ;;Length of a string
-        transaction ,boolean    ;;Transaction in process
-        errtxt      ,a512       ;;Returned error message text
-        sql         ,string     ;;SQL statement
+        ok          ,boolean    ;Return status
+        dberror     ,int        ;Database error number
+        cursor      ,int        ;Database cursor
+        length      ,int        ;Length of a string
+        transaction ,boolean    ;Transaction in process
+        errtxt      ,a512       ;Returned error message text
+        sql         ,string     ;SQL statement
     endrecord
 
 proc
@@ -1840,14 +1841,14 @@ proc
     init local_data
     ok = true
 
-    ;;If we're in manual commit mode, start a transaction
+    ;If we're in manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
         ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
-    ;;Open cursor for the SQL statement
+    ;Open cursor for the SQL statement
 
     if (ok)
     begin
@@ -1860,7 +1861,7 @@ proc
         end
     end
 
-    ;;Execute SQL statement
+    ;Execute SQL statement
 
     if (ok)
     begin
@@ -1873,7 +1874,7 @@ proc
         end
     end
 
-    ;;Close the database cursor
+    ;Close the database cursor
 
     if (cursor)
     begin
@@ -1888,23 +1889,23 @@ proc
         end
     end
 
-    ;;Commit or rollback the transaction
+    ;Commit or rollback the transaction
 
-    ;;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (ok) then
         clear a_errtxt
@@ -1915,12 +1916,12 @@ proc
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Deletes the <StructureName> table from the database.
-;;; </summary>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Deletes the <StructureName> table from the database.
+; </summary>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Drop, ^val
     required out a_errtxt, a
@@ -1928,12 +1929,12 @@ function <StructureName>Drop, ^val
     .include "CONNECTDIR:ssql.def"
 
     stack record local_data
-        ok          ,boolean    ;;Return status
-        dberror     ,int        ;;Database error number
-        cursor      ,int        ;;Database cursor
-        length      ,int        ;;Length of a string
-        transaction ,boolean    ;;Transaction in progress
-        errtxt      ,a512       ;;Returned error message text
+        ok          ,boolean    ;Return status
+        dberror     ,int        ;Database error number
+        cursor      ,int        ;Database cursor
+        length      ,int        ;Length of a string
+        transaction ,boolean    ;Transaction in progress
+        errtxt      ,a512       ;Returned error message text
     endrecord
 
 proc
@@ -1941,18 +1942,18 @@ proc
     init local_data
     ok = true
 
-    ;;Close any open cursors
+    ;Close any open cursors
 
     xcall <StructureName>Close()
 
-    ;;If we're in manual commit mode, start a transaction
+    ;If we're in manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
     begin
         ok = %StartTransactionSqlConnection(transaction,errtxt)
     end
 
-    ;;Open cursor for DROP TABLE statement
+    ;Open cursor for DROP TABLE statement
 
     if (ok)
     begin
@@ -1964,7 +1965,7 @@ proc
         end
     end
 
-    ;;Execute DROP TABLE statement
+    ;Execute DROP TABLE statement
 
     if (ok)
     begin
@@ -1972,7 +1973,7 @@ proc
         begin
             if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
             begin
-                ;;Check if the error was that the table did not exist
+                ;Check if the error was that the table did not exist
                 if (dberror==-3701) then
                     clear errtxt
                 else
@@ -1987,7 +1988,7 @@ proc
         end
     end
 
-    ;;Close the database cursor
+    ;Close the database cursor
 
     if (cursor)
     begin
@@ -2002,23 +2003,23 @@ proc
         end
     end
 
-    ;;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're in manual commit mode, commit or rollback the transaction
 
     if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
     begin
         if (ok) then
         begin
-            ;;Success, commit the transaction
+            ;Success, commit the transaction
             ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
         end
         else
         begin
-            ;;There was an error, rollback the transaction
+            ;There was an error, rollback the transaction
             ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
         end
     end
 
-    ;;If there was an error message, return it to the calling routine
+    ;If there was an error message, return it to the calling routine
 
     if (ok) then
         clear a_errtxt
@@ -2029,15 +2030,15 @@ proc
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
-;;; </summary>
-;;; <param name="a_maxrows">Maximum number of rows to load.</param>
-;;; <param name="a_added">Total number of successful inserts.</param>
-;;; <param name="a_failed">Total number of failed inserts.</param>
-;;; <param name="a_errtxt">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
+; </summary>
+; <param name="a_maxrows">Maximum number of rows to load.</param>
+; <param name="a_added">Total number of successful inserts.</param>
+; <param name="a_failed">Total number of failed inserts.</param>
+; <param name="a_errtxt">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Load, ^val
     required in  a_maxrows,       n
@@ -2071,23 +2072,23 @@ function <StructureName>Load, ^val
     .define EXCEPTION_BUFSZ 100
 
     stack record local_data
-        ok          ,boolean    ;;Return status
-        firstRecord ,boolean    ;;Is this the first record?
-        filechn     ,int        ;;Data file channel
-        mh          ,D_HANDLE   ;;Memory handle containing data to insert
-        ms          ,int        ;;Size of memory buffer in rows
-        mc          ,int        ;;Memory buffer rows currently used
-        ex_mh       ,D_HANDLE   ;;Memory buffer for exception records
-        ex_mc       ,int        ;;Number of records in returned exception array
-        ex_ch       ,int        ;;Exception log file channel
-        attempted   ,int        ;;Rows being attempted
-        done_records,int        ;;Records loaded
-        max_records ,int        ;;Maximum records to load
-        ttl_added   ,int        ;;Total rows added
-        ttl_failed  ,int        ;;Total failed inserts
-        errnum      ,int        ;;Error number
-        errtxt      ,a512       ;;Error message text
-        now         ,a20        ;;Current date and time
+        ok          ,boolean    ;Return status
+        firstRecord ,boolean    ;Is this the first record?
+        filechn     ,int        ;Data file channel
+        mh          ,D_HANDLE   ;Memory handle containing data to insert
+        ms          ,int        ;Size of memory buffer in rows
+        mc          ,int        ;Memory buffer rows currently used
+        ex_mh       ,D_HANDLE   ;Memory buffer for exception records
+        ex_mc       ,int        ;Number of records in returned exception array
+        ex_ch       ,int        ;Exception log file channel
+        attempted   ,int        ;Rows being attempted
+        done_records,int        ;Records loaded
+        max_records ,int        ;Maximum records to load
+        ttl_added   ,int        ;Total rows added
+        ttl_failed  ,int        ;Total failed inserts
+        errnum      ,int        ;Error number
+        errtxt      ,a512       ;Error message text
+        now         ,a20        ;Current date and time
         timer       ,@Timer
 <IF STRUCTURE_RELATIVE>
         recordNumber,d28
@@ -2104,13 +2105,13 @@ proc
     timer = new Timer()
     timer.Start()
 
-    ;;If we are logging exceptions, delete any existing exceptions file.
+    ;If we are logging exceptions, delete any existing exceptions file.
     if (Settings.LogBulkLoadExceptions)
     begin
         xcall delet("REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
     end
 
-    ;;Open the data file associated with the structure
+    ;Open the data file associated with the structure
 
     if (!(filechn = %<StructureName>OpenInput(errtxt)))
     begin
@@ -2118,23 +2119,23 @@ proc
         ok = false
     end
 
-    ;;Were we passed a max # records to load
+    ;Were we passed a max # records to load
 
     max_records = a_maxrows > 0 ? a_maxrows : 0
     done_records = 0
 
     if (ok)
     begin
-        ;;Allocate memory buffer for the database rows
+        ;Allocate memory buffer for the database rows
 
         mh = %mem_proc(DM_ALLOC,^size(inpbuf)*(ms=BUFFER_ROWS))
 
-        ;;Read records from the input file
+        ;Read records from the input file
 
         firstRecord = true
         repeat
         begin
-            ;;Get the next record from the input file
+            ;Get the next record from the input file
             try
             begin
 ;//
@@ -2184,7 +2185,7 @@ proc
             end
             endtry
 
-            ;;Got one, load it into or buffer
+            ;Got one, load it into or buffer
 <IF STRUCTURE_ISAM>
             ^m(inpbuf[mc+=1],mh) = tmprec
 <ELSE STRUCTURE_RELATIVE>
@@ -2194,7 +2195,7 @@ proc
 
             incr done_records
 
-            ;;If the buffer is full, write it to the database
+            ;If the buffer is full, write it to the database
             if (mc==ms)
             begin
                 call insert_data
@@ -2212,24 +2213,24 @@ proc
             call insert_data
         end
 
-        ;;Deallocate memory buffer
+        ;Deallocate memory buffer
 
         mh = %mem_proc(DM_FREE,mh)
 
     end
 
-    ;;Close the file
+    ;Close the file
     if (filechn && %chopen(filechn))
         close filechn
 
-    ;;Close the exceptions log file
+    ;Close the exceptions log file
     if (ex_ch && %chopen(ex_ch))
         close ex_ch
 
-    ;;Return any error text
+    ;Return any error text
     a_errtxt = errtxt
 
-    ;;Return totals
+    ;Return totals
     a_added = ttl_added
     a_failed = ttl_failed
 
@@ -2255,22 +2256,22 @@ insert_data,
 
     if (%<StructureName>InsertRows(mh,errtxt,ex_mh))
     begin
-        ;;Any exceptions?
+        ;Any exceptions?
         if (ex_mh) then
         begin
-            ;;How many exceptions to log?
+            ;How many exceptions to log?
             ex_mc = (%mem_proc(DM_GETSIZE,ex_mh)/^size(inpbuf))
-            ;;Update totals
+            ;Update totals
             ttl_failed+=ex_mc
             ttl_added+=(attempted-ex_mc)
-            ;;Are we logging exceptions?
+            ;Are we logging exceptions?
             if (Settings.LogBulkLoadExceptions) then
             begin
                 data cnt, int
-                ;;Open the log file
+                ;Open the log file
                 if (!ex_ch)
                     open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
-                ;;Log the exceptions
+                ;Log the exceptions
                 for cnt from 1 thru ex_mc
                     writes(ex_ch,^m(inpbuf[cnt],ex_mh))
                 if (Settings.RunningOnTerminal)
@@ -2278,15 +2279,15 @@ insert_data,
             end
             else
             begin
-                ;;No, report and error
+                ;No, report and error
                 ok = false
             end
-            ;;Release the exception buffer
+            ;Release the exception buffer
             ex_mh=%mem_proc(DM_FREE,ex_mh)
         end
         else
         begin
-            ;;No exceptions
+            ;No exceptions
             ttl_added += attempted
             if (Settings.RunningOnTerminal && Settings.LogLoadProgress)
             begin
@@ -2301,19 +2302,17 @@ insert_data,
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
-;;; </summary>
-;;; <param name="totalRecords">Total number of records in the file</param>
-;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
-;;; <param name="a_records">Records loaded</param>
-;;; <param name="a_exceptions">Records failes</param>
-;;; <param name="a_errtxt">Error message (if return value is false)</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
+; </summary>
+; <param name="recordsToLoad">Number of records to load (0=all)</param>
+; <param name="a_records">Records loaded</param>
+; <param name="a_exceptions">Records failes</param>
+; <param name="a_errtxt">Error message (if return value is false)</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>BulkLoad, ^val
-    required in totalRecords,  n
     required in recordsToLoad, n
     required out a_records,    n
     required out a_exceptions, n
@@ -2322,7 +2321,7 @@ function <StructureName>BulkLoad, ^val
     .include "CONNECTDIR:ssql.def"
 
      stack record local_data
-        ok,                     boolean    ;;Return status
+        ok,                     boolean    ;Return status
         transaction,            boolean
         cursorOpen,             boolean
         remoteBulkLoad,         boolean
@@ -2338,9 +2337,9 @@ function <StructureName>BulkLoad, ^val
         cursor,                 int
         length,                 int
         dberror,                int
-        recordCount,            int	        ;;# records to load / loaded
+        recordCount,            int	        ;# records to load / loaded
         exceptionCount,         int
-        errtxt,                 a512        ;;Error message text
+        errtxt,                 a512        ;Error message text
         fsc,                    @FileServiceClient
         now,                    a20
         timer,                  @Timer
@@ -2354,11 +2353,7 @@ proc
     timer = new Timer()
     timer.Start()
 
-    now = %datetime
-    writelog("Starting bulk load with " + %string(totalRecords) + " records")
-    writett("Starting bulk load with " + %string(totalRecords) + " records")
-
-    ;;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
+    ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
     remoteBulkLoad = Settings.CanBulkLoad() && Settings.DatabaseIsRemote()
 
@@ -2381,7 +2376,7 @@ proc
 
     if (ok)
     begin
-        ;;Determine temporary file names
+        ;Determine temporary file names
 
         .ifdef OS_WINDOWS7
         localCsvFile = Settings.LocalExportPath + "\<StructureName>.csv"
@@ -2402,9 +2397,9 @@ proc
             remoteExceptionsLog  = remoteExceptionsFile + ".Error.Txt"
         end
 
-        ;;Make sure there are no files left over from previous operations
+        ;Make sure there are no files left over from previous operations
 
-        ;;Delete local files
+        ;Delete local files
 
         now = %datetime
         writelog("Deleting local files")
@@ -2414,7 +2409,7 @@ proc
         xcall delet(localExceptionsFile)
         xcall delet(localExceptionsLog)
 
-        ;;Delete remote files
+        ;Delete remote files
 
         if (remoteBulkLoad)
         begin
@@ -2427,7 +2422,7 @@ proc
             fsc.Delete(remoteExceptionsLog)
         end
 
-        ;;And export the data
+        ;And export the data
 
         now = %datetime
         writelog("Exporting delimited file")
@@ -2438,7 +2433,7 @@ proc
 
     if (ok)
     begin
-        ;;If necessary, upload the exported file to the database server
+        ;If necessary, upload the exported file to the database server
 
         if (remoteBulkLoad) then
         begin
@@ -2455,9 +2450,9 @@ proc
 
     if (ok)
     begin
-        ;;Bulk load the database table
+        ;Bulk load the database table
 
-        ;;If we're in manual commit mode, start a transaction
+        ;If we're in manual commit mode, start a transaction
 
         if (Settings.DatabaseCommitMode==DatabaseCommitMode.Manual)
         begin
@@ -2466,7 +2461,7 @@ proc
             ok = %StartTransactionSqlConnection(transaction,errtxt)
         end
 
-        ;;Open a cursor for the statement
+        ;Open a cursor for the statement
 
         if (ok)
         begin
@@ -2489,7 +2484,7 @@ proc
             end
         end
 
-        ;;Set the SQL statement execution timeout to the bulk load value
+        ;Set the SQL statement execution timeout to the bulk load value
 
         if (ok)
         begin
@@ -2504,7 +2499,7 @@ proc
             end
         end
 
-        ;;Execute the statement
+        ;Execute the statement
 
         if (ok)
         begin
@@ -2546,7 +2541,7 @@ proc
                 end
             end
 
-            ;;Delete local temp files
+            ;Delete local temp files
 
             now = %datetime
             writelog("Deleting local temp files")
@@ -2556,7 +2551,7 @@ proc
             xcall delet(localExceptionsFile)
             xcall delet(localExceptionsLog)
 
-            ;;Delete remote temp files
+            ;Delete remote temp files
 
             if (remoteBulkLoad)
             begin
@@ -2570,7 +2565,7 @@ proc
             end
         end
 
-        ;;If we're in manual commit mode, commit or rollback the transaction
+        ;If we're in manual commit mode, commit or rollback the transaction
 
         if ((Settings.DatabaseCommitMode==DatabaseCommitMode.Manual) && transaction)
         begin
@@ -2583,14 +2578,14 @@ proc
             end
             else
             begin
-                ;;There was an error, rollback the transaction
+                ;There was an error, rollback the transaction
                 writelog("ROLLBACK")
                 writett("ROLLBACK")
                 ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
             end
         end
 
-        ;;Set the database timeout back to the regular value
+        ;Set the database timeout back to the regular value
 
         now = %datetime
         writelog("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
@@ -2599,7 +2594,7 @@ proc
         if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))==SSQL_FAILURE)
             nop
 
-        ;;Close the cursor
+        ;Close the cursor
 
         if (cursorOpen)
         begin
@@ -2611,25 +2606,33 @@ proc
         end
     end
 
-    ;; Return the record and exception count
+    ; Return the record and exception count
     a_records = recordCount
     a_exceptions = exceptionCount
 
-    ;;Return any error text
+    ;Return any error text
     a_errtxt = errtxt
 
     timer.Stop()
-
     now = %datetime
-    writelog("Bulk load COMPLETE after " + timer.ElapsedTimeString)
-    writett("Bulk load COMPLETE after " + timer.ElapsedTimeString)
+
+    if (ok) then
+    begin
+        writelog("Bulk load finished in " + timer.ElapsedTimeString)
+        writett("Bulk load finished in " + timer.ElapsedTimeString)
+    end
+    else
+    begin
+        writelog("Bulk load failed after " + timer.ElapsedTimeString)
+        writett("Bulk load failed after " + timer.ElapsedTimeString)
+    end
 
     freturn ok
 
 GetExceptionDetails,
 
-    ;;If we get here then the bulk load reported one or more "data conversion error" issues
-    ;;There should be two files on the server
+    ;If we get here then the bulk load reported one or more "data conversion error" issues
+    ;There should be two files on the server
 
     now = %datetime
     writelog("Data conversion errors, processing exceptions")
@@ -2644,7 +2647,7 @@ GetExceptionDetails,
         begin
             if (fileExists) then
             begin
-                ;;Download the error file
+                ;Download the error file
                 data exceptionRecords, [#]string
                 data errorMessage, string
 
@@ -2673,7 +2676,7 @@ GetExceptionDetails,
             end
             else
             begin
-                ;;Error file does not exist! In theory this should not happen, because we got here due to "data conversion error" being reported
+                ;Error file does not exist! In theory this should not happen, because we got here due to "data conversion error" being reported
                 now = %datetime
                 writelog("Remote exceptions data file not found!")
                 writett("Remote exceptions data file not found!")
@@ -2681,19 +2684,19 @@ GetExceptionDetails,
         end
         else
         begin
-            ;;Failed to determine if file exists
+            ;Failed to determine if file exists
             now = %datetime
             writelog("Failed to determine if remote exceptions data file exists. Error was " + tmpmsg)
             writett("Failed to determine if remote exceptions data file exists. Error was " + tmpmsg)
         end
 
-        ;;Now check for and retrieve the associated exceptions log
+        ;Now check for and retrieve the associated exceptions log
 
         if (fsc.Exists(remoteExceptionsLog,fileExists,tmpmsg)) then
         begin
             if (fileExists) then
             begin
-                ;;Download the error file
+                ;Download the error file
                 data exceptionRecords, [#]string
                 data errorMessage, string
 
@@ -2720,7 +2723,7 @@ GetExceptionDetails,
             end
             else
             begin
-                ;;Error file does not exist! In theory this should not happen, because we got here due to "data conversion error" being reported
+                ;Error file does not exist! In theory this should not happen, because we got here due to "data conversion error" being reported
                 now = %datetime
                 writelog("Remote exceptions file not found!")
                 writett("Remote exceptions file not found!")
@@ -2728,14 +2731,14 @@ GetExceptionDetails,
         end
         else
         begin
-            ;;Failed to determine if file exists
+            ;Failed to determine if file exists
             now = %datetime
             writelog("Failed to determine if remote exceptions log file exists. Error was " + tmpmsg)
         end
     end
     else
     begin
-        ;;Local bulk load
+        ;Local bulk load
 
         if (File.Exists(localExceptionsFile)) then
         begin
@@ -2753,7 +2756,7 @@ eof,        close ex_ch
         end
         else
         begin
-            ;;Error file does not exist! In theory this should not happen, because we got here due to "data conversion error" being reported
+            ;Error file does not exist! In theory this should not happen, because we got here due to "data conversion error" being reported
             now = %datetime
             writelog("Exceptions data file not found!")
         end
@@ -2763,10 +2766,10 @@ eof,        close ex_ch
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Close cursors associated with the <StructureName> table.
-;;; </summary>
+;*****************************************************************************
+; <summary>
+; Close cursors associated with the <StructureName> table.
+; </summary>
 
 subroutine <StructureName>Close
 
@@ -2842,15 +2845,15 @@ proc
 
 endsubroutine
 
-;;*****************************************************************************
-;;; <summary>
-;;; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> to a CSV file.
-;;; </summary>
-;;; <param name="fileSpec">File to create</param>
-;;; <param name="maxRecords">Mumber of records to export.</param>
-;;; <param name="recordCount">Returned number of records exported.</param>
-;;; <param name="errorMessage">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
+;*****************************************************************************
+; <summary>
+; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> to a CSV file.
+; </summary>
+; <param name="fileSpec">File to create</param>
+; <param name="maxRecords">Mumber of records to export.</param>
+; <param name="recordCount">Returned number of records exported.</param>
+; <param name="errorMessage">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Csv, boolean
     required in  fileSpec, a
@@ -2878,25 +2881,31 @@ function <StructureName>Csv, boolean
 
     .align
     stack record local_data
-        ok,         boolean ;;Return status
-        filechn,    int     ;;Data file channel
-        outchn,     int     ;;CSV file channel
-        outrec,     string  ;;A CSV file record
-        records,    int     ;;Number of records exported
-        pos,        int     ;;Position in a string
-        recordsMax, int     ;;Max # or records to export
-        errtxt,     a512    ;;Error message text
+        ok,         boolean ;Return status
+        filechn,    int     ;Data file channel
+        outchn,     int     ;CSV file channel
+        outrec,     @StringBuilder  ;A CSV file record
+        records,    int     ;Number of records exported
+        pos,        int     ;Position in a string
+        recordsMax, int     ;Max # or records to export
+        errtxt,     a512    ;Error message text
+        now,        a20     ;The time now
+        timer,      @Timer  ;A timer
     endrecord
 
 proc
-    ok = true
     clear records, errtxt
+    ok = true
+    errorMessage = ""
 
-    ;;Were we given a max # or records to export?
+    timer = new Timer()
+    timer.Start()
+
+    ;Were we given a max # or records to export?
 
     recordsMax = maxRecords > 0 ? maxRecords : 0
 
-    ;;Open the data file associated with the structure
+    ;Open the data file associated with the structure
 
     if (!(filechn=%<StructureName>OpenInput(errtxt)))
     begin
@@ -2904,7 +2913,7 @@ proc
         ok = false
     end
 
-    ;;Create the local CSV file
+    ;Create the local CSV file
 
     if (ok)
     begin
@@ -2918,17 +2927,17 @@ proc
         open(outchn=0,o,fileSpec,OPTIONS:"/stream")
 .endc
 
-        ;;Add a row of column headers
+        ;Add a row of column headers
 .ifdef OS_WINDOWS7
         writes(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF></IF></FIELD_LOOP>")
 .else
         puts(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF></IF></FIELD_LOOP>" + %char(13) + %char(10))
 .endc
 
-        ;;Read and add data file records
+        ;Read and add data file records
         foreach <structure_name> in new Select(new From(filechn,Q_NO_GRFA,0,<structure_name>)<IF STRUCTURE_TAGS>,(Where)(<TAG_LOOP><TAGLOOP_CONNECTOR_C>(<structure_name>.<tagloop_field_name><TAGLOOP_OPERATOR_DBL><TAGLOOP_TAG_VALUE>)</TAG_LOOP>)</IF>)
         begin
-            ;;Make sure there are no | characters in the data
+            ;Make sure there are no | characters in the data
             while (pos = %instr(1,<structure_name>,"|"))
             begin
                 clear <structure_name>(pos:1)
@@ -2942,75 +2951,75 @@ proc
                 exitloop
             end
 
-            outrec = ""
+            outrec = new StringBuilder()
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF STRUCTURE_RELATIVE>
-            & + %string(records) + "|"
+            outrec.Append(%string(records) + "|")
     </IF>
     <IF CUSTOM_DBL_TYPE>
 ;//
 ;// CUSTOM FIELDS
 ;//
-            & + %<FIELD_CUSTOM_STRING_FUNCTION>(<structure_name>.<field_original_name_modified>,<structure_name>) + "<IF MORE>|</IF MORE>"
+            outrec.Append(%<FIELD_CUSTOM_STRING_FUNCTION>(<structure_name>.<field_original_name_modified>,<structure_name>) + "<IF MORE>|</IF MORE>")
 ;//
 ;// ALPHA
 ;//
     <ELSE ALPHA>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? %atrim(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? %atrim(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
       <ELSE>
-            & + %atrim(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(%atrim(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// DECIMAL
 ;//
     <ELSE DECIMAL>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>0|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>0|</IF>")
       <ELSE>
-            & + <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(<IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// DATE
 ;//
     <ELSE DATE>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? %string(<structure_name>.<field_original_name_modified>,"XXXX-XX-XX")<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? %string(<structure_name>.<field_original_name_modified>,"XXXX-XX-XX")<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
       <ELSE>
-            & + %MakeDateForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(%MakeDateForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// DATE_YYMMDD
 ;//
     <ELSE DATE_YYMMDD>
-            & + %atrim(^a(<structure_name>.<field_original_name_modified>)) + "<IF MORE>|</IF>"
+            outrec.Append(%atrim(^a(<structure_name>.<field_original_name_modified>)) + "<IF MORE>|</IF>")
 ;//
 ;// TIME_HHMM
 ;//
     <ELSE TIME_HHMM>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
       <ELSE>
-            & + %MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(%MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// TIME_HHMMSS
 ;//
     <ELSE TIME_HHMMSS>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
       <ELSE>
-            & + %MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(%MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// USER-DEFINED
 ;//
     <ELSE USER>
       <IF USERTIMESTAMP>
-            & + %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX") + "<IF MORE>|</IF>"
+            outrec.Append(%string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX") + "<IF MORE>|</IF>")
       <ELSE>
-            & + <IF DEFINED_ASA_TIREMAX>%TmJulianToCsvDate<ELSE>%atrim</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(<IF DEFINED_ASA_TIREMAX>%TmJulianToCsvDate<ELSE>%atrim</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;//
@@ -3020,9 +3029,9 @@ proc
 </FIELD_LOOP>
 
             .ifdef OS_WINDOWS7
-            writes(outchn,outrec)
+            writes(outchn,outrec.ToString())
             .else
-            puts(outchn,outrec + %char(13) + %char(10))
+            puts(outchn,outrec.ToString() + %char(13) + %char(10))
             .endc
         end
     end
@@ -3031,37 +3040,46 @@ proc
 eof,
 </IF>
 
-    ;;Close the file
+    ;Close the file
     if (filechn && %chopen(filechn))
     begin
         close filechn
     end
 
-    ;;Close the CSV file
+    ;Close the CSV file
     if (outchn && %chopen(outchn))
     begin
         close outchn
     end
 
-    ;;Return the record count
+    ;Return the record count
     recordCount = records
 
-    ;;Return any error text
+    ;Return any error text
     errorMessage = errtxt
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok)
+    begin
+        writelog("Export took " + timer.ElapsedTimeString)
+        writett("Export took " + timer.ElapsedTimeString)
+    end
 
     freturn ok
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Opens the <FILE_NAME> for input.
-;;; </summary>
-;;; <param name="errorMessage">Returned error message.</param>
-;;; <returns>Returns the channel number, or 0 if an error occured.</returns>
+;*****************************************************************************
+; <summary>
+; Opens the <FILE_NAME> for input.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
 function <StructureName>OpenInput, ^val
-    required out errorMessage, a  ;;Returned error text
+    required out errorMessage, a  ;Returned error text
 
     stack record
         ch, int
@@ -3088,12 +3106,12 @@ proc
 endfunction
 
 <IF STRUCTURE_ISAM>
-;;*****************************************************************************
-;;; <summary>
-;;; Loads a unique key value into the respective fields in a record.
-;;; </summary>
-;;; <param name="aKeyValue">Unique key value.</param>
-;;; <returns>Returns a record containig only the unique key segment data.</returns>
+;*****************************************************************************
+; <summary>
+; Loads a unique key value into the respective fields in a record.
+; </summary>
+; <param name="aKeyValue">Unique key value.</param>
+; <returns>Returns a record containig only the unique key segment data.</returns>
 
 function <StructureName>KeyToRecord, a
     required in aKeyValue, a
@@ -3133,15 +3151,15 @@ proc
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Extract a key value from the segment fields in a record.
-;;; This function behaves like %KEYVAL but without requiring an open channel.
-;;; </summary>
-;;; <param name="aRecord">Record containing key data</param>
-;;; <param name="aKeyVal">Returned key value</param>
-;;; <param name="aKeyLen">Returned key length</param>
-;;; <returns>Always returns true</returns>
+;*****************************************************************************
+; <summary>
+; Extract a key value from the segment fields in a record.
+; This function behaves like %KEYVAL but without requiring an open channel.
+; </summary>
+; <param name="aRecord">Record containing key data</param>
+; <param name="aKeyVal">Returned key value</param>
+; <param name="aKeyLen">Returned key length</param>
+; <returns>Always returns true</returns>
 
 function <StructureName>KeyVal, ^val
     required in  aRecord, str<StructureName>
@@ -3196,11 +3214,11 @@ proc
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; Returns the key number of the first unique key.
-;;; </summary>
-;;; <returns>Returned key number.</returns>
+;*****************************************************************************
+; <summary>
+; Returns the key number of the first unique key.
+; </summary>
+; <returns>Returned key number.</returns>
 
 function <StructureName>KeyNum, ^val
 proc
@@ -3209,12 +3227,12 @@ endfunction
 
 </IF STRUCTURE_ISAM>
 <IF STRUCTURE_MAPPED>
-;;*****************************************************************************
-;;; <summary>
-;;; 
-;;; </summary>
-;;; <param name="<mapped_structure>"></param>
-;;; <returns></returns>
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <param name="<mapped_structure>"></param>
+; <returns></returns>
 
 function <structure_name>_map, a
     .include "<MAPPED_STRUCTURE>" repository, required in group="<mapped_structure>"
@@ -3222,19 +3240,19 @@ function <structure_name>_map, a
     .include "<STRUCTURE_NAME>" repository, stack record="<structure_name>"
 proc
     init <structure_name>
-    ;;Store the record
+    ;Store the record
   <FIELD_LOOP>
     <field_path> = <mapped_path_conv>
   </FIELD_LOOP>
     freturn <structure_name>
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; 
-;;; </summary>
-;;; <param name="<structure_name>"></param>
-;;; <returns></returns>
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <param name="<structure_name>"></param>
+; <returns></returns>
 
 function <structure_name>_unmap, a
     .include "<STRUCTURE_NAME>" repository, required in group="<structure_name>"
@@ -3242,7 +3260,7 @@ function <structure_name>_unmap, a
     .include "<MAPPED_STRUCTURE>" repository, stack record="<mapped_structure>"
 proc
     init <mapped_structure>
-    ;;Store the record
+    ;Store the record
   <FIELD_LOOP>
     <mapped_path> = <field_path_conv>
   </FIELD_LOOP>
@@ -3250,23 +3268,23 @@ proc
 endfunction
 
 </IF STRUCTURE_MAPPED>
-;;*****************************************************************************
-;;; <summary>
-;;; 
-;;; </summary>
-;;; <returns></returns>
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <returns></returns>
 
 function <StructureName>Length ,^val
 proc
     freturn <STRUCTURE_SIZE>
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; 
-;;; </summary>
-;;; <param name="fileType"></param>
-;;; <returns></returns>
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <param name="fileType"></param>
+; <returns></returns>
 
 function <StructureName>Type, ^val
     required out fileType, a
@@ -3275,11 +3293,11 @@ proc
     freturn true
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; 
-;;; </summary>
-;;; <returns></returns>
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <returns></returns>
 
 function <StructureName>Cols ,^val
 proc
@@ -3310,12 +3328,12 @@ proc
 
 endfunction
 
-;;*****************************************************************************
-;;; <summary>
-;;; 
-;;; </summary>
-;;; <param name="fileType"></param>
-;;; <returns></returns>
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <param name="fileType"></param>
+; <returns></returns>
 
 function <StructureName>Recs, ^val
     required out recordCount, n

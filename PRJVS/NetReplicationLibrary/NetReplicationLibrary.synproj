@@ -60,6 +60,7 @@
     <Compile Include="..\..\SRC\LIBRARY\DatabaseReconnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseTransform.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\DblToNetConverter.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Department_SqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmailSettings.dbl" />
@@ -108,7 +109,6 @@
     <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringDictionary.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringTools.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\SynToCsConvert.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ThrowOnCommunicationError.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ThrowOnSqlClientError.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\TimeNow.dbl" />

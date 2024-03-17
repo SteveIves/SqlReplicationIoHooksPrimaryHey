@@ -5,7 +5,9 @@ EMPLOYEE file with 1,000,000 records          LOCAL              REMOTE         
 
 LOAD            Traditional/SQL Connection    135 seconds        842 seconds        ??? seconds
                 .NET/SqlConnection            130 seconds        808 seconds        ??? seconds
-                .NET/SqlClient                157 seconds        573 seconds        ??? seconds
+(Before change) .NET/SqlClient                157 seconds        573 seconds        ??? seconds     
+(After change)  .NET/SqlClient                172 seconds        
+
 
 BULK LOAD       Traditional/SQL Connection     14 seconds
 (Local)         .NET/SqlConnection             15 seconds

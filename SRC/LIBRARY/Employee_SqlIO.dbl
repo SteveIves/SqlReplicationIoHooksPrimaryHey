@@ -18,6 +18,7 @@ import ReplicationLibrary
 import Synergex.SynergyDE.Select
 import System.Data.SqlClient
 import System.IO
+import System.Text
 
 .ifndef strEmployee
 .include "EMPLOYEE" repository, structure="strEmployee", end
@@ -649,21 +650,21 @@ proc
             &   CommandTimeout = Settings.DatabaseTimeout
             & }
 
-            command.Parameters.AddWithValue("@EmpId",SynToCsConvert.SmallDecimalToInt(employee.emp_id))
-            command.Parameters.AddWithValue("@EmpFirstName",SynToCsConvert.AlphaToString(employee.emp_first_name))
-            command.Parameters.AddWithValue("@EmpLastName",SynToCsConvert.AlphaToString(employee.emp_last_name))
-            command.Parameters.AddWithValue("@EmpDept",SynToCsConvert.AlphaToString(employee.emp_dept))
-            command.Parameters.AddWithValue("@EmpHireDate",SynToCsConvert.DateToNullableDateTime(employee.emp_hire_date))
-            command.Parameters.AddWithValue("@EmpPhoneWork",SynToCsConvert.AlphaToString(employee.emp_phone_work))
-            command.Parameters.AddWithValue("@EmpPhoneCell",SynToCsConvert.AlphaToString(employee.emp_phone_cell))
-            command.Parameters.AddWithValue("@EmpPaid",SynToCsConvert.SmallDecimalToInt(employee.emp_paid))
-            command.Parameters.AddWithValue("@EmpDateOfBirth",SynToCsConvert.DateToNullableDateTime(employee.emp_date_of_birth))
-            command.Parameters.AddWithValue("@EmpHireTime",SynToCsConvert.HHMMToTimeSpan(employee.emp_hire_time))
-            command.Parameters.AddWithValue("@EmpEmail",SynToCsConvert.AlphaToString(employee.emp_email))
-            command.Parameters.AddWithValue("@EmpAddressStreet",SynToCsConvert.AlphaToString(employee.emp_address_street))
-            command.Parameters.AddWithValue("@EmpAddressCity",SynToCsConvert.AlphaToString(employee.emp_address_city))
-            command.Parameters.AddWithValue("@EmpAddressState",SynToCsConvert.AlphaToString(employee.emp_address_state))
-            command.Parameters.AddWithValue("@EmpAddressZip",SynToCsConvert.SmallDecimalToInt(employee.emp_address_zip))
+            command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
+            command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
+            command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
+            command.Parameters.AddWithValue("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept))
+            command.Parameters.AddWithValue("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+            command.Parameters.AddWithValue("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work))
+            command.Parameters.AddWithValue("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell))
+            command.Parameters.AddWithValue("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid))
+            command.Parameters.AddWithValue("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+            command.Parameters.AddWithValue("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+            command.Parameters.AddWithValue("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email))
+            command.Parameters.AddWithValue("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street))
+            command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
+            command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
+            command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
 
             command.ExecuteNonQuery()
         end
@@ -731,6 +732,7 @@ function Employee_InsertRows, ^val
         ok,             boolean     ;Return status
         rows,           int         ;Number of rows to insert
         transaction,    boolean     ;Transaction in progress
+        command,        @SqlCommand ;Represtens the SQL command to execute
         length,         int         ;Length of a string
         ex_ms,          int         ;Size of exception array
         ex_mc,          int         ;Items in exception array
@@ -755,7 +757,23 @@ function Employee_InsertRows, ^val
         & + '"EmpAddressCity",'
         & + '"EmpAddressState",'
         & + '"EmpAddressZip"'
-        & + ") VALUES(@EmpId,@EmpFirstName,@EmpLastName,@EmpDept,@EmpHireDate,@EmpPhoneWork,@EmpPhoneCell,@EmpPaid,@EmpDateOfBirth,@EmpHireTime,@EmpEmail,@EmpAddressStreet,@EmpAddressCity,@EmpAddressState,@EmpAddressZip)"
+        & + ") VALUES("
+        & + "@EmpId,"
+        & + "@EmpFirstName,"
+        & + "@EmpLastName,"
+        & + "@EmpDept,"
+        & + "@EmpHireDate,"
+        & + "@EmpPhoneWork,"
+        & + "@EmpPhoneCell,"
+        & + "@EmpPaid,"
+        & + "@EmpDateOfBirth,"
+        & + "@EmpHireTime,"
+        & + "@EmpEmail,"
+        & + "@EmpAddressStreet,"
+        & + "@EmpAddressCity,"
+        & + "@EmpAddressState,"
+        & + "@EmpAddressZip"
+        & + ")"
     endliteral
 
     .include "EMPLOYEE" repository, structure="inpbuf", nofields, end
@@ -777,11 +795,50 @@ proc
 
     rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
+   ;If enabled, disable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
+    end
+
     ;Start a database transaction
 
     if (ok)
     begin
         ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    ; If we're binding once, create the SqlCommand object and define parameters
+
+    if (ok && Settings.SqlCommandReuse)
+    begin
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.Add(new SqlParameter("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id)))
+        command.Parameters.Add(new SqlParameter("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name)))
+        command.Parameters.Add(new SqlParameter("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name)))
+        command.Parameters.Add(new SqlParameter("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept)))
+        command.Parameters.Add(new SqlParameter("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell)))
+        command.Parameters.Add(new SqlParameter("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid)))
+        command.Parameters.Add(new SqlParameter("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)))
+        command.Parameters.Add(new SqlParameter("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time)))
+        command.Parameters.Add(new SqlParameter("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
     end
 
     ;Insert the rows into the database
@@ -792,11 +849,9 @@ proc
         for cnt from 1 thru rows
         begin
             ;Load data into bound record
-
             employee = ^m(inpbuf[cnt],a_data)
 
-            ;Clean up any alpha variables
-
+            ;Clean up alpha variables
             employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
             employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
             employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
@@ -807,8 +862,7 @@ proc
             employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
             employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
 
-            ;Clean up any decimal variables
-
+            ;Clean up decimal variables
             if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
                 clear employee.emp_id
             if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
@@ -816,49 +870,65 @@ proc
             if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
                 clear employee.emp_address_zip
 
-            ;Clean up any date variables
-
+            ;Clean up date variables
             if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
                 ^a(employee.emp_hire_date(1:1))=%char(0)
             if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
                 ^a(employee.emp_date_of_birth(1:1))=%char(0)
 
-            ;Clean up any time variables
-
+            ;Clean up time variables
             if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
                 ^a(employee.emp_hire_time(1:1))=%char(0)
 
             ;Assign any time or user-defined timestamp fields
-
             tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
 
             ;Assign values to temp fields for any fields with custom data types
 
+            if (Settings.SqlCommandReuse) then
+            begin
+                ;Bind data for the current record to the existing command parameters
+                command.Parameters["@EmpId"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_id)
+                command.Parameters["@EmpFirstName"].Value = DblToNetConverter.AlphaToString(employee.emp_first_name)
+                command.Parameters["@EmpLastName"].Value = DblToNetConverter.AlphaToString(employee.emp_last_name)
+                command.Parameters["@EmpDept"].Value = DblToNetConverter.AlphaToString(employee.emp_dept)
+                command.Parameters["@EmpHireDate"].Value = DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date)
+                command.Parameters["@EmpPhoneWork"].Value = DblToNetConverter.AlphaToString(employee.emp_phone_work)
+                command.Parameters["@EmpPhoneCell"].Value = DblToNetConverter.AlphaToString(employee.emp_phone_cell)
+                command.Parameters["@EmpPaid"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_paid)
+                command.Parameters["@EmpDateOfBirth"].Value = DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)
+                command.Parameters["@EmpHireTime"].Value = DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time)
+                command.Parameters["@EmpEmail"].Value = DblToNetConverter.AlphaToString(employee.emp_email)
+                command.Parameters["@EmpAddressStreet"].Value = DblToNetConverter.AlphaToString(employee.emp_address_street)
+                command.Parameters["@EmpAddressCity"].Value = DblToNetConverter.AlphaToString(employee.emp_address_city)
+                command.Parameters["@EmpAddressState"].Value = DblToNetConverter.AlphaToString(employee.emp_address_state)
+                command.Parameters["@EmpAddressZip"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)
+            end
+            else
+            begin
+                ;Create the SqlCommand, add parameters and bind the data for the current record
+                command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+                command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
+                command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
+                command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
+                command.Parameters.AddWithValue("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept))
+                command.Parameters.AddWithValue("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+                command.Parameters.AddWithValue("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work))
+                command.Parameters.AddWithValue("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell))
+                command.Parameters.AddWithValue("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid))
+                command.Parameters.AddWithValue("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+                command.Parameters.AddWithValue("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+                command.Parameters.AddWithValue("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email))
+                command.Parameters.AddWithValue("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street))
+                command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
+                command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
+                command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
+            end
+
+            ; Execute the SQL statement
 
             try
             begin
-                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-                &    CommandTimeout = Settings.DatabaseTimeout
-                &    }
-
-                ;Bind the host variables for data to be inserted
-
-                command.Parameters.AddWithValue("@EmpId",SynToCsConvert.SmallDecimalToInt(employee.emp_id))
-                command.Parameters.AddWithValue("@EmpFirstName",SynToCsConvert.AlphaToString(employee.emp_first_name))
-                command.Parameters.AddWithValue("@EmpLastName",SynToCsConvert.AlphaToString(employee.emp_last_name))
-                command.Parameters.AddWithValue("@EmpDept",SynToCsConvert.AlphaToString(employee.emp_dept))
-                command.Parameters.AddWithValue("@EmpHireDate",SynToCsConvert.DateToNullableDateTime(employee.emp_hire_date))
-                command.Parameters.AddWithValue("@EmpPhoneWork",SynToCsConvert.AlphaToString(employee.emp_phone_work))
-                command.Parameters.AddWithValue("@EmpPhoneCell",SynToCsConvert.AlphaToString(employee.emp_phone_cell))
-                command.Parameters.AddWithValue("@EmpPaid",SynToCsConvert.SmallDecimalToInt(employee.emp_paid))
-                command.Parameters.AddWithValue("@EmpDateOfBirth",SynToCsConvert.DateToNullableDateTime(employee.emp_date_of_birth))
-                command.Parameters.AddWithValue("@EmpHireTime",SynToCsConvert.HHMMToTimeSpan(employee.emp_hire_time))
-                command.Parameters.AddWithValue("@EmpEmail",SynToCsConvert.AlphaToString(employee.emp_email))
-                command.Parameters.AddWithValue("@EmpAddressStreet",SynToCsConvert.AlphaToString(employee.emp_address_street))
-                command.Parameters.AddWithValue("@EmpAddressCity",SynToCsConvert.AlphaToString(employee.emp_address_city))
-                command.Parameters.AddWithValue("@EmpAddressState",SynToCsConvert.AlphaToString(employee.emp_address_state))
-                command.Parameters.AddWithValue("@EmpAddressZip",SynToCsConvert.SmallDecimalToInt(employee.emp_address_zip))
-
                 command.ExecuteNonQuery()
                 errorMessage = ""
             end
@@ -898,8 +968,24 @@ proc
                     exitloop
                 end
             end
+            finally
+            begin
+                if (!Settings.SqlCommandReuse)
+                begin
+                    command.Dispose()
+                    command = ^null
+                end
+            end
             endtry
         end
+    end
+
+    ;If we're binding once, dispose the SqlCommand
+
+    if (Settings.SqlCommandReuse && (command != ^null))
+    begin
+        command.Dispose()
+        command = ^null
     end
 
     ;Commit or rollback the transaction
@@ -917,6 +1003,25 @@ proc
             data rollbackError, string
             ok = %RollbackSqlClient(rollbackError)
         end
+    end
+
+    ;If necessary, re-enable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
     end
 
     ;If we're returning exceptions then resize the buffer to the correct size
@@ -1038,21 +1143,21 @@ proc
             &    }
 
             ;Bind the host variables for data to be updated
-            command.Parameters.AddWithValue("@EmpId",employee.emp_id)
-            command.Parameters.AddWithValue("@EmpFirstName",employee.emp_first_name)
-            command.Parameters.AddWithValue("@EmpLastName",employee.emp_last_name)
-            command.Parameters.AddWithValue("@EmpDept",employee.emp_dept)
-            command.Parameters.AddWithValue("@EmpHireDate",^a(employee.emp_hire_date))
-            command.Parameters.AddWithValue("@EmpPhoneWork",employee.emp_phone_work)
-            command.Parameters.AddWithValue("@EmpPhoneCell",employee.emp_phone_cell)
-            command.Parameters.AddWithValue("@EmpPaid",employee.emp_paid)
-            command.Parameters.AddWithValue("@EmpDateOfBirth",^a(employee.emp_date_of_birth))
-            command.Parameters.AddWithValue("@EmpHireTime",tmpEmpHireTime)
-            command.Parameters.AddWithValue("@EmpEmail",employee.emp_email)
-            command.Parameters.AddWithValue("@EmpAddressStreet",employee.emp_address_street)
-            command.Parameters.AddWithValue("@EmpAddressCity",employee.emp_address_city)
-            command.Parameters.AddWithValue("@EmpAddressState",employee.emp_address_state)
-            command.Parameters.AddWithValue("@EmpAddressZip",employee.emp_address_zip)
+            command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
+            command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
+            command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
+            command.Parameters.AddWithValue("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept))
+            command.Parameters.AddWithValue("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+            command.Parameters.AddWithValue("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work))
+            command.Parameters.AddWithValue("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell))
+            command.Parameters.AddWithValue("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid))
+            command.Parameters.AddWithValue("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+            command.Parameters.AddWithValue("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+            command.Parameters.AddWithValue("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email))
+            command.Parameters.AddWithValue("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street))
+            command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
+            command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
+            command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
 
             ;Bind the host variables for the key segments / WHERE clause
             command.Parameters.AddWithValue("@EmpId",employee.emp_id)
@@ -1556,7 +1661,6 @@ endfunction
 ;;; <summary>
 ;;; Bulk load data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a CSV file.
 ;;; </summary>
-;;; <param name="totalRecords">Total number of records in the file</param>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
 ;;; <param name="a_exceptions">Records failes</param>
@@ -1564,7 +1668,6 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee_BulkLoad, ^val
-    required in totalRecords,   n
     required in recordsToLoad,  n
     required out a_records,     n
     required out a_exceptions,  n
@@ -1600,10 +1703,6 @@ proc
 
     timer = new Timer()
     timer.Start()
-
-    now = %datetime
-    writelog("Starting bulk load with " + %string(totalRecords) + " records")
-    writett("Starting bulk load with " + %string(totalRecords) + " records")
 
     ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
@@ -1709,10 +1808,10 @@ proc
         ;And export the data
 
         now = %datetime
-        writelog("Exporting data to delimited file")
-        writett("Exporting data to delimited file")
+        writelog("Exporting data")
+        writett("Exporting data")
 
-        ok = %EmployeeCsv(localCsvFile,0,recordCount,errtxt)
+        ok = %Employee_Csv(localCsvFile,0,recordCount,errtxt)
 
         errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
     end
@@ -1724,8 +1823,8 @@ proc
         if (remoteBulkLoad) then
         begin
             now = %datetime
-            writelog("Uploading delimited file to database server")
-            writett("Uploading delimited file to database server")
+            writelog("Uploading data to database server")
+            writett("Uploading data to database server")
             ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
             errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
         end
@@ -2010,23 +2109,23 @@ proc
         end
     end
 
-    timer.Stop()
-
     ;Return the record and exceptions count
+    a_records = recordCount
+    a_exceptions = exceptionCount
 
+    timer.Stop()
     now = %datetime
+
     if (ok) then
     begin
-        a_records = recordCount
-        a_exceptions = exceptionCount
-        writelog("Bulk load COMPLETE after " + timer.ElapsedTimeString)
-        writett("Bulk load COMPLETE after " + timer.ElapsedTimeString)
+        writelog("Bulk load finished in " + timer.ElapsedTimeString)
+        writett("Bulk load finished in " + timer.ElapsedTimeString)
     end
     else
     begin
         aErrorMessage = errorMessage
-        writelog("Bulk load FAILED after " + timer.ElapsedTimeString)
-        writett("Bulk load FAILED after " + timer.ElapsedTimeString)
+        writelog("Bulk load failed after " + timer.ElapsedTimeString)
+        writett("Bulk load failed after " + timer.ElapsedTimeString)
     end
 
     freturn ok
@@ -2065,14 +2164,21 @@ function Employee_Csv, boolean
         ok,         boolean ;Return status
         filechn,    int     ;Data file channel
         outchn,     int     ;CSV file channel
-        outrec,     string  ;A CSV file record
+        outrec,     @StringBuilder  ;A CSV file record
         records,    int     ;Number of records exported
         errtxt,     a512    ;Error message text
+        now,        a20     ;The time now
+        timer,      @Timer  ;A timer
     endrecord
 
 proc
-    ok = true
     init local_data
+    ok = true
+    recordCount = 0
+    errorMessage = ""
+
+    timer = new Timer()
+    timer.Start()
 
     ;;Open the data file associated with the structure
 
@@ -2121,27 +2227,27 @@ proc
                 exitloop
             end
 
-            outrec = ""
-            & + (employee.emp_id ? %MakeDecimalForCsvNoNegatives(employee.emp_id) + "|" : "0|")
-            & + (employee.emp_first_name ? %atrim(employee.emp_first_name) + "|" : "|")
-            & + (employee.emp_last_name ? %atrim(employee.emp_last_name) + "|" : "|")
-            & + (employee.emp_dept ? %atrim(employee.emp_dept) + "|" : "|")
-            & + (employee.emp_hire_date ? %string(employee.emp_hire_date,"XXXX-XX-XX") + "|" : "|")
-            & + (employee.emp_phone_work ? %atrim(employee.emp_phone_work) + "|" : "|")
-            & + (employee.emp_phone_cell ? %atrim(employee.emp_phone_cell) + "|" : "|")
-            & + (employee.emp_paid ? %MakeDecimalForCsvNoNegatives(employee.emp_paid) + "|" : "0|")
-            & + (employee.emp_date_of_birth ? %string(employee.emp_date_of_birth,"XXXX-XX-XX") + "|" : "|")
-            & + (employee.emp_hire_time ? %MakeTimeForCsv(employee.emp_hire_time) + "|" : "|")
-            & + (employee.emp_email ? %atrim(employee.emp_email) + "|" : "|")
-            & + (employee.emp_address_street ? %atrim(employee.emp_address_street) + "|" : "|")
-            & + (employee.emp_address_city ? %atrim(employee.emp_address_city) + "|" : "|")
-            & + (employee.emp_address_state ? %atrim(employee.emp_address_state) + "|" : "|")
-            & + (employee.emp_address_zip ? %MakeDecimalForCsvNoNegatives(employee.emp_address_zip) : "")
+            outrec = new StringBuilder()
+            outrec.Append(employee.emp_id ? %MakeDecimalForCsvNoNegatives(employee.emp_id) + "|" : "0|")
+            outrec.Append(employee.emp_first_name ? %atrim(employee.emp_first_name) + "|" : "|")
+            outrec.Append(employee.emp_last_name ? %atrim(employee.emp_last_name) + "|" : "|")
+            outrec.Append(employee.emp_dept ? %atrim(employee.emp_dept) + "|" : "|")
+            outrec.Append(employee.emp_hire_date ? %string(employee.emp_hire_date,"XXXX-XX-XX") + "|" : "|")
+            outrec.Append(employee.emp_phone_work ? %atrim(employee.emp_phone_work) + "|" : "|")
+            outrec.Append(employee.emp_phone_cell ? %atrim(employee.emp_phone_cell) + "|" : "|")
+            outrec.Append(employee.emp_paid ? %MakeDecimalForCsvNoNegatives(employee.emp_paid) + "|" : "0|")
+            outrec.Append(employee.emp_date_of_birth ? %string(employee.emp_date_of_birth,"XXXX-XX-XX") + "|" : "|")
+            outrec.Append(employee.emp_hire_time ? %MakeTimeForCsv(employee.emp_hire_time) + "|" : "|")
+            outrec.Append(employee.emp_email ? %atrim(employee.emp_email) + "|" : "|")
+            outrec.Append(employee.emp_address_street ? %atrim(employee.emp_address_street) + "|" : "|")
+            outrec.Append(employee.emp_address_city ? %atrim(employee.emp_address_city) + "|" : "|")
+            outrec.Append(employee.emp_address_state ? %atrim(employee.emp_address_state) + "|" : "|")
+            outrec.Append(employee.emp_address_zip ? %MakeDecimalForCsvNoNegatives(employee.emp_address_zip) : "")
 
             .ifdef OS_WINDOWS7
-            writes(outchn,outrec)
+            writes(outchn,outrec.ToString())
             .else
-            puts(outchn,outrec + %char(13) + %char(10))
+            puts(outchn,outrec.ToString() + %char(13) + %char(10))
             .endc
         end
     end
@@ -2165,6 +2271,15 @@ eof,
 
     ;Return any error message to the calling routine
     errorMessage = %atrim(errtxt)
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok)
+    begin
+        writelog("Export took " + timer.ElapsedTimeString)
+        writett("Export took " + timer.ElapsedTimeString)
+    end
 
     freturn ok
 

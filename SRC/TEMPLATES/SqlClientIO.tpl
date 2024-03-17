@@ -76,6 +76,7 @@ import ReplicationLibrary
 import Synergex.SynergyDE.Select
 import System.Data.SqlClient
 import System.IO
+import System.Text
 
 .ifndef str<StructureName>
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
@@ -689,14 +690,14 @@ proc
             & }
 
 <IF STRUCTURE_RELATIVE>
-            command.Parameters.AddWithValue("@RecordNumber",recordNumber)
+            command.Parameters.AddWithValue("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber))
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF CUSTOM_DBL_TYPE>
             command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_SYN2CSCSCONVERTER>(<structure_name>.<field_original_name_modified>))
+            command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
     <ELSE USER AND USERTIMESTAMP>
             command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND NOT USERTIMESTAMP>
@@ -781,6 +782,7 @@ function <StructureName>_InsertRows, ^val
         ok,             boolean     ;Return status
         rows,           int         ;Number of rows to insert
         transaction,    boolean     ;Transaction in progress
+        command,        @SqlCommand ;Represtens the SQL command to execute
         length,         int         ;Length of a string
         ex_ms,          int         ;Size of exception array
         ex_mc,          int         ;Items in exception array
@@ -801,7 +803,20 @@ function <StructureName>_InsertRows, ^val
         & + '"<FieldSqlName>"<,>'
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
-        & + ") VALUES(<IF STRUCTURE_RELATIVE>@RecordNumber,</IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><IF USERTIMESTAMP>CONVERT(DATETIME2,@<FieldSqlName>,21)<,><ELSE>@<FieldSqlName><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
+        & + ") VALUES("
+<IF STRUCTURE_RELATIVE>
+        & + "@RecordNumber,"
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+        & + "CONVERT(DATETIME2,@<FieldSqlName>,21)<,>"
+    <ELSE>
+        & + "@<FieldSqlName><,>"
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+        & + ")"
     endliteral
 
 <IF STRUCTURE_ISAM>
@@ -844,30 +859,53 @@ proc
 
     rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
-;//    ;If enabled, disable auto-commit
-;//
-;//    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-;//    begin
-;//        try
-;//        begin
-;//            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { 
-;//            &    CommandTimeout = Settings.DatabaseTimeout
-;//            &    }
-;//            command.ExecuteNonQuery()
-;//        end
-;//        catch (ex, @SqlException)
-;//        begin
-;//            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
-;//            ok = false
-;//        end
-;//        endtry
-;//    end
-;//
+   ;If enabled, disable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
+    end
+
     ;Start a database transaction
 
     if (ok)
     begin
         ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    ; If we're binding once, create the SqlCommand object and define parameters
+
+    if (ok && Settings.SqlCommandReuse)
+    begin
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+<IF STRUCTURE_RELATIVE>
+        command.Parameters.Add(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+        command.Parameters.Add(new SqlParameter("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)))
+    <ELSE USER AND USERTIMESTAMP>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
     end
 
     ;Insert the rows into the database
@@ -878,7 +916,6 @@ proc
         for cnt from 1 thru rows
         begin
             ;Load data into bound record
-
 <IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
             <structure_name> = %<structure_name>_map(^m(inpbuf[cnt],a_data))
 <ELSE STRUCTURE_ISAM AND NOT STRUCTURE_MAPPED>
@@ -893,8 +930,7 @@ proc
 
 <IF DEFINED_CLEAN_DATA>
   <IF STRUCTURE_ALPHA_FIELDS>
-            ;Clean up any alpha variables
-
+            ;Clean up alpha variables
     <FIELD_LOOP>
       <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
             <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
@@ -903,8 +939,7 @@ proc
 
   </IF STRUCTURE_ALPHA_FIELDS>
   <IF STRUCTURE_DECIMAL_FIELDS>
-            ;Clean up any decimal variables
-
+            ;Clean up decimal variables
     <FIELD_LOOP>
       <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
@@ -914,8 +949,7 @@ proc
 
   </IF STRUCTURE_DECIMAL_FIELDS>
   <IF STRUCTURE_DATE_FIELDS>
-            ;Clean up any date variables
-
+            ;Clean up date variables
     <FIELD_LOOP>
       <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
@@ -929,8 +963,7 @@ proc
 
   </IF STRUCTURE_DATE_FIELDS>
   <IF STRUCTURE_TIME_FIELDS>
-            ;Clean up any time variables
-
+            ;Clean up time variables
     <FIELD_LOOP>
       <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
             if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
@@ -941,7 +974,6 @@ proc
   </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
             ;Assign any time or user-defined timestamp fields
-
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF USERTIMESTAMP>
@@ -957,30 +989,47 @@ proc
 </FIELD_LOOP>
 
             ;Assign values to temp fields for any fields with custom data types
-
 <FIELD_LOOP>
   <IF CUSTOM_DBL_TYPE>
             tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
   </IF CUSTOM_DBL_TYPE>
 </FIELD_LOOP>
 
-            try
+            if (Settings.SqlCommandReuse) then
             begin
-                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-                &    CommandTimeout = Settings.DatabaseTimeout
-                &    }
-
-                ;Bind the host variables for data to be inserted
-
+                ;Bind data for the current record to the existing command parameters
 <IF STRUCTURE_RELATIVE>
-                command.Parameters.AddWithValue("@RecordNumber",recordNumber)
+                command.Parameters["@RecordNumber"].Value = DblToNetConverter.NumberToInt(recordNumber)
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+                command.Parameters["@<FieldSqlName>"].Value = <FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND USERTIMESTAMP>
+                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+            end
+            else
+            begin
+                ;Create the SqlCommand, add parameters and bind the data for the current record
+                command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+<IF STRUCTURE_RELATIVE>
+                command.Parameters.AddWithValue(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF CUSTOM_DBL_TYPE>
                 command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-                command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_SYN2CSCSCONVERTER>(<structure_name>.<field_original_name_modified>))
+                command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
     <ELSE USER AND USERTIMESTAMP>
                 command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -990,7 +1039,12 @@ proc
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
+            end
 
+            ; Execute the SQL statement
+
+            try
+            begin
                 command.ExecuteNonQuery()
                 errorMessage = ""
             end
@@ -1030,8 +1084,24 @@ proc
                     exitloop
                 end
             end
+            finally
+            begin
+                if (!Settings.SqlCommandReuse)
+                begin
+                    command.Dispose()
+                    command = ^null
+                end
+            end
             endtry
         end
+    end
+
+    ;If we're binding once, dispose the SqlCommand
+
+    if (Settings.SqlCommandReuse && (command != ^null))
+    begin
+        command.Dispose()
+        command = ^null
     end
 
     ;Commit or rollback the transaction
@@ -1051,25 +1121,25 @@ proc
         end
     end
 
-;//    ;If necessary, re-enable auto-commit
-;//
-;//    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-;//    begin
-;//        try
-;//        begin
-;//            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
-;//            &    CommandTimeout = Settings.DatabaseTimeout
-;//            &    }
-;//            command.ExecuteNonQuery()
-;//        end
-;//        catch (ex, @SqlException)
-;//        begin
-;//            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
-;//            ok = false
-;//        end
-;//        endtry
-;//    end
-;//
+    ;If necessary, re-enable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
+    end
+
     ;If we're returning exceptions then resize the buffer to the correct size
 
     if (^passed(a_exception) && a_exception)
@@ -1254,16 +1324,8 @@ proc
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF CUSTOM_DBL_TYPE>
             command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
-    <ELSE ALPHA>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE DECIMAL>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE INTEGER>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-    <ELSE DATE>
-            command.Parameters.AddWithValue("@<FieldSqlName>",^a(<structure_name>.<field_original_name_modified>))
-    <ELSE TIME>
-            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+            command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
     <ELSE USER AND USERTIMESTAMP>
             command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -1852,7 +1914,6 @@ endfunction
 ;;; <summary>
 ;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
 ;;; </summary>
-;;; <param name="totalRecords">Total number of records in the file</param>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
 ;;; <param name="a_exceptions">Records failes</param>
@@ -1860,7 +1921,6 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_BulkLoad, ^val
-    required in totalRecords,   n
     required in recordsToLoad,  n
     required out a_records,     n
     required out a_exceptions,  n
@@ -1896,10 +1956,6 @@ proc
 
     timer = new Timer()
     timer.Start()
-
-    now = %datetime
-    writelog("Starting bulk load with " + %string(totalRecords) + " records")
-    writett("Starting bulk load with " + %string(totalRecords) + " records")
 
     ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
@@ -2005,10 +2061,10 @@ proc
         ;And export the data
 
         now = %datetime
-        writelog("Exporting data to delimited file")
-        writett("Exporting data to delimited file")
+        writelog("Exporting data")
+        writett("Exporting data")
 
-        ok = %<StructureName>Csv(localCsvFile,0,recordCount,errtxt)
+        ok = %<StructureName>_Csv(localCsvFile,0,recordCount,errtxt)
 
         errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
     end
@@ -2020,8 +2076,8 @@ proc
         if (remoteBulkLoad) then
         begin
             now = %datetime
-            writelog("Uploading delimited file to database server")
-            writett("Uploading delimited file to database server")
+            writelog("Uploading data to database server")
+            writett("Uploading data to database server")
             ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
             errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
         end
@@ -2306,23 +2362,23 @@ proc
         end
     end
 
-    timer.Stop()
-
     ;Return the record and exceptions count
+    a_records = recordCount
+    a_exceptions = exceptionCount
 
+    timer.Stop()
     now = %datetime
+
     if (ok) then
     begin
-        a_records = recordCount
-        a_exceptions = exceptionCount
-        writelog("Bulk load COMPLETE after " + timer.ElapsedTimeString)
-        writett("Bulk load COMPLETE after " + timer.ElapsedTimeString)
+        writelog("Bulk load finished in " + timer.ElapsedTimeString)
+        writett("Bulk load finished in " + timer.ElapsedTimeString)
     end
     else
     begin
         aErrorMessage = errorMessage
-        writelog("Bulk load FAILED after " + timer.ElapsedTimeString)
-        writett("Bulk load FAILED after " + timer.ElapsedTimeString)
+        writelog("Bulk load failed after " + timer.ElapsedTimeString)
+        writett("Bulk load failed after " + timer.ElapsedTimeString)
     end
 
     freturn ok
@@ -2368,14 +2424,21 @@ function <StructureName>_Csv, boolean
         ok,         boolean ;Return status
         filechn,    int     ;Data file channel
         outchn,     int     ;CSV file channel
-        outrec,     string  ;A CSV file record
+        outrec,     @StringBuilder  ;A CSV file record
         records,    int     ;Number of records exported
         errtxt,     a512    ;Error message text
+        now,        a20     ;The time now
+        timer,      @Timer  ;A timer
     endrecord
 
 proc
-    ok = true
     init local_data
+    ok = true
+    recordCount = 0
+    errorMessage = ""
+
+    timer = new Timer()
+    timer.Start()
 
     ;;Open the data file associated with the structure
 
@@ -2424,75 +2487,75 @@ proc
                 exitloop
             end
 
-            outrec = ""
+            outrec = new StringBuilder()
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF STRUCTURE_RELATIVE>
-            & + %string(records) + "|"
+            outrec.Append(%string(records) + "|")
     </IF>
     <IF CUSTOM_DBL_TYPE>
 ;//
 ;// CUSTOM FIELDS
 ;//
-            & + %<FIELD_CUSTOM_STRING_FUNCTION>(<structure_name>.<field_original_name_modified>,<structure_name>) + "<IF MORE>|</IF MORE>"
+            outrec.Append(%<FIELD_CUSTOM_STRING_FUNCTION>(<structure_name>.<field_original_name_modified>,<structure_name>) + "<IF MORE>|</IF MORE>")
 ;//
 ;// ALPHA
 ;//
     <ELSE ALPHA>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? %atrim(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? %atrim(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
       <ELSE>
-            & + %atrim(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(%atrim(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// DECIMAL
 ;//
     <ELSE DECIMAL>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>0|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>0|</IF>")
       <ELSE>
-            & + <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(<IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// DATE
 ;//
     <ELSE DATE>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? %string(<structure_name>.<field_original_name_modified>,"XXXX-XX-XX")<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? %string(<structure_name>.<field_original_name_modified>,"XXXX-XX-XX")<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
       <ELSE>
-            & + %MakeDateForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(%MakeDateForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// DATE_YYMMDD
 ;//
     <ELSE DATE_YYMMDD>
-            & + %atrim(^a(<structure_name>.<field_original_name_modified>)) + "<IF MORE>|</IF>"
+            outrec.Append(%atrim(^a(<structure_name>.<field_original_name_modified>)) + "<IF MORE>|</IF>")
 ;//
 ;// TIME_HHMM
 ;//
     <ELSE TIME_HHMM>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
       <ELSE>
-            & + %MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(%MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// TIME_HHMMSS
 ;//
     <ELSE TIME_HHMMSS>
       <IF DEFINED_DBLV11>
-            & + (<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
+            outrec.Append(<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
       <ELSE>
-            & + %MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(%MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;// USER-DEFINED
 ;//
     <ELSE USER>
       <IF USERTIMESTAMP>
-            & + %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX") + "<IF MORE>|</IF>"
+            outrec.Append(%string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX") + "<IF MORE>|</IF>")
       <ELSE>
-            & + <IF DEFINED_ASA_TIREMAX>%TmJulianToCsvDate<ELSE>%atrim</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>"
+            outrec.Append(<IF DEFINED_ASA_TIREMAX>%TmJulianToCsvDate<ELSE>%atrim</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
       </IF>
 ;//
 ;//
@@ -2502,9 +2565,9 @@ proc
 </FIELD_LOOP>
 
             .ifdef OS_WINDOWS7
-            writes(outchn,outrec)
+            writes(outchn,outrec.ToString())
             .else
-            puts(outchn,outrec + %char(13) + %char(10))
+            puts(outchn,outrec.ToString() + %char(13) + %char(10))
             .endc
         end
     end
@@ -2530,6 +2593,15 @@ eof,
 
     ;Return any error message to the calling routine
     errorMessage = %atrim(errtxt)
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok)
+    begin
+        writelog("Export took " + timer.ElapsedTimeString)
+        writett("Export took " + timer.ElapsedTimeString)
+    end
 
     freturn ok
 

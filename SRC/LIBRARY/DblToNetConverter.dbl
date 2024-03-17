@@ -1,8 +1,8 @@
 ;;*****************************************************************************
 ;;
-;; File:        SynToCsConvert.dbl
+;; File:        DblToNetConverter.dbl
 ;;
-;; Description: Converts Synergy data types to their C# equivalent
+;; Description: Converts DBL native types to their Synergy .NET equivalent
 ;;
 ;; Author:      Steve Ives, Synergex Professional Services Group
 ;;
@@ -39,7 +39,7 @@
 
 namespace ReplicationLibrary
 
-    public static class SynToCsConvert
+    public static class DblToNetConverter
 
         ;AlphaToString
         public static method AlphaToString, string

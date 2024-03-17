@@ -967,7 +967,23 @@ CreateTable,
     ;;
 LoadTable,
 
-    Logger.Log(" - Load starting at " + %TimeNow)
+    try
+    begin
+        doReturn = false
+        functionName = %atrim(instruction.structure_name) + "Recs"
+        status = %xsubr(functionName,recordCount,dberrtxt)
+    end
+    catch (ex, @SynException)
+    begin
+        ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+        doReturn = true
+    end
+    endtry
+
+    if (doReturn)
+        return
+
+    Logger.Log(" - Load starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
 
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
@@ -978,7 +994,7 @@ LoadTable,
 
     if (EmailSettings.CanSendEmail())
     begin
-        data subject, string, "SQL replicator " + Settings.InstanceName + " is starting to load table " + %atrim(instruction.structure_name)
+        data subject, string, "SQL replicator " + Settings.InstanceName + " is loading table " + %atrim(instruction.structure_name) + " with " + %string(recordCount) + " rows"
         xcall SendEmail(subject,^null,false)
     end
 
@@ -995,14 +1011,14 @@ LoadTable,
 
             if (status) then
             begin
-                Logger.Log(" - Load complete at " + %TimeNow)
-                Logger.Log(" - " + %string(successCount) + " rows inserted, " + %string(failCount) + " rows failed.")
+                Logger.Log(" - " + %string(successCount) + " rows inserted, " + %string(failCount) + " failed.")
+
                 Counters.Inserts += successCount
                 Counters.Errors  += failCount
 
                 if (EmailSettings.CanSendEmail())
                 begin
-                    data subject, string, "SQL replicator " + Settings.InstanceName + " has completed load of table " + %atrim(instruction.structure_name)
+                    data subject, string, "SQL replicator " + Settings.InstanceName + " has finished loading table " + %atrim(instruction.structure_name)
                     data body = new string[2]
                     body[1] = "Rows inserted: " + %string(successCount - failCount)
                     body[2] = "Rows failed:   " + %string(failCount)
@@ -1057,9 +1073,6 @@ LoadTable,
     ;;
 BulkLoadTable,
 
-
-    Logger.Log(" - Bulk load starting at " + %TimeNow)
-
     try
     begin
         doReturn = false
@@ -1076,6 +1089,8 @@ BulkLoadTable,
     if (doReturn)
         return
 
+    Logger.Log(" - Bulk load starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
+
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
         functionName = %atrim(instruction.structure_name) + "BulkLoad"
@@ -1085,11 +1100,8 @@ BulkLoadTable,
 
     if (EmailSettings.CanSendEmail())
     begin
-        data subject, string, "SQL replicator " + Settings.InstanceName + " is starting to bulk load table " + %atrim(instruction.structure_name)
-        data body, [#]string
-        body = new string[1]
-        body[1] = "The file contains " + %string(recordCount) + " records"
-        xcall SendEmail(subject,body,false)
+        data subject, string, "SQL replicator " + Settings.InstanceName + " is bulk loading table " + %atrim(instruction.structure_name) + " with " + %string(recordCount) + " rows"
+        xcall SendEmail(subject,^null,false)
     end
 
     repeat
@@ -1101,18 +1113,18 @@ BulkLoadTable,
             data totalRows, int, 0
             data failRows,  int, 0
 
-            status = %xsubr(functionName,recordCount,maxRowsToLoad,totalRows,failRows,dberrtxt)
+            status = %xsubr(functionName,maxRowsToLoad,totalRows,failRows,dberrtxt)
 
             if (status) then
             begin
-                Logger.Log(" - Bulk load complete at " + %TimeNow)
-                Logger.Log("   - " + %string(totalRows) + " records processed, " + %string(failRows) + " failed.")
+                Logger.Log("   - " + %string(totalRows) + " rows inserted, " + %string(failRows) + " failed.")
+
                 Counters.Inserts += totalRows - failRows
                 Counters.Errors  += failRows
 
                 if (EmailSettings.CanSendEmail())
                 begin
-                    data subject, string, "SQL replicator " + Settings.InstanceName + " has completed bulk load of table " + %atrim(instruction.structure_name)
+                    data subject, string, "SQL replicator " + Settings.InstanceName + " has finished bulk loading table " + %atrim(instruction.structure_name)
                     data body = new string[2]
                     body[1] = "Rows inserted: " + %string(totalRows - failRows)
                     body[2] = "Rows failed:   " + %string(failRows)

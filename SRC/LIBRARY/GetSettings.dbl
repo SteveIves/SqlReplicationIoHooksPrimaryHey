@@ -26,12 +26,16 @@ function GetSettings,   boolean
         envlen,         i4
         doc,            @JsonDocument
 .ifdef DBLNET
+        dbConnections,  JsonElement
+        dbConnection,   JsonElement
         instances,      JsonElement
         instance,       JsonElement
         setting,        JsonElement
         emailsetting,   JsonElement
         emailAddress,   JsonElement
 .else
+        dbConnections,  @JsonElement
+        dbConnection,   @JsonElement
         instances,      @JsonElement
         instance,       @JsonElement
         setting,        @JsonElement
@@ -59,7 +63,102 @@ proc
     end
     endtry
 
-    ;Get the root element
+    ;Validate the DatabaseConnections property
+
+    if (ok)
+    begin
+        if (!doc.RootElement.TryGetProperty("DatabaseConnections",dbConnections)) then
+        begin
+            errorMessage = "Configuration must have a DatabaseConnections property!"
+            ok = false
+        end
+        else if (dbConnections.ValueKind != JsonValueKind.Array) then
+        begin
+            errorMessage = "DatabaseConnections must be an array!"
+            ok = false
+        end
+        else if (dbConnections.GetArrayLength() == 0)
+        begin
+            errorMessage = "DatabaseConnections must contain at least one DatabaseConnection object!"
+            ok = false
+        end
+    end
+
+    if (ok)
+    begin
+        ;Iterate and load the database connections
+        data connectionCount = dbConnections.GetArrayLength()
+        data connectionNumber, int
+
+        Settings.DatabaseConnections = new DatabaseConnection[connectionCount]
+
+        for connectionNumber from 0 thru connectionCount - 1
+        begin
+            data dbc = new DatabaseConnection()
+
+            dbConnection = dbConnections[connectionNumber]
+
+            if (dbConnection.ValueKind != JsonValueKind.Object)
+            begin
+                errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] is not a DatabaseConnection object!"
+                ok = false
+            end
+
+            ;ConnectionName
+            if (ok)
+            begin
+                if (!dbConnection.TryGetProperty("ConnectionName",setting)) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no ConnectionName!"
+                    ok = false
+                end
+                else if (setting.ValueKind != JsonValueKind.String) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionName is not a string!"
+                    ok = false
+                end
+                else if (String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionName has no value!"
+                    ok = false
+                end
+                else
+                begin
+                    dbc.ConnectionName = setting.GetString()
+                end
+            end
+
+            ;ConnectString
+            if (ok)
+            begin
+                if (!dbConnection.TryGetProperty("ConnectString",setting)) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no ConnectString!"
+                    ok = false
+                end
+                else if (setting.ValueKind != JsonValueKind.String) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectString is not a string!"
+                    ok = false
+                end
+                else if (String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectString has no value!"
+                    ok = false
+                end
+                else
+                begin
+                    dbc.ConnectString = setting.GetString()
+                end
+            end
+
+            if (!ok)
+                exitloop
+
+            Settings.DatabaseConnections[connectionNumber+1] = dbc
+
+        end
+    end
 
     ;Validate the instances property
 
@@ -250,20 +349,36 @@ proc
         end
     end
 
-    ;DatabaseConnectString
+    ;DatabaseConnectionName
 
     if (ok)
     begin
-        if (instance.TryGetProperty("DatabaseConnectString",setting))
+        if (instance.TryGetProperty("DatabaseConnectionName",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
             begin
-                errorMessage = "DatabaseConnectString must have a non-blank string value!"
+                errorMessage = "DatabaseConnectionName must have a non-blank string value!"
                 ok = false
             end
             else
             begin
-                Settings.DatabaseConnectString = setting.GetString()
+                data dbc, @DatabaseConnection
+                Settings.DatabaseConnectionName = setting.GetString()
+                Settings.DatabaseConnectString = ^null
+
+                foreach dbc in Settings.DatabaseConnections
+                begin
+                    if (dbc.ConnectionName.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
+                    begin
+                        Settings.DatabaseConnectString = dbc.ConnectString
+                    end
+                end
+
+                if (String.IsNullOrWhitespace(Settings.DatabaseConnectString))
+                begin
+                    errorMessage = "DatabaseConnectionName does not match an entry in DatabaseConnections!"
+                    ok = false
+                end
             end
         end
     end
@@ -638,6 +753,24 @@ proc
         end
     end
 
+    ;SqlCommandReuse
+
+    if (ok)
+    begin
+        if (instance.TryGetProperty("SqlCommandReuse",setting))
+        begin
+            if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
+            begin
+                errorMessage = "SqlCommandReuse must be true or false!"
+                ok = false
+            end
+            else
+            begin
+                Settings.SqlCommandReuse = setting.GetBoolean()
+            end
+        end
+    end
+
     ;StopOnError
 
     if (ok)
@@ -909,6 +1042,12 @@ proc
                 EmailSettings.ErrorPauseMinutes = setting.GetInt32()
             end
         end
+    end
+
+    if (String.IsNullOrWhitespace(Settings.DatabaseConnectString))
+    begin
+        errorMessage = "No database connection string is defined!"
+        ok = false
     end
 
     freturn ok

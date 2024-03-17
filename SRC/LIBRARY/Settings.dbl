@@ -52,6 +52,7 @@ namespace ReplicationLibrary
             QueueReconnectDelay     = 30
             QueueType               = MessageQueueType.IsamFile
             SleepTime               = 2
+            SqlCommandReuse         = false
             StopOnError             = false
             SystemLogging           = false
             VerboseLogging          = false
@@ -135,9 +136,9 @@ namespace ReplicationLibrary
         public static readwrite property DatabaseConnectMode, DatabaseConnectionMode
 
         ;;; <summary>
-        ;;; Database connection string.
+        ;;; The name of the database connection to use
         ;;; </summary>
-        public static readwrite property DatabaseConnectString, string
+        public static readwrite property DatabaseConnectionName, string
 
         ;;; <summary>
         ;;; How many seconds should replicator wait between database re-connect attempts?
@@ -235,6 +236,11 @@ namespace ReplicationLibrary
         public static readwrite property SleepTime, int
 
         ;;; <summary>
+        ;;; Where possible, should we re-use SqlCommand objects?  (SqlClient mode only)
+        ;;; </summary>
+        public static readwrite property SqlCommandReuse, boolean
+
+        ;;; <summary>
         ;;; Should we stop processing and close if we encounter an error?
         ;;; </summary>
         public static readwrite property StopOnError, boolean
@@ -268,6 +274,16 @@ namespace ReplicationLibrary
         ;;; Is the database currently connected?
         ;;; </summary>  
         public static readwrite property DatabaseConnected, boolean
+
+        ;;; <summary>
+        ;;; The database connections defined in the configuration file
+        ;;; </summary>
+        public static readwrite property DatabaseConnections, [#]@DatabaseConnection
+
+        ;;; <summary>
+        ;;; Database connect string
+        ;;; </summary>
+        public static readwrite property DatabaseConnectString, string
 
 .ifdef DBLNET
         ;;; <summary>
@@ -412,6 +428,23 @@ namespace ReplicationLibrary
         endmethod
 
 .endregion
+
+    endclass
+
+    ;;; <summary>
+    ;;; Represents a database connection in the DatabaseConnections collection
+    ;;; </summary>
+    public class DatabaseConnection
+
+        ;;; <summary>
+        ;;; The name of the database connection
+        ;;; </summary>
+        public readwrite property ConnectionName, string
+
+        ;;; <summary>
+        ;;; The database connect string to use
+        ;;; </summary>
+        public readwrite property ConnectString, string
 
     endclass
 

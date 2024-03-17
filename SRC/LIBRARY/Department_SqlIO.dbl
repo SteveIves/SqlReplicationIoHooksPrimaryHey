@@ -18,6 +18,7 @@ import ReplicationLibrary
 import Synergex.SynergyDE.Select
 import System.Data.SqlClient
 import System.IO
+import System.Text
 
 .ifndef strDepartment
 .include "DEPARTMENT" repository, structure="strDepartment", end
@@ -422,9 +423,9 @@ proc
             &   CommandTimeout = Settings.DatabaseTimeout
             & }
 
-            command.Parameters.AddWithValue("@DeptId",SynToCsConvert.AlphaToString(department.dept_id))
-            command.Parameters.AddWithValue("@DeptName",SynToCsConvert.AlphaToString(department.dept_name))
-            command.Parameters.AddWithValue("@DeptManager",SynToCsConvert.SmallDecimalToInt(department.dept_manager))
+            command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
+            command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
+            command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
 
             command.ExecuteNonQuery()
         end
@@ -492,6 +493,7 @@ function Department_InsertRows, ^val
         ok,             boolean     ;Return status
         rows,           int         ;Number of rows to insert
         transaction,    boolean     ;Transaction in progress
+        command,        @SqlCommand ;Represtens the SQL command to execute
         length,         int         ;Length of a string
         ex_ms,          int         ;Size of exception array
         ex_mc,          int         ;Items in exception array
@@ -504,7 +506,11 @@ function Department_InsertRows, ^val
         & + '"DeptId",'
         & + '"DeptName",'
         & + '"DeptManager"'
-        & + ") VALUES(@DeptId,@DeptName,@DeptManager)"
+        & + ") VALUES("
+        & + "@DeptId,"
+        & + "@DeptName,"
+        & + "@DeptManager"
+        & + ")"
     endliteral
 
     .include "DEPARTMENT" repository, structure="inpbuf", nofields, end
@@ -525,11 +531,38 @@ proc
 
     rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
+   ;If enabled, disable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
+    end
+
     ;Start a database transaction
 
     if (ok)
     begin
         ok = %StartTransactionSqlClient(transaction,errorMessage)
+    end
+
+    ; If we're binding once, create the SqlCommand object and define parameters
+
+    if (ok && Settings.SqlCommandReuse)
+    begin
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.Add(new SqlParameter("@DeptId",DblToNetConverter.AlphaToString(department.dept_id)))
+        command.Parameters.Add(new SqlParameter("@DeptName",DblToNetConverter.AlphaToString(department.dept_name)))
+        command.Parameters.Add(new SqlParameter("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager)))
     end
 
     ;Insert the rows into the database
@@ -540,36 +573,39 @@ proc
         for cnt from 1 thru rows
         begin
             ;Load data into bound record
-
             department = ^m(inpbuf[cnt],a_data)
 
-            ;Clean up any alpha variables
-
+            ;Clean up alpha variables
             department.dept_name = %atrim(department.dept_name)+%char(0)
 
-            ;Clean up any decimal variables
-
+            ;Clean up decimal variables
             if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
                 clear department.dept_manager
 
             ;Assign any time or user-defined timestamp fields
 
-
             ;Assign values to temp fields for any fields with custom data types
 
+            if (Settings.SqlCommandReuse) then
+            begin
+                ;Bind data for the current record to the existing command parameters
+                command.Parameters["@DeptId"].Value = DblToNetConverter.AlphaToString(department.dept_id)
+                command.Parameters["@DeptName"].Value = DblToNetConverter.AlphaToString(department.dept_name)
+                command.Parameters["@DeptManager"].Value = DblToNetConverter.SmallDecimalToInt(department.dept_manager)
+            end
+            else
+            begin
+                ;Create the SqlCommand, add parameters and bind the data for the current record
+                command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+                command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
+                command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
+                command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
+            end
+
+            ; Execute the SQL statement
 
             try
             begin
-                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-                &    CommandTimeout = Settings.DatabaseTimeout
-                &    }
-
-                ;Bind the host variables for data to be inserted
-
-                command.Parameters.AddWithValue("@DeptId",SynToCsConvert.AlphaToString(department.dept_id))
-                command.Parameters.AddWithValue("@DeptName",SynToCsConvert.AlphaToString(department.dept_name))
-                command.Parameters.AddWithValue("@DeptManager",SynToCsConvert.SmallDecimalToInt(department.dept_manager))
-
                 command.ExecuteNonQuery()
                 errorMessage = ""
             end
@@ -609,8 +645,24 @@ proc
                     exitloop
                 end
             end
+            finally
+            begin
+                if (!Settings.SqlCommandReuse)
+                begin
+                    command.Dispose()
+                    command = ^null
+                end
+            end
             endtry
         end
+    end
+
+    ;If we're binding once, dispose the SqlCommand
+
+    if (Settings.SqlCommandReuse && (command != ^null))
+    begin
+        command.Dispose()
+        command = ^null
     end
 
     ;Commit or rollback the transaction
@@ -628,6 +680,25 @@ proc
             data rollbackError, string
             ok = %RollbackSqlClient(rollbackError)
         end
+    end
+
+    ;If necessary, re-enable auto-commit
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
+            &    CommandTimeout = Settings.DatabaseTimeout
+            &    }
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
     end
 
     ;If we're returning exceptions then resize the buffer to the correct size
@@ -713,9 +784,9 @@ proc
             &    }
 
             ;Bind the host variables for data to be updated
-            command.Parameters.AddWithValue("@DeptId",department.dept_id)
-            command.Parameters.AddWithValue("@DeptName",department.dept_name)
-            command.Parameters.AddWithValue("@DeptManager",department.dept_manager)
+            command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
+            command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
+            command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
 
             ;Bind the host variables for the key segments / WHERE clause
             command.Parameters.AddWithValue("@DeptId",department.dept_id)
@@ -1219,7 +1290,6 @@ endfunction
 ;;; <summary>
 ;;; Bulk load data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a CSV file.
 ;;; </summary>
-;;; <param name="totalRecords">Total number of records in the file</param>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
 ;;; <param name="a_exceptions">Records failes</param>
@@ -1227,7 +1297,6 @@ endfunction
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Department_BulkLoad, ^val
-    required in totalRecords,   n
     required in recordsToLoad,  n
     required out a_records,     n
     required out a_exceptions,  n
@@ -1263,10 +1332,6 @@ proc
 
     timer = new Timer()
     timer.Start()
-
-    now = %datetime
-    writelog("Starting bulk load with " + %string(totalRecords) + " records")
-    writett("Starting bulk load with " + %string(totalRecords) + " records")
 
     ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
 
@@ -1372,10 +1437,10 @@ proc
         ;And export the data
 
         now = %datetime
-        writelog("Exporting data to delimited file")
-        writett("Exporting data to delimited file")
+        writelog("Exporting data")
+        writett("Exporting data")
 
-        ok = %DepartmentCsv(localCsvFile,0,recordCount,errtxt)
+        ok = %Department_Csv(localCsvFile,0,recordCount,errtxt)
 
         errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
     end
@@ -1387,8 +1452,8 @@ proc
         if (remoteBulkLoad) then
         begin
             now = %datetime
-            writelog("Uploading delimited file to database server")
-            writett("Uploading delimited file to database server")
+            writelog("Uploading data to database server")
+            writett("Uploading data to database server")
             ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
             errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
         end
@@ -1673,23 +1738,23 @@ proc
         end
     end
 
-    timer.Stop()
-
     ;Return the record and exceptions count
+    a_records = recordCount
+    a_exceptions = exceptionCount
 
+    timer.Stop()
     now = %datetime
+
     if (ok) then
     begin
-        a_records = recordCount
-        a_exceptions = exceptionCount
-        writelog("Bulk load COMPLETE after " + timer.ElapsedTimeString)
-        writett("Bulk load COMPLETE after " + timer.ElapsedTimeString)
+        writelog("Bulk load finished in " + timer.ElapsedTimeString)
+        writett("Bulk load finished in " + timer.ElapsedTimeString)
     end
     else
     begin
         aErrorMessage = errorMessage
-        writelog("Bulk load FAILED after " + timer.ElapsedTimeString)
-        writett("Bulk load FAILED after " + timer.ElapsedTimeString)
+        writelog("Bulk load failed after " + timer.ElapsedTimeString)
+        writett("Bulk load failed after " + timer.ElapsedTimeString)
     end
 
     freturn ok
@@ -1728,14 +1793,21 @@ function Department_Csv, boolean
         ok,         boolean ;Return status
         filechn,    int     ;Data file channel
         outchn,     int     ;CSV file channel
-        outrec,     string  ;A CSV file record
+        outrec,     @StringBuilder  ;A CSV file record
         records,    int     ;Number of records exported
         errtxt,     a512    ;Error message text
+        now,        a20     ;The time now
+        timer,      @Timer  ;A timer
     endrecord
 
 proc
-    ok = true
     init local_data
+    ok = true
+    recordCount = 0
+    errorMessage = ""
+
+    timer = new Timer()
+    timer.Start()
 
     ;;Open the data file associated with the structure
 
@@ -1784,15 +1856,15 @@ proc
                 exitloop
             end
 
-            outrec = ""
-            & + (department.dept_id ? %atrim(department.dept_id) + "|" : "|")
-            & + (department.dept_name ? %atrim(department.dept_name) + "|" : "|")
-            & + (department.dept_manager ? %MakeDecimalForCsvNoNegatives(department.dept_manager) : "")
+            outrec = new StringBuilder()
+            outrec.Append(department.dept_id ? %atrim(department.dept_id) + "|" : "|")
+            outrec.Append(department.dept_name ? %atrim(department.dept_name) + "|" : "|")
+            outrec.Append(department.dept_manager ? %MakeDecimalForCsvNoNegatives(department.dept_manager) : "")
 
             .ifdef OS_WINDOWS7
-            writes(outchn,outrec)
+            writes(outchn,outrec.ToString())
             .else
-            puts(outchn,outrec + %char(13) + %char(10))
+            puts(outchn,outrec.ToString() + %char(13) + %char(10))
             .endc
         end
     end
@@ -1816,6 +1888,15 @@ eof,
 
     ;Return any error message to the calling routine
     errorMessage = %atrim(errtxt)
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok)
+    begin
+        writelog("Export took " + timer.ElapsedTimeString)
+        writett("Export took " + timer.ElapsedTimeString)
+    end
 
     freturn ok
 

@@ -1,4 +1,22 @@
 {
+  "DatabaseConnections": [
+    {
+      "ConnectionName": "SqlConnection_LOCAL",
+      "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
+    },
+    {
+      "ConnectionName": "SqlConnection_PSGSRV",
+      "ConnectString": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:psgsrv!VTX12_SQLNATIVE"
+    },
+    {
+      "ConnectionName": "SqlClient_LOCAL",
+      "ConnectString": "Data Source=localhost;Initial Catalog=SqlReplication;Integrated Security=True;"
+    },
+    {
+      "ConnectionName": "SqlClient_PSGSRV",
+      "ConnectString": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;"
+    }
+  ],
   "Instances": [
     {
       "Enabled": true,
@@ -8,11 +26,7 @@
       "CommitBatchSize": 1000,
       "DatabaseCommitMode": "Manual",
       "DatabaseConnectMode": "SQLCLIENT",
-      "DatabaseConnectString": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
-      "DatabaseConnectString_SqlConnection_LOCALHOST": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes",
-      "DatabaseConnectString_SqlConnection_PSGSRV": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:psgsrv!VTX12_SQLNATIVE",
-      "DatabaseConnectString_SqlClient_LOCALHOST": "Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;",
-      "DatabaseConnectString_SqlClient_PSGSRV": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;",
+      "DatabaseConnectionName": "SqlClient_LOCAL",
       "DatabaseRetryDelay": 30,
       "DatabaseRetryMax": 10,
       "DatabaseTimeout": 60,
@@ -31,6 +45,7 @@
       "QueueReconnectDelay": 30,
       "QueueType": "IsamFile",
       "SleepTime": 2,
+      "SqlCommandReuse": false,
       "StopOnError": false,
       "SystemLogging": false,
       "VerboseLogging": true
