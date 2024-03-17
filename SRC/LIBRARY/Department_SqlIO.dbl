@@ -47,9 +47,8 @@ proc
 
     try
     begin
-        disposable data command = new SqlCommand("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Department'",Settings.DatabaseConnection) { 
-        &   CommandTimeout = Settings.DatabaseTimeout
-        & }
+        data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Department'"
+        disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         disposable data reader = command.ExecuteReader()
         if (reader.Read()) then
         begin
@@ -130,9 +129,7 @@ proc
 
     try
     begin
-        disposable data command = new SqlCommand(createTableCommand,Settings.DatabaseConnection) { 
-        &   CommandTimeout = Settings.DatabaseTimeout
-        & }
+        disposable data command = new SqlCommand(createTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         command.ExecuteNonQuery()
     end
     catch (ex, @SqlException)
@@ -148,9 +145,8 @@ proc
     begin
         try
         begin
-            disposable data command = new SqlCommand('GRANT ALL ON "Department" TO PUBLIC',Settings.DatabaseConnection) { 
-            &   CommandTimeout = Settings.DatabaseTimeout
-            & }
+            data sql = 'GRANT ALL ON "Department" TO PUBLIC'
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -228,9 +224,7 @@ proc
 
         try
         begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-            &   CommandTimeout = Settings.BulkLoadTimeout
-            & }
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -310,9 +304,8 @@ proc
     begin
         try
         begin
-            disposable data command = new SqlCommand('DROP INDEX IF EXISTS IX_Department_DeptManager ON "Department"',Settings.DatabaseConnection) { 
-            &   CommandTimeout = Settings.DatabaseTimeout
-            & }
+            data sql = 'DROP INDEX IF EXISTS IX_Department_DeptManager ON "Department"'
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -416,9 +409,7 @@ proc
     begin
         try
         begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-            &   CommandTimeout = Settings.DatabaseTimeout
-            & }
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
 
             command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
             command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
@@ -533,7 +524,8 @@ proc
     begin
         try
         begin
-            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS ON",Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            data sql = "SET IMPLICIT_TRANSACTIONS ON"
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -684,7 +676,8 @@ proc
     begin
         try
         begin
-            disposable data command = new SqlCommand("SET IMPLICIT_TRANSACTIONS OFF",Settings.DatabaseConnection) { 
+            data sql = "SET IMPLICIT_TRANSACTIONS OFF"
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
             &    CommandTimeout = Settings.DatabaseTimeout
             &    }
             command.ExecuteNonQuery()
@@ -776,9 +769,7 @@ proc
     begin
         try
         begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.DatabaseTimeout
-            &    }
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
 
             ;Bind the host variables for data to be updated
             command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
@@ -874,9 +865,7 @@ proc
 
         try
         begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.DatabaseTimeout
-            &    }
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -944,9 +933,8 @@ proc
     begin
         try
         begin
-            disposable data command = new SqlCommand('TRUNCATE TABLE "Department"',Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.DatabaseTimeout
-            &    }
+            data sql = 'TRUNCATE TABLE "Department"'
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -1010,9 +998,8 @@ proc
     ;Drop the database table and primary key constraint
     try
     begin
-        disposable data command = new SqlCommand("DROP TABLE Department",Settings.DatabaseConnection) { 
-        &   CommandTimeout = Settings.DatabaseTimeout
-        & }
+        data sql = "DROP TABLE Department"
+        disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         command.ExecuteNonQuery()
     end
     catch (ex, @SqlException)
@@ -1485,9 +1472,7 @@ proc
 
         try
         begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.BulkLoadTimeout
-            &    }
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)

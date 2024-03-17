@@ -15,29 +15,35 @@ import ReplicationLibrary
 
 subroutine DatabaseDisconnect
 proc
-    try
+    if (Settings.DatabaseConnected)
     begin
-        using Settings.DatabaseConnectMode select
-        (DatabaseConnectionMode.SqlConnection),
+        Logger.VerboseLog("Closing database connection")
+        try
         begin
-            data dbstatus, int
-            Logger.Log(" - Attempting to close database channel")
-            dbstatus = %ssc_release(Settings.DatabaseChannel)
-        end
+            using Settings.DatabaseConnectMode select
+            (DatabaseConnectionMode.SqlConnection),
+            begin
+                data dbstatus, int
+                dbstatus = %ssc_release(Settings.DatabaseChannel)
+            end
 .ifdef DBLNET
-        (DatabaseConnectionMode.SqlClient),
-        begin
-            Settings.DatabaseConnection.Close()
-        end
+            (DatabaseConnectionMode.SqlClient),
+            begin
+                Settings.DatabaseConnection.Close()
+            end
 .endc
-        endusing
-        Settings.DatabaseConnected = false
+            endusing
+        end
+        catch (e, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            Settings.DatabaseConnected = false
+        end
+        endtry
     end
-    catch (e, @Exception)
-    begin
-        nop
-    end
-    endtry
 
     xreturn
 

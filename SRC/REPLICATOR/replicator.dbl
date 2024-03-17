@@ -89,7 +89,7 @@ proc
     ;Check that we have the basic environment that we need
     begin
         data errorMessage, string
-        if (ok = %ValidateBasicEnvironment(errorMessage))
+        if (!(ok = %ValidateBasicEnvironment(errorMessage)))
         begin
             Console.WriteLine("Basic environment not established. " + errorMessage)
         end

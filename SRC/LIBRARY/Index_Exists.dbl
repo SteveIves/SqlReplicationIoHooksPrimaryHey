@@ -65,10 +65,8 @@ proc
 
     try
     begin
-        disposable data command = new SqlCommand("SELECT name FROM SysIndexes WHERE name='" + aIndexName + "'",Settings.DatabaseConnection) { 
-        &    CommandTimeout = Settings.DatabaseTimeout
-        &    }
-
+        data sql = "SELECT name FROM SysIndexes WHERE name='" + aIndexName + "'"
+        disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         disposable data reader = command.ExecuteReader()
 
         if (reader.Read()) then

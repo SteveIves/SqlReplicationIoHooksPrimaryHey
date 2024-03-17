@@ -1,29 +1,10 @@
 {
-  "DatabaseConnections": [
+  "DefaultInstance": "DEFAULT",
+  "Instances": [
     {
-      "ConnectionName": "DEFAULT",
-      "ConnectionMode": "SQLCONNECTION",
-      "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
-    },
-    {
-      "ConnectionName": "SqlConnection_LOCAL",
-      "ConnectionMode": "SQLCONNECTION",
-      "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
-    },
-    {
-      "ConnectionName": "SqlConnection_PSGSRV",
-      "ConnectionMode": "SQLCONNECTION",
-      "ConnectString": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:psgsrv!VTX12_SQLNATIVE"
-    },
-    {
-      "ConnectionName": "SqlClient_LOCAL",
-      "ConnectionMode": "SQLCLIENT",
-      "ConnectString": "Data Source=localhost;Initial Catalog=SqlReplication;Integrated Security=True;"
-    },
-    {
-      "ConnectionName": "SqlClient_PSGSRV",
-      "ConnectionMode": "SQLCLIENT",
-      "ConnectString": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;"
+      "InstanceName": "DEFAULT",
+      "Enabled": true,
+      "DatabaseConnectionName": "SqlClient_LOCAL"
     }
   ],
   "InstanceDefaults": {
@@ -55,24 +36,31 @@
     "SystemLogging": false,
     "VerboseLogging": true
   },
-  "Instances": [
+  "DatabaseConnections": [
     {
-      "Enabled": true,
-      "InstanceName": "DEFAULT",
-      "DatabaseConnectionName": "SqlClient_LOCAL"
-    }
-  ],
-  "DefaultInstance": "DEFAULT",
-  "TableMaps": [
-    {
-      "FileName": "DEPARTMENT",
-      "Instance": "DEFAULT",
-      "Enabled": true
+      "ConnectionName": "DEFAULT",
+      "ConnectionMode": "SQLCONNECTION",
+      "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
     },
     {
-      "FileName": "EMPLOYEE",
-      "Instance": "DEFAULT",
-      "Enabled": true
+      "ConnectionName": "SqlConnection_LOCAL",
+      "ConnectionMode": "SQLCONNECTION",
+      "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
+    },
+    {
+      "ConnectionName": "SqlConnection_PSGSRV",
+      "ConnectionMode": "SQLCONNECTION",
+      "ConnectString": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:psgsrv!VTX12_SQLNATIVE"
+    },
+    {
+      "ConnectionName": "SqlClient_LOCAL",
+      "ConnectionMode": "SQLCLIENT",
+      "ConnectString": "Data Source=localhost;Initial Catalog=SqlReplication;Integrated Security=True;"
+    },
+    {
+      "ConnectionName": "SqlClient_PSGSRV",
+      "ConnectionMode": "SQLCLIENT",
+      "ConnectString": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;"
     }
   ],
   "EmailSettings": {
@@ -89,5 +77,17 @@
     ],
     "ErrorsBeforePause": 3,
     "ErrorPauseMinutes": 10
-  }
+  },
+  "TableMaps": [
+    {
+      "FileName": "DEPARTMENT",
+      "Instance": "DEFAULT",
+      "Enabled": true
+    },
+    {
+      "FileName": "EMPLOYEE",
+      "Instance": "DEFAULT",
+      "Enabled": true
+    }
+  ]
 }

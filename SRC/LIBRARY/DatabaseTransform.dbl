@@ -80,9 +80,7 @@ proc
 
         try
         begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.DatabaseTimeout
-            &    }
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
 
             command.Parameters.AddWithValue("@TableName",tableName)
             command.Parameters.AddWithValue("@ColumnName",columnName)
@@ -149,9 +147,7 @@ proc
             sql = String.Format("ALTER TABLE {0} ALTER COLUMN {1} VARCHAR({2}) {3}",tableName,columnName,newSize,allowNullConstraint)
             try
             begin
-                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-                &    CommandTimeout = Settings.DatabaseTimeout
-                &    }
+                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
                 command.ExecuteNonQuery()
             end
             catch (ex, @SqlException)

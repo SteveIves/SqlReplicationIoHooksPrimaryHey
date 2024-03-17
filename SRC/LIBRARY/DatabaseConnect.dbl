@@ -29,15 +29,13 @@ function DatabaseConnect, boolean
 proc
     ok = true
 
-    Logger.VerboseLog("Connecting to database...")
-
     using Settings.DatabaseConnectMode select
     ;----------------------------------------------------------------------------------------------------------------
     (DatabaseConnectionMode.SqlConnection),
     begin
         if (%ssc_connect(Settings.DatabaseChannel,Settings.DatabaseConnectString)==SSQL_NORMAL) then
         begin
-            Logger.VerboseLog("Connected")
+            Logger.VerboseLog("Connected to database")
             Logger.VerboseLog("")
             Settings.DatabaseConnected = true
 
@@ -124,7 +122,7 @@ proc
         begin
             Settings.DatabaseConnection.Open()
 
-            Logger.VerboseLog("Connected")
+            Logger.VerboseLog("Connected to database")
             Logger.VerboseLog("")
             Settings.DatabaseConnected = true
 
@@ -172,9 +170,7 @@ proc
 
             try
             begin
-                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-                &    CommandTimeout = Settings.DatabaseTimeout
-                &    }
+                disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
                 command.ExecuteNonQuery()
             end
             catch (ex, @SqlException)
