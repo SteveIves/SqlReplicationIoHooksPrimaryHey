@@ -408,12 +408,12 @@ namespace ReplicationLibrary
         ;;; <summary>
         ;;; The name of the database connection
         ;;; </summary>
-        public readwrite property ConnectionName, string
+        public readwrite property Name, string
 
         ;;; <summary>
         ;;; The database connection mode
         ;;; </summary>
-        public readwrite property ConnectionMode, DatabaseConnectionMode
+        public readwrite property Mode, DatabaseConnectionMode
 
         ;;; <summary>
         ;;; The database connect string to use

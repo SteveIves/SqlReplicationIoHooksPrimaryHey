@@ -645,7 +645,7 @@ proc
     ;;
 CommitTransaction,
 
-    Logger.VerboseLog(" - Committing transaction with " + %string(Counters.BatchCounter) + " change(s)")
+    Logger.VerboseLog(" - Committing transaction batch with " + %string(Counters.BatchCounter) + " change(s)")
 
     using Settings.DatabaseConnectMode select
 
@@ -686,7 +686,6 @@ CommitTransaction,
 
             uncommittedInstructions.Clear()
 
-            Logger.VerboseLog(" - Start transaction")
             Counters.BatchCommits += 1
             Counters.BatchCounter = 0
         end
@@ -738,8 +737,6 @@ CommitTransaction,
         ;Start a new transaction
 
         Settings.BatchTransaction = Settings.DatabaseConnection.BeginTransaction()
-
-        Logger.VerboseLog(" - Start transaction")
 
         Counters.BatchCommits += 1
         Counters.BatchCounter = 0

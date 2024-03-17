@@ -108,58 +108,58 @@ proc
                 ok = false
             end
 
-            ;ConnectionName
+            ;Name
             if (ok)
             begin
-                if (!dbConnection.TryGetProperty("ConnectionName",setting)) then
+                if (!dbConnection.TryGetProperty("Name",setting)) then
                 begin
-                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no ConnectionName!"
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no Name!"
                     ok = false
                 end
                 else if (setting.ValueKind != JsonValueKind.String) then
                 begin
-                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionName is not a string!"
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].Name is not a string!"
                     ok = false
                 end
                 else if (String.IsNullOrWhitespace(setting.GetString())) then
                 begin
-                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionName has no value!"
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].Name has no value!"
                     ok = false
                 end
                 else
                 begin
-                    dbc.ConnectionName = setting.GetString()
+                    dbc.Name = setting.GetString()
                 end
             end
 
-            ;ConnectionMode
+            ;Mode
             if (ok)
             begin
-                if (!dbConnection.TryGetProperty("ConnectionMode",setting)) then
+                if (!dbConnection.TryGetProperty("Mode",setting)) then
                 begin
-                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no ConnectionMode!"
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no Mode!"
                     ok = false
                 end
                 else if (setting.ValueKind != JsonValueKind.String) then
                 begin
-                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionMode is not a string!"
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].Mode is not a string!"
                     ok = false
                 end
                 else if (String.IsNullOrWhitespace(setting.GetString())) then
                 begin
-                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionMode has no value!"
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].Mode has no value!"
                     ok = false
                 end
                 else
                 begin
                     using setting.GetString().ToUpper() select
                     ("SQLCONNECTION"),
-                        dbc.ConnectionMode = DatabaseConnectionMode.SqlConnection
+                        dbc.Mode = DatabaseConnectionMode.SqlConnection
                     ("SQLCLIENT"),
-                        dbc.ConnectionMode = DatabaseConnectionMode.SqlClient
+                        dbc.Mode = DatabaseConnectionMode.SqlClient
                     (),
                     begin
-                        errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionMode has an invalid value!"
+                        errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].Mode has an invalid value!"
                         ok = false
                     end
                     endusing
@@ -306,10 +306,10 @@ proc
             data dbc, @DatabaseConnection
             foreach dbc in Settings.DatabaseConnections
             begin
-                if (dbc.ConnectionName.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
+                if (dbc.Name.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
                 begin
                     Settings.DatabaseConnectString = dbc.ConnectString
-                    Settings.DatabaseConnectMode = dbc.ConnectionMode
+                    Settings.DatabaseConnectMode = dbc.Mode
                 end
             end
         end
@@ -445,10 +445,10 @@ proc
 
                 foreach dbc in Settings.DatabaseConnections
                 begin
-                    if (dbc.ConnectionName.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
+                    if (dbc.Name.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
                     begin
                         Settings.DatabaseConnectString = dbc.ConnectString
-                        Settings.DatabaseConnectMode = dbc.ConnectionMode
+                        Settings.DatabaseConnectMode = dbc.Mode
                     end
                 end
 

@@ -132,7 +132,7 @@ namespace ReplicationLibrary
 
                         foreach dbc in Settings.DatabaseConnections
                         begin
-                            if (dbc.ConnectionName.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
+                            if (dbc.Name.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
                             begin
                                 Settings.DatabaseConnectString = dbc.ConnectString
                             end

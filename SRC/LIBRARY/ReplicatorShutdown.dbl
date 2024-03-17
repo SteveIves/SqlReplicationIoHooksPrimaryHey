@@ -27,6 +27,7 @@ import ReplicationLibrary
 .ifdef DBLNET
 import System.Data.SqlClient
 .endc
+import System.Text
 
 subroutine ReplicatorShutdown
 
@@ -78,15 +79,19 @@ proc
 
     ;;Report the counters
 
-    message = "--------------------------------------------------" + %char(13) + %char(10)
-    message += "Shutdown of replicator " + Settings.InstanceName + %char(13) + %char(10)
-    message += "INSERTS: " + %string(Counters.Inserts,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
-    message += "UPDATES: " + %string(Counters.Updates,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
-    message += "DELETES: " + %string(Counters.Deletes,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
-        message += "COMMITS: " + %string(Counters.BatchCommits,"ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
-    message += "ERRORS:  " + %string(Counters.Errors, "ZZZ,ZZZ,ZZZ,ZZX") + %char(13) + %char(10)
-    message += "--------------------------------------------------"
+    begin
+        data sb = new StringBuilder()
+        sb.AppendLine("--------------------------------------------------")
+        sb.AppendLine("Shutdown of replicator " + Settings.InstanceName)
+        sb.AppendLine("INSERTS: " + %string(Counters.Inserts,"ZZZ,ZZZ,ZZZ,ZZX"))
+        sb.AppendLine("UPDATES: " + %string(Counters.Updates,"ZZZ,ZZZ,ZZZ,ZZX"))
+        sb.AppendLine("DELETES: " + %string(Counters.Deletes,"ZZZ,ZZZ,ZZZ,ZZX"))
+        if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
+            sb.AppendLine("COMMITS: " + %string(Counters.BatchCommits,"ZZZ,ZZZ,ZZZ,ZZX"))
+        sb.AppendLine("ERRORS:  " + %string(Counters.Errors, "ZZZ,ZZZ,ZZZ,ZZX"))
+        sb.AppendLine("--------------------------------------------------")
+        message = sb.ToString()
+    end
 
     if (Settings.LogFileChannel != 0)
         writes(Settings.LogFileChannel,message)

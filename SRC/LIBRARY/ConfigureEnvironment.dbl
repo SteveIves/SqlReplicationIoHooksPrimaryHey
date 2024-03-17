@@ -75,10 +75,10 @@ proc
 
         using Settings.DatabaseConnectMode select
         (DatabaseConnectionMode.SqlConnection),
-            Logger.Log("Connection mode:    SQL Connection")
+            Logger.Log("Database mode:      SQL Connection")
         (DatabaseConnectionMode.SqlClient),
         begin
-            Logger.Log("Connection mode:    SQL Client")
+            Logger.Log("Database mode:      SQL Client")
             if (Settings.SqlCommandReuse) then
                 Logger.Log("SQL command reuse:  YES")
             else
@@ -95,7 +95,10 @@ proc
         (DatabaseCommitMode.Automatic),
             Logger.Log("Commit mode:        AUTOMATIC")
         (DatabaseCommitMode.Batch),
+        begin
             Logger.Log("Commit mode:        BATCH")
+            Logger.Log("Commit batch size:  " + %string(Settings.CommitBatchSize))
+        end
         (DatabaseCommitMode.Manual),
             Logger.Log("Commit mode:        MANUAL")
         endusing
@@ -320,11 +323,11 @@ proc
 
             using Settings.DataCompressionMode select
             (DatabaseDataCompression.None),
-                body[ix+=1] = "Compression:        NONE"
+                body[ix+=1] = "Compression mode:   NONE"
             (DatabaseDataCompression.Row),
-                body[ix+=1] = "Compression:        ROW"
+                body[ix+=1] = "Compression mode:   ROW"
             (DatabaseDataCompression.Page),
-                body[ix+=1] = "Compression:        PAGE"
+                body[ix+=1] = "Compression mode:   PAGE"
             endusing
 
             xcall SendEmail(subject,body,false)
@@ -333,46 +336,37 @@ proc
         ;If were writing to the system log, record the startup
         if (Settings.SystemLogging)
         begin
-            data tmpmsg, string, "SQL replicator " + Settings.InstanceName + " was started" + %char(13) + %char(10)
-            tmpmsg += "Database connect string is " + Settings.DatabaseConnectString + %char(13) + %char(10)
-            tmpmsg += "Transaction file is " + Settings.QueueFileName + %char(13) + %char(10)
-            tmpmsg += "Log file is " + Settings.LogFileName + %char(13) + %char(10)
-            tmpmsg += "Sleep interval is " + %string(Settings.SleepTime) + " seconds. " + %char(13) + %char(10)
+            data sb = new StringBuilder()
+            sb.AppendLine("SQL replicator " + Settings.InstanceName + " was started")
+            sb.AppendLine("Database connect string is " + Settings.DatabaseConnectString)
+            sb.AppendLine("Transaction file is " + Settings.QueueFileName)
+            sb.AppendLine("Log file is " + Settings.LogFileName)
+            sb.AppendLine("Sleep interval is " + %string(Settings.SleepTime) + " seconds. ")
 
             if (Settings.StopOnError) then
             begin
-                tmpmsg += "Replicator will stop if any error is encountered" + %char(13) + %char(10)
+                sb.AppendLine("Replicator will stop if any error is encountered")
             end
             else
             begin
-                tmpmsg += "Replicator will attempt to continue if errors are encountered" + %char(13) + %char(10)
+                sb.AppendLine("Replicator will attempt to continue if errors are encountered")
             end
 
             if (EmailSettings.CanSendEmail()) then
             begin
-                data sb = new StringBuilder()
-                data ix, int
-                for ix from 1 thru EmailSettings.Recipients.Length
-                begin
-                    sb.Append(EmailSettings.Recipients[ix])
-                    if (ix < EmailSettings.Recipients.Length)
-                    begin
-                        sb.Append(",")
-                    end
-                end
-                tmpmsg += "Replicator is configured to send email messages to " + EmailSettings.GetRecipientsString() + %char(13) + %char(10)
-                tmpmsg += "Emails will be sent from " + EmailSettings.SenderAddress + %char(13) + %char(10)
-                tmpmsg += "Email server is " + EmailSettings.SmtpServer + %char(13) + %char(10)
+                sb.AppendLine("Replicator is configured to send email messages to " + EmailSettings.GetRecipientsString())
+                sb.AppendLine("Emails will be sent from " + EmailSettings.SenderAddress)
+                sb.AppendLine("Email server is " + EmailSettings.SmtpServer)
             end
             else
             begin
-                tmpmsg += "Replicator is NOT configured to send email messages" + %char(13) + %char(10)
+                sb.AppendLine("Replicator is NOT configured to send email messages")
             end
 
 .ifdef DBLNET
             nop
 .else
-            xcall syn_reportevent(D_EVENTLOG_INFORMATION_TYPE,tmpmsg)
+            xcall syn_reportevent(D_EVENTLOG_INFORMATION_TYPE,sb.ToString())
 .endc
         end
     end

@@ -38,28 +38,28 @@
   },
   "DatabaseConnections": [
     {
-      "ConnectionName": "DEFAULT",
-      "ConnectionMode": "SQLCONNECTION",
+      "Name": "DEFAULT",
+      "Mode": "SQLCONNECTION",
       "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
     },
     {
-      "ConnectionName": "SqlConnection_LOCAL",
-      "ConnectionMode": "SQLCONNECTION",
+      "Name": "SqlConnection_LOCAL",
+      "Mode": "SQLCONNECTION",
       "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
     },
     {
-      "ConnectionName": "SqlConnection_PSGSRV",
-      "ConnectionMode": "SQLCONNECTION",
+      "Name": "SqlConnection_PSGSRV",
+      "Mode": "SQLCONNECTION",
       "ConnectString": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:psgsrv!VTX12_SQLNATIVE"
     },
     {
-      "ConnectionName": "SqlClient_LOCAL",
-      "ConnectionMode": "SQLCLIENT",
+      "Name": "SqlClient_LOCAL",
+      "Mode": "SQLCLIENT",
       "ConnectString": "Data Source=localhost;Initial Catalog=SqlReplication;Integrated Security=True;"
     },
     {
-      "ConnectionName": "SqlClient_PSGSRV",
-      "ConnectionMode": "SQLCLIENT",
+      "Name": "SqlClient_PSGSRV",
+      "Mode": "SQLCLIENT",
       "ConnectString": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;"
     }
   ],
