@@ -47,13 +47,11 @@ function DatabaseTransformSqlClient, boolean
 
         ;Work variables
         sql, string
-        transaction, boolean
 
     endrecord
 proc
     ok = true
     errorMessage = ""
-    transaction = false
 
     using transformType select
 
@@ -136,9 +134,10 @@ proc
 
         ;If necessary, start a transaction
 
+        disposable data transaction, @SqlTransaction
         if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
         begin
-            ok = %StartTransactionSqlClient(transaction,errorMessage)
+            transaction = Settings.DatabaseConnection.BeginTransaction()
         end
 
         ;Increase the size
@@ -166,17 +165,17 @@ proc
 
         ;If necessary, commit the transaction
 
-        if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+        if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
         begin
             if (ok) then
             begin
                 ;Success, commit the transaction
-                ok = %CommitTransactionSqlClient(errorMessage)
+                transaction.Commit()
             end
             else
             begin
                 ;There was an error, rollback the transaction
-                ok = %RollbackSqlClient(errorMessage)
+                transaction.Rollback()
             end
         end
 

@@ -19,28 +19,31 @@ import System.Text.Json
 function GetSettings,   boolean
     required out errorMessage, string
     stack record
-        ok,             boolean
-        clValues,       @ArrayList
-        length,         int
-        envval,         a1024
-        envlen,         i4
-        doc,            @JsonDocument
+        ok,                 boolean
+        clValues,           @ArrayList
+        length,             int
+        envval,             a1024
+        envlen,             i4
+        doc,                @JsonDocument
+        instanceDefaults,   @InstanceDefaultSettings
 .ifdef DBLNET
-        dbConnections,  JsonElement
-        dbConnection,   JsonElement
-        instances,      JsonElement
-        instance,       JsonElement
-        setting,        JsonElement
-        emailsetting,   JsonElement
-        emailAddress,   JsonElement
+        dbConnections,      JsonElement
+        dbConnection,       JsonElement
+        defaults,           JsonElement
+        instances,          JsonElement
+        instance,           JsonElement
+        setting,            JsonElement
+        emailsetting,       JsonElement
+        emailAddress,       JsonElement
 .else
-        dbConnections,  @JsonElement
-        dbConnection,   @JsonElement
-        instances,      @JsonElement
-        instance,       @JsonElement
-        setting,        @JsonElement
-        emailsetting,   @JsonElement
-        emailAddress,   @JsonElement
+        dbConnections,      @JsonElement
+        dbConnection,       @JsonElement
+        defaults,           @JsonElement
+        instances,          @JsonElement
+        instance,           @JsonElement
+        setting,            @JsonElement
+        emailsetting,       @JsonElement
+        emailAddress,       @JsonElement
 .endc
     endrecord
     external function
@@ -63,7 +66,8 @@ proc
     end
     endtry
 
-    ;Validate the DatabaseConnections property
+    ;--------------------------------------------------------------------------------------------------------
+    ;DatabaseConnections
 
     if (ok)
     begin
@@ -128,6 +132,40 @@ proc
                 end
             end
 
+            ;ConnectionMode
+            if (ok)
+            begin
+                if (!dbConnection.TryGetProperty("ConnectionMode",setting)) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no ConnectionMode!"
+                    ok = false
+                end
+                else if (setting.ValueKind != JsonValueKind.String) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionMode is not a string!"
+                    ok = false
+                end
+                else if (String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionMode has no value!"
+                    ok = false
+                end
+                else
+                begin
+                    using setting.GetString().ToUpper() select
+                    ("SQLCONNECTION"),
+                        dbc.ConnectionMode = DatabaseConnectionMode.SqlConnection
+                    ("SQLCLIENT"),
+                        dbc.ConnectionMode = DatabaseConnectionMode.SqlClient
+                    (),
+                    begin
+                        errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectionMode has an invalid value!"
+                        ok = false
+                    end
+                    endusing
+                end
+            end
+
             ;ConnectString
             if (ok)
             begin
@@ -156,11 +194,41 @@ proc
                 exitloop
 
             Settings.DatabaseConnections[connectionNumber+1] = dbc
-
         end
     end
 
-    ;Validate the instances property
+    ;--------------------------------------------------------------------------------------------------------
+    ;InstanceDefaults
+
+    if (ok)
+    begin
+        if (!doc.RootElement.TryGetProperty("InstanceDefaults",defaults)) then
+        begin
+            errorMessage = "Configuration must have an InstanceDefaults property!"
+            ok = false
+        end
+        else if (defaults.ValueKind != JsonValueKind.Object) then
+        begin
+            errorMessage = "InstanceDefaults must be an object!"
+            ok = false
+        end
+        else
+        begin
+            try
+            begin
+                instanceDefaults = new InstanceDefaultSettings(defaults,errorMessage)
+            end
+            catch (ex, @Exception)
+            begin
+                errorMessage = ex.Message
+                ok = false
+            end
+            endtry
+        end
+    end
+
+    ;--------------------------------------------------------------------------------------------------------
+    ;Instances
 
     if (ok)
     begin
@@ -186,36 +254,95 @@ proc
     if (ok)
     begin
         data instanceCount = instances.GetArrayLength()
-        data instanceNumber, int
+        data instanceNumber = 0
+        data foundOurSettings = false
 
         for instanceNumber from 0 thru instanceCount - 1
         begin
             instance = instances[instanceNumber]
-            ;Is it our settings?
-            if (!instance.TryGetProperty("InstanceName",setting)) then
+
+            ;Does this element contain the settings for our instance?
+
+            if (!instance.TryGetProperty("InstanceName",setting))
             begin
                 errorMessage = "Instance[" + %string(instanceNumber+1) + "] has no InstanceName!"
                 ok = false
+                exitloop
             end
-            else if (setting.ValueKind != JsonValueKind.String) then
+
+            if (setting.ValueKind != JsonValueKind.String)
             begin
                 errorMessage = "Instance[" + %string(instanceNumber+1) + "] InstanceName is not a string!"
                 ok = false
+                exitloop
             end
-            else if (setting.GetString().ToUpper() != Settings.InstanceName) 
+
+            if (setting.GetString().ToUpper() == Settings.InstanceName) 
             begin
-                ;Not the one we're looking for
-                nextloop
+                ;Found it
+                foundOurSettings = true
+                exitloop
             end
+        end
+
+        if (!foundOurSettings)
+        begin
+            errorMessage = "No settings found for instance " + Settings.InstanceName
+            ok = false
         end
     end
 
-    ;We found the settings for our instance. Now process all the settings.
-
-    ;Enabled
+    ;--------------------------------------------------------------------------------------------------------
+    ;Apply default settings to the new instance configuration
 
     if (ok)
     begin
+        Settings.BulkLoadBatchSize      = instanceDefaults.BulkLoadBatchSize
+        Settings.BulkLoadTimeout        = instanceDefaults.BulkLoadTimeout
+        Settings.CommitBatchSize        = instanceDefaults.CommitBatchSize
+        Settings.DatabaseCommitMode     = instanceDefaults.DatabaseCommitMode
+        Settings.DatabaseConnectionName = instanceDefaults.DatabaseConnectionName
+        begin
+            data dbc, @DatabaseConnection
+            foreach dbc in Settings.DatabaseConnections
+            begin
+                if (dbc.ConnectionName.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
+                begin
+                    Settings.DatabaseConnectString = dbc.ConnectString
+                    Settings.DatabaseConnectMode = dbc.ConnectionMode
+                end
+            end
+        end
+        Settings.DatabaseRetryDelay     = instanceDefaults.DatabaseRetryDelay
+        Settings.DatabaseRetryMax       = instanceDefaults.DatabaseRetryMax
+        Settings.DatabaseTimeout        = instanceDefaults.DatabaseTimeout
+        Settings.DataCompressionMode    = instanceDefaults.DataCompressionMode
+        Settings.ErrorSleepTime         = instanceDefaults.ErrorSleepTime
+        Settings.FileServiceEnabled     = instanceDefaults.FileServiceEnabled
+        Settings.FileServiceHost        = instanceDefaults.FileServiceHost
+        Settings.FileServicePort        = instanceDefaults.FileServicePort
+        Settings.LocalExportPath        = instanceDefaults.LocalExportPath
+        Settings.LogBulkLoadExceptions  = instanceDefaults.LogBulkLoadExceptions
+        Settings.LogKeyValues           = instanceDefaults.LogKeyValues
+        Settings.LogLoadProgress        = instanceDefaults.LogLoadProgress
+        Settings.MaxColumns             = instanceDefaults.MaxColumns
+        Settings.MaxCursors             = instanceDefaults.MaxCursors
+        Settings.QueueReconnectAttempts = instanceDefaults.QueueReconnectAttempts
+        Settings.QueueReconnectDelay    = instanceDefaults.QueueReconnectDelay
+        Settings.QueueType              = instanceDefaults.QueueType
+        Settings.SleepTime              = instanceDefaults.SleepTime
+        Settings.SqlCommandReuse        = instanceDefaults.SqlCommandReuse
+        Settings.StopOnError            = instanceDefaults.StopOnError
+        Settings.SystemLogging          = instanceDefaults.SystemLogging
+        Settings.VerboseLogging         = instanceDefaults.VerboseLogging
+    end
+
+    ;--------------------------------------------------------------------------------------------------------
+    ;Apply instance specific settings
+
+    if (ok)
+    begin
+        ;Enabled
         if (instance.TryGetProperty("Enabled",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -228,12 +355,9 @@ proc
                 Settings.Enabled = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;BulkLoadBatchSize
-
-    if (ok)
-    begin
+        ;BulkLoadBatchSize
         if (instance.TryGetProperty("BulkLoadBatchSize",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1000) then
@@ -246,12 +370,9 @@ proc
                 Settings.BulkLoadBatchSize = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;BulkLoadTimeout
-
-    if (ok)
-    begin
+        ;BulkLoadTimeout
         if (instance.TryGetProperty("BulkLoadTimeout",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<60) then
@@ -264,12 +385,9 @@ proc
                 Settings.BulkLoadTimeout = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;CommitBatchSize
-
-    if (ok)
-    begin
+        ;CommitBatchSize
         if (instance.TryGetProperty("CommitBatchSize",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100) then
@@ -282,12 +400,9 @@ proc
                 Settings.CommitBatchSize = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;DatabaseCommitMode
-
-    if (ok)
-    begin
+        ;DatabaseCommitMode
         if (instance.TryGetProperty("DatabaseCommitMode",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
@@ -312,47 +427,9 @@ proc
                 errorMessage = "DatabaseCommitMode must be Automatic, Batch or Manual!"
             end
         end
-    end
+        if (!ok) exit
 
-    ;DatabaseConnectMode
-
-    if (ok)
-    begin
-        if (instance.TryGetProperty("DatabaseConnectMode",setting))
-        begin
-            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-            begin
-                errorMessage = "DatabaseConnectMode must be SqlClient (.NET only) or SqlConnection!"
-                ok = false
-            end
-            else
-            begin
-                using setting.GetString().ToUpper() select
-                ("SQLCONNECTION"),
-                    Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlConnection
-                ("SQLCLIENT"),
-                begin
-.ifdef DBLNET
-                    Settings.DatabaseConnectMode = DatabaseConnectionMode.SqlClient
-.else
-                    errorMessage = "DatabaseConnectMode SqlClient is only supported in .NET!"
-                    ok = false
-.endc
-                end
-                (),
-                begin
-                    errorMessage = "DatabaseConnectMode must be SqlClient (.NET only) or SqlConnection!"
-                    ok = false
-                end
-                endusing
-            end
-        end
-    end
-
-    ;DatabaseConnectionName
-
-    if (ok)
-    begin
+        ;DatabaseConnectionName
         if (instance.TryGetProperty("DatabaseConnectionName",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
@@ -371,6 +448,7 @@ proc
                     if (dbc.ConnectionName.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
                     begin
                         Settings.DatabaseConnectString = dbc.ConnectString
+                        Settings.DatabaseConnectMode = dbc.ConnectionMode
                     end
                 end
 
@@ -381,12 +459,9 @@ proc
                 end
             end
         end
-    end
+        if (!ok) exit
 
-    ;DatabaseRetryDelay
-
-    if (ok)
-    begin
+        ;DatabaseRetryDelay
         if (instance.TryGetProperty("DatabaseRetryDelay",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -399,12 +474,9 @@ proc
                 Settings.DatabaseRetryDelay = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;DatabaseRetryMax
-
-    if (ok)
-    begin
+        ;DatabaseRetryMax
         if (instance.TryGetProperty("DatabaseRetryMax",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -417,12 +489,9 @@ proc
                 Settings.DatabaseRetryMax = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;DatabaseTimeout
-
-    if (ok)
-    begin
+        ;DatabaseTimeout
         if (instance.TryGetProperty("DatabaseTimeout",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -435,12 +504,9 @@ proc
                 Settings.DatabaseTimeout = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;DataCompressionMode
-
-    if (ok)
-    begin
+        ;DataCompressionMode
         if (instance.TryGetProperty("DataCompressionMode",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
@@ -465,12 +531,9 @@ proc
         begin
             errorMessage = "DataCompressionMode must be None, Page or Row!"
         end
-    end
+        if (!ok) exit
 
-    ;ErrorSleepTime
-
-    if (ok)
-    begin
+        ;ErrorSleepTime
         if (instance.TryGetProperty("ErrorSleepTime",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetDecimal()<=0) then
@@ -483,12 +546,9 @@ proc
                 Settings.ErrorSleepTime = setting.GetDecimal()
             end
         end
-    end
+        if (!ok) exit
 
-    ;FileServiceEnabled
-
-    if (ok)
-    begin
+        ;FileServiceEnabled
         if (instance.TryGetProperty("FileServiceEnabled",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -501,12 +561,9 @@ proc
                 Settings.FileServiceEnabled = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;FileServiceHost
-
-    if (ok)
-    begin
+        ;FileServiceHost
         if (instance.TryGetProperty("FileServiceHost",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.String) then
@@ -519,12 +576,9 @@ proc
                 Settings.FileServiceHost = setting.GetString()
             end
         end
-    end
+        if (!ok) exit
 
-    ;FileServicePort
-
-    if (ok)
-    begin
+        ;FileServicePort
         if (instance.TryGetProperty("FileServicePort",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<=0) then
@@ -537,12 +591,9 @@ proc
                 Settings.FileServicePort = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;LocalExportPath
-
-    if (ok)
-    begin
+        ;LocalExportPath
         if (instance.TryGetProperty("LocalExportPath",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
@@ -575,12 +626,9 @@ proc
         begin
             errorMessage = "LocalExportPath must have a string value and be a valid path!"
         end
-    end
+        if (!ok) exit
 
-    ;LogBulkLoadExceptions
-
-    if (ok)
-    begin
+        ;LogBulkLoadExceptions
         if (instance.TryGetProperty("LogBulkLoadExceptions",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -593,12 +641,9 @@ proc
                 Settings.LogBulkLoadExceptions = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;LogKeyValues
-
-    if (ok)
-    begin
+        ;LogKeyValues
         if (instance.TryGetProperty("LogKeyValues",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -611,12 +656,9 @@ proc
                 Settings.LogKeyValues = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;LogLoadProgress
-
-    if (ok)
-    begin
+        ;LogLoadProgress
         if (instance.TryGetProperty("LogLoadProgress",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -629,12 +671,9 @@ proc
                 Settings.LogLoadProgress = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;MaxColumns
-
-    if (ok)
-    begin
+        ;MaxColumns
         if (instance.TryGetProperty("MaxColumns",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -647,12 +686,9 @@ proc
                 Settings.MaxColumns = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;MaxCursors
-
-    if (ok)
-    begin
+        ;MaxCursors
         if (instance.TryGetProperty("MaxCursors",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -665,12 +701,9 @@ proc
                 Settings.MaxCursors = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;QueueReconnectAttempts
-
-    if (ok)
-    begin
+        ;QueueReconnectAttempts
         if (instance.TryGetProperty("QueueReconnectAttempts",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -683,12 +716,9 @@ proc
                 Settings.QueueReconnectAttempts = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;QueueReconnectDelay
-
-    if (ok)
-    begin
+        ;QueueReconnectDelay
         if (instance.TryGetProperty("QueueReconnectDelay",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -701,12 +731,9 @@ proc
                 Settings.QueueReconnectDelay = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;QueueType
-
-    if (ok)
-    begin
+        ;QueueType
         if (instance.TryGetProperty("QueueType",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
@@ -733,12 +760,9 @@ proc
         begin
             errorMessage = "QueueType must be IsamFile or Kafka (.NET only)!"
         end
-    end
+        if (!ok) exit
 
-    ;SleepTime
-
-    if (ok)
-    begin
+        ;SleepTime
         if (instance.TryGetProperty("SleepTime",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -751,12 +775,9 @@ proc
                 Settings.SleepTime = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SqlCommandReuse
-
-    if (ok)
-    begin
+        ;SqlCommandReuse
         if (instance.TryGetProperty("SqlCommandReuse",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -769,12 +790,9 @@ proc
                 Settings.SqlCommandReuse = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;StopOnError
-
-    if (ok)
-    begin
+        ;StopOnError
         if (instance.TryGetProperty("StopOnError",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -787,12 +805,9 @@ proc
                 Settings.StopOnError = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SystemLogging
-
-    if (ok)
-    begin
+        ;SystemLogging
         if (instance.TryGetProperty("SystemLogging",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -805,12 +820,9 @@ proc
                 Settings.SystemLogging = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;VerboseLogging
-
-    if (ok)
-    begin
+        ;VerboseLogging
         if (instance.TryGetProperty("VerboseLogging",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -838,11 +850,9 @@ proc
                 ok = false
             end
         end
-    end
+        if (!ok) exit
 
-    ;Enabled
-    if (ok)
-    begin
+        ;Enabled
         if (emailsetting.TryGetProperty("Enabled",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -855,11 +865,9 @@ proc
                 EmailSettings.SmtpUseSSL = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SmtpServer
-    if (ok)
-    begin
+        ;SmtpServer
         if (emailsetting.TryGetProperty("SmtpServer",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
@@ -872,11 +880,9 @@ proc
                 EmailSettings.SmtpServer = setting.GetString()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SmtpPort
-    if (ok)
-    begin
+        ;SmtpPort
         if (emailsetting.TryGetProperty("SmtpPort",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -889,11 +895,9 @@ proc
                 EmailSettings.SmtpPort = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SmtpUsername
-    if (ok)
-    begin
+        ;SmtpUsername
         if (emailsetting.TryGetProperty("SmtpUsername",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
@@ -906,11 +910,9 @@ proc
                 EmailSettings.SmtpUsername = setting.GetString()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SmtpPassword
-    if (ok)
-    begin
+        ;SmtpPassword
         if (emailsetting.TryGetProperty("SmtpPassword",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
@@ -923,11 +925,9 @@ proc
                 EmailSettings.SmtpPassword = setting.GetString()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SmtpUseSSL
-    if (ok)
-    begin
+        ;SmtpUseSSL
         if (emailsetting.TryGetProperty("SmtpUseSSL",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
@@ -940,11 +940,9 @@ proc
                 EmailSettings.SmtpUseSSL = setting.GetBoolean()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SenderAddress
-    if (ok)
-    begin
+        ;SenderAddress
         if (emailsetting.TryGetProperty("SenderAddress",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
@@ -957,11 +955,9 @@ proc
                 EmailSettings.SenderAddress = setting.GetString()
             end
         end
-    end
+        if (!ok) exit
 
-    ;SenderName
-    if (ok)
-    begin
+        ;SenderName
         if (emailsetting.TryGetProperty("SenderName",setting))
         begin
             if (setting.ValueKind != JsonValueKind.String) then
@@ -974,11 +970,9 @@ proc
                 EmailSettings.SenderName = setting.GetString()
             end
         end
-    end
+        if (!ok) exit
 
-    ;Recipients
-    if (ok)
-    begin
+        ;Recipients
         if (!emailsetting.TryGetProperty("Recipients",setting) || setting.ValueKind!=JsonValueKind.Array || setting.GetArrayLength()==0) then
         begin
             ok = false
@@ -1008,11 +1002,9 @@ proc
         begin
             errorMessage = "EmailSettings.Recipients must be an array containing at least one email address!"
         end
-    end
+        if (!ok) exit
 
-    ;ErrorsBeforePause
-    if (ok)
-    begin
+        ;ErrorsBeforePause
         if (emailsetting.TryGetProperty("ErrorsBeforePause",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -1025,11 +1017,9 @@ proc
                 EmailSettings.ErrorsBeforePause = setting.GetInt32()
             end
         end
-    end
+        if (!ok) exit
 
-    ;ErrorPauseMinutes
-    if (ok)
-    begin
+        ;ErrorPauseMinutes
         if (emailsetting.TryGetProperty("ErrorPauseMinutes",setting))
         begin
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
@@ -1042,12 +1032,27 @@ proc
                 EmailSettings.ErrorPauseMinutes = setting.GetInt32()
             end
         end
+        if (!ok) exit
     end
 
-    if (String.IsNullOrWhitespace(Settings.DatabaseConnectString))
+    ;--------------------------------------------------------------------------------------------------------
+    ;Validations
+
+.ifndef DBLNET
+    if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlClient)
     begin
-        errorMessage = "No database connection string is defined!"
+        errorMessage = "SqlClient mode is only supported in .NET!"
         ok = false
+    end
+.endc
+
+    if (ok)
+    begin
+        if (String.IsNullOrWhitespace(Settings.DatabaseConnectString))
+        begin
+            errorMessage = "No database connection string is defined!"
+            ok = false
+        end
     end
 
     freturn ok

@@ -1,54 +1,78 @@
 {
   "DatabaseConnections": [
     {
+      "ConnectionName": "DEFAULT",
+      "ConnectionMode": "SQLCONNECTION",
+      "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
+    },
+    {
       "ConnectionName": "SqlConnection_LOCAL",
+      "ConnectionMode": "SQLCONNECTION",
       "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
     },
     {
       "ConnectionName": "SqlConnection_PSGSRV",
+      "ConnectionMode": "SQLCONNECTION",
       "ConnectString": "net:replicator/p@ssw0rd/SqlReplication/psgsrv///@1958:psgsrv!VTX12_SQLNATIVE"
     },
     {
       "ConnectionName": "SqlClient_LOCAL",
+      "ConnectionMode": "SQLCLIENT",
       "ConnectString": "Data Source=localhost;Initial Catalog=SqlReplication;Integrated Security=True;"
     },
     {
       "ConnectionName": "SqlClient_PSGSRV",
+      "ConnectionMode": "SQLCLIENT",
       "ConnectString": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;"
     }
   ],
+  "InstanceDefaults": {
+    "BulkLoadBatchSize": 10000,
+    "BulkLoadTimeout": 900,
+    "CommitBatchSize": 1000,
+    "DatabaseCommitMode": "Manual",
+    "DatabaseConnectionName": "DEFAULT",
+    "DatabaseRetryDelay": 30,
+    "DatabaseRetryMax": 10,
+    "DatabaseTimeout": 60,
+    "DataCompressionMode": "None",
+    "ErrorSleepTime": 0.01,
+    "FileServiceEnabled": false,
+    "FileServiceHost": "localhost",
+    "FileServicePort": 8080,
+    "LocalExportPath": "C:\\DEV_SYNERGEX\\SqlReplication\\CSV\\",
+    "LogBulkLoadExceptions": false,
+    "LogKeyValues": false,
+    "LogLoadProgress": false,
+    "MaxColumns": 256,
+    "MaxCursors": 128,
+    "QueueReconnectAttempts": 10,
+    "QueueReconnectDelay": 30,
+    "QueueType": "IsamFile",
+    "SleepTime": 2,
+    "SqlCommandReuse": false,
+    "StopOnError": false,
+    "SystemLogging": false,
+    "VerboseLogging": true
+  },
   "Instances": [
     {
       "Enabled": true,
       "InstanceName": "DEFAULT",
-      "BulkLoadBatchSize": 10000,
-      "BulkLoadTimeout": 900,
-      "CommitBatchSize": 1000,
-      "DatabaseCommitMode": "Manual",
-      "DatabaseConnectMode": "SQLCLIENT",
-      "DatabaseConnectionName": "SqlClient_LOCAL",
-      "DatabaseRetryDelay": 30,
-      "DatabaseRetryMax": 10,
-      "DatabaseTimeout": 60,
-      "DataCompressionMode": "None",
-      "ErrorSleepTime": 0.01,
-      "FileServiceEnabled": false,
-      "FileServiceHost": "psgsrv",
-      "FileServicePort": 8080,
-      "LocalExportPath": "C:\\DEV_SYNERGEX\\SqlReplication\\CSV\\",
-      "LogBulkLoadExceptions": false,
-      "LogKeyValues": false,
-      "LogLoadProgress": false,
-      "MaxColumns": 256,
-      "MaxCursors": 128,
-      "QueueReconnectAttempts": 10,
-      "QueueReconnectDelay": 30,
-      "QueueType": "IsamFile",
-      "SleepTime": 2,
-      "SqlCommandReuse": false,
-      "StopOnError": false,
-      "SystemLogging": false,
-      "VerboseLogging": true
+      "DatabaseConnectionName": "SqlClient_LOCAL"
+    }
+  ],
+  "DefaultInstance": "DEFAULT",
+  "TableMaps": [
+    {
+      "FileName": "DEPARTMENT",
+      "Instance": "DEFAULT",
+      "Enabled": true
+    },
+    {
+      "FileName": "EMPLOYEE",
+      "Instance": "DEFAULT",
+      "Enabled": true
     }
   ],
   "EmailSettings": {
@@ -65,18 +89,5 @@
     ],
     "ErrorsBeforePause": 3,
     "ErrorPauseMinutes": 10
-  },
-  "DefaultInstance": "DEFAULT",
-  "TableMaps": [
-    {
-      "FileName": "DEPARTMENT",
-      "Instance": "DEFAULT",
-      "Enabled": true
-    },
-    {
-      "FileName": "EMPLOYEE",
-      "Instance": "DEFAULT",
-      "Enabled": true
-    }
-  ]
+  }
 }

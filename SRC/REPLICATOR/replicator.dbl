@@ -89,7 +89,7 @@ proc
     ;Check that we have the basic environment that we need
     begin
         data errorMessage, string
-        if (!%ValidateBasicEnvironment(errorMessage))
+        if (ok = %ValidateBasicEnvironment(errorMessage))
         begin
             Console.WriteLine("Basic environment not established. " + errorMessage)
         end
@@ -102,9 +102,8 @@ proc
     ;   Settings.KafkaTopicName
     ;   Default values for all other settings
 
-    if (ok = %ConfigureEnvironment)
+    if (ok && (ok = %ConfigureEnvironment))
     begin
-        
         ;Register a shutdown handler that will be called when the process exits.
         ;This code does NOT need to be called if the shutdown has been requested by an instruction and processed below.
         ;This is only really to cover the case of a "service" being shut down by the service control manager.
@@ -121,19 +120,10 @@ proc
 .endc
         end
 
-        ;;If we're in batch commit mode then initialize a collection to store the RFA's of any pending operations
+        ;;If we're in batch commit mode then initialize a collection to store the RFA's of pending operations
         if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         begin
             uncommittedInstructions = new ArrayList()
-.ifdef DBLNET
-            if (Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlClient)
-            begin
-                data ok, boolean
-                data transaction, boolean
-                data errorMessage, string
-                ok = %StartTransactionSqlClient(transaction,errorMessage)
-            end
-.endc
         end
 
         ;;Main processing loop
@@ -709,48 +699,50 @@ CommitTransaction,
 .ifdef DBLNET
     (DatabaseConnectionMode.SqlClient),
     begin
-        data message, string
-        if (%CommitTransactionSqlClient(message)) then
+        ;Commit the current transaction
+        Settings.BatchTransaction.Commit()
+        Settings.BatchTransaction.Dispose()
+
+        ;;Delete all of the associated instructions from the queue file.
+        foreach boxedRfa in uncommittedInstructions
         begin
-            ;;Delete all of the associated instructions from the queue file.
-            foreach boxedRfa in uncommittedInstructions
+            unboxedRfa = (a)boxedRfa
+            try
             begin
-                unboxedRfa = (a)boxedRfa
-                try
-                begin
-                    read(Settings.InstructionChannel,instruction,,LOCK:Q_AUTO_LOCK,RFA:unboxedRfa)
-                    delete(Settings.InstructionChannel)
-                end
-                catch (ex, @NetworkException); $ERR_NETPROB (320)
-                begin
-                    if (%ReOpenQueueFile) nextloop
-                end
-                catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-                begin
-                    if (%ReOpenQueueFile) nextloop
-                end
-                catch (e, @Exception)
-                begin
-                    ;;This can happen from time to time, because some "special"
-                    ;;instructions like "change interval" and "cycle log" are deleted
-                    ;;from the queue immediately even though the rfa has already been
-                    ;;recorded. Just ignore it.
-                    nop
-                end
-                endtry
+                read(Settings.InstructionChannel,instruction,,LOCK:Q_AUTO_LOCK,RFA:unboxedRfa)
+                delete(Settings.InstructionChannel)
             end
-
-            uncommittedInstructions.Clear()
-
-            Logger.VerboseLog(" - Start transaction")
-            Counters.BatchCommits += 1
-            Counters.BatchCounter = 0
+            catch (ex, @NetworkException); $ERR_NETPROB (320)
+            begin
+                if (%ReOpenQueueFile)
+                    nextloop
+            end
+            catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
+            begin
+                if (%ReOpenQueueFile)
+                    nextloop
+            end
+            catch (e, @Exception)
+            begin
+                ;;This can happen from time to time, because some "special"
+                ;;instructions like "change interval" and "cycle log" are deleted
+                ;;from the queue immediately even though the rfa has already been
+                ;;recorded. Just ignore it.
+                nop
+            end
+            endtry
         end
-        else
-        begin
-            ;TODO: ENHANCEMENT: Commit failed - now what?
-            Logger.ErrorLog("Failed to commit batch!")
-        end
+
+        uncommittedInstructions.Clear()
+
+        ;Start a new transaction
+
+        Settings.BatchTransaction = Settings.DatabaseConnection.BeginTransaction()
+
+        Logger.VerboseLog(" - Start transaction")
+
+        Counters.BatchCommits += 1
+        Counters.BatchCounter = 0
     end
 .endc
     endusing

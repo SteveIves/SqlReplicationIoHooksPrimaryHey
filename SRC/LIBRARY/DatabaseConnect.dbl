@@ -200,27 +200,8 @@ proc
 
         if (ok && Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         begin
-            data transaction, boolean
-            data errorMessage, string
-
-            if (ok = %StartTransactionSqlClient(transaction,errorMessage)) then
-            begin
-                Counters.BatchCounter = 0
-            end
-            else
-            begin
-                Logger.ErrorLog(errorMessage)
-
-                ;;If we're sending emails then send a message about the failure
-                if (EmailSettings.CanSendEmail())
-                begin
-                    data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to start!"
-                    data body = new string[2]
-                    body[1] = subject
-                    body[2] = errorMessage
-                    xcall SendEmail(subject,body,false)
-                end
-            end
+            Settings.BatchTransaction = Settings.DatabaseConnection.BeginTransaction()
+            Counters.BatchCounter = 0
         end
     end
 .endc

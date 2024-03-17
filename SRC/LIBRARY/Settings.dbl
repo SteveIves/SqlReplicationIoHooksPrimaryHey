@@ -16,57 +16,21 @@ namespace ReplicationLibrary
 .else
     public static class Settings
 .endc
-
         ;;; <summary>
         ;;; Configure default settings
         ;;; Can't use a static constructor because VMS doesn't support them
         ;;; </summary>
         public static method Initialize, void
         proc
-            ;Instance name is ALWAYS set by %ValidateBasicEnvironment
-            InstanceName            = "DEFAULT"
-
-            ;Set defaults for properties configurable via ReplicatorConfig.json
-            BulkLoadBatchSize       = 10000
-            BulkLoadTimeout         = 900
-            CommitBatchSize         = 1000
-            DatabaseCommitMode      = DatabaseCommitMode.Batch
-            DatabaseConnectMode     = DatabaseConnectionMode.SqlConnection
-            DatabaseConnectString   = ""
-            DatabaseRetryDelay      = 30
-            DatabaseRetryMax        = 10
-            DatabaseTimeout         = 60
-            DataCompressionMode     = DatabaseDataCompression.None
-            Enabled                 = true
-            ErrorSleepTime          = 0.01
-            FileServiceEnabled      = false
-            FileServiceHost         = ^null
-            FileServicePort         = 0
-            LocalExportPath         = ^null
-            LogBulkLoadExceptions   = false
-            LogKeyValues            = false
-            LogLoadProgress         = false
-            MaxColumns              = 254
-            MaxCursors              = 128
-            QueueReconnectAttempts  = 10
-            QueueReconnectDelay     = 30
-            QueueType               = MessageQueueType.IsamFile
-            SleepTime               = 2
-            SqlCommandReuse         = false
-            StopOnError             = false
-            SystemLogging           = false
-            VerboseLogging          = false
-
             ;Set defaults for internal properties
             DatabaseChannel         = 1
-.ifdef DBLNET
-            DatabaseConnection  = ^null
-.endc
             InstructionChannel      = 0
             LogFileChannel          = 0
             RunningOnTerminal       = (%tnmbr >= 0)
             TerminalChannel         = 0
-
+.ifdef DBLNET
+            DatabaseConnection  = ^null
+.endc
             ;If we're running on a terminal, open the terminal channel
             if (RunningOnTerminal)
             begin
@@ -129,11 +93,6 @@ namespace ReplicationLibrary
         ;;; Database commit mode (Automatic, Manual or Batch).
         ;;; </summary>
         public static readwrite property DatabaseCommitMode, DatabaseCommitMode
-
-        ;;; <summary>
-        ;;; Are we using Synergy SQL Connection or Microsoft SqlClient to interact with the database
-        ;;; </summary>
-        public static readwrite property DatabaseConnectMode, DatabaseConnectionMode
 
         ;;; <summary>
         ;;; The name of the database connection to use
@@ -276,6 +235,11 @@ namespace ReplicationLibrary
         public static readwrite property DatabaseConnected, boolean
 
         ;;; <summary>
+        ;;; Are we using Synergy SQL Connection or Microsoft SqlClient to interact with the database
+        ;;; </summary>
+        public static readwrite property DatabaseConnectMode, DatabaseConnectionMode
+
+        ;;; <summary>
         ;;; The database connections defined in the configuration file
         ;;; </summary>
         public static readwrite property DatabaseConnections, [#]@DatabaseConnection
@@ -290,6 +254,11 @@ namespace ReplicationLibrary
         ;;; The connection to the database (Microsoft SqlClient only)
         ;;; </summary>
         public static readwrite property DatabaseConnection, @SqlConnection
+
+        ;;; <summary>
+        ;;; The current transaction (Microsoft SqlClient and batch commit mode only)
+        ;;; </summary>
+        public static readwrite property BatchTransaction, @SqlTransaction
 .endc
 
         ;;; <summary>
@@ -440,6 +409,11 @@ namespace ReplicationLibrary
         ;;; The name of the database connection
         ;;; </summary>
         public readwrite property ConnectionName, string
+
+        ;;; <summary>
+        ;;; The database connection mode
+        ;;; </summary>
+        public readwrite property ConnectionMode, DatabaseConnectionMode
 
         ;;; <summary>
         ;;; The database connect string to use

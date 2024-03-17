@@ -49,7 +49,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\SRC\LIBRARY\CommandLineParser.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\CommitTransactionSqlClient.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\CommitTransactionSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ConfigureEnvironment.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ConfigureReplication.dbl" />
@@ -77,6 +76,7 @@
     <Compile Include="..\..\SRC\LIBRARY\GetSettings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IndexExists.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Index_Exists.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\InstanceDefaultSettings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\InstanceInfo.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IOHooksISAM.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IOHooksKAFKA.dbl" />
@@ -100,12 +100,10 @@
     <Compile Include="..\..\SRC\LIBRARY\ReOpenQueueFile.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Replicate.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ReplicatorShutdown.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\RollbackSqlClient.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\RollbackSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SendEmail.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Settings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\SmtpMail.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlClient.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StartTransactionSqlConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringDictionary.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\StringTools.dbl" />

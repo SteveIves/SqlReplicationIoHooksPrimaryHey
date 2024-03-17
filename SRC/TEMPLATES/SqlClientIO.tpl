@@ -148,7 +148,6 @@ function <StructureName>_Create, ^val
     .align
     stack record
         ok, boolean
-        transaction, boolean
         errorMessage, string
     endrecord
     static record
@@ -156,14 +155,14 @@ function <StructureName>_Create, ^val
     endrecord
 proc
     ok = true
-    transaction = false
     errorMessage = String.Empty
 
     ;If we're in manual commit mode, start a transaction
 
+    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;Define the CREATE TABLE statement
@@ -253,17 +252,17 @@ proc
 
     ;Commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            transaction.Rollback()
         end
     end
 
@@ -288,21 +287,20 @@ function <StructureName>_Index, ^val
     .align
     stack record
         ok, boolean
-        transaction, boolean
         errorMessage, string
         now, a20
     endrecord
 
 proc
     ok = true
-    transaction = false
     errorMessage = String.Empty
 
     ;If we're in manual commit mode, start a transaction
 
+    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
@@ -390,17 +388,17 @@ proc
   </ALTERNATE_KEY_LOOP>
     ;If we're in manual commit mode, commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            transaction.Rollback()
         end
     end
 
@@ -424,20 +422,19 @@ function <StructureName>_UnIndex, ^val
     .align
     stack record
         ok, boolean
-        transaction, boolean
         errorMessage, string
     endrecord
 
 proc
     ok = true
-    transaction = false
     errorMessage = String.Empty
 
     ;If we're in manual commit mode, start a transaction
 
+    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
@@ -482,17 +479,17 @@ proc
   </ALTERNATE_KEY_LOOP>
     ;If we're in manual commit mode, commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            transaction.Rollback()
         end
     end
 
@@ -532,7 +529,6 @@ function <StructureName>_Insert, ^val
     stack record local_data
         ok          ,boolean    ;OK to continue
         sts         ,int        ;Return status
-        transaction ,boolean    ;Transaction in progress
         errorMessage,string     ;Error message text
 <IF STRUCTURE_RELATIVE>
         recordNumber,d28        ;Relative record number
@@ -676,9 +672,10 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
+    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     if (ok)
@@ -735,17 +732,17 @@ proc
 
     ;If we're in manual commit mode, commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            transaction.Rollback()
         end
     end
 
@@ -781,7 +778,6 @@ function <StructureName>_InsertRows, ^val
     stack record local_data
         ok,             boolean     ;Return status
         rows,           int         ;Number of rows to insert
-        transaction,    boolean     ;Transaction in progress
         command,        @SqlCommand ;Represtens the SQL command to execute
         length,         int         ;Length of a string
         ex_ms,          int         ;Size of exception array
@@ -876,11 +872,12 @@ proc
         endtry
     end
 
-    ;Start a database transaction
+    ;If we're in manual commit mode, start a transaction
 
-    if (ok)
+    disposable data transaction, @SqlTransaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ; If we're binding once, create the SqlCommand object and define parameters
@@ -1106,18 +1103,17 @@ proc
 
     ;Commit or rollback the transaction
 
-    if (transaction)
+    if (transaction != ^null)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            data rollbackError, string
-            ok = %RollbackSqlClient(rollbackError)
+            transaction.Rollback()
         end
     end
 
@@ -1180,7 +1176,6 @@ function <StructureName>_Update, ^val
 </IF DEFINED_ASA_TIREMAX>
     stack record local_data
         ok,             boolean     ;OK to continue
-        transaction,    boolean     ;Transaction in progress
         length,         int         ;Length of a string
         rows,           int         ;Number of rows updated
         errorMessage,   string      ;Error message text
@@ -1306,16 +1301,18 @@ proc
 </FIELD_LOOP>
 
     ;If we're in manual commit mode, start a transaction
+
+    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     if (ok)
     begin
         try
         begin
-            disposable data command = new SqlCommand("ROLLBACK TRANSACTION",Settings.DatabaseConnection) { 
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
             &    CommandTimeout = Settings.DatabaseTimeout
             &    }
 
@@ -1363,17 +1360,17 @@ proc
 
     ;If we're in manual commit mode, commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            transaction.Rollback()
         end
     end
 
@@ -1410,7 +1407,6 @@ function <StructureName>_Delete, ^val
     stack record local_data
         ok,             boolean     ;Return status
         cursor,         int         ;Database cursor
-        transaction,    boolean     ;Transaction in progress
         errorMessage,   string      ;Error message
         sql,            string      ;SQL statement
     endrecord
@@ -1424,9 +1420,10 @@ proc
     <structureName> = %<StructureName>KeyToRecord(a_key)
 
     ;If we're in manual commit mode, start a transaction
+    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;;Delete the row
@@ -1465,17 +1462,17 @@ proc
 
     ;If we're in manual commit mode, commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            transaction.Rollback()
         end
     end
 
@@ -1500,7 +1497,6 @@ function <StructureName>_Clear, ^val
     .align
     stack record local_data
         ok,             boolean ;Return status
-        transaction,    boolean ;Transaction in process
         errorMessage,   string  ;Returned error message text
     endrecord
 
@@ -1510,9 +1506,10 @@ proc
     errorMessage = String.Empty
 
     ;If we're in manual commit mode, start a transaction
+    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;;Truncate the table
@@ -1535,17 +1532,17 @@ proc
     end
 
     ;If we're in manual commit mode, commit or rollback the transaction
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            transaction.Rollback()
         end
     end
 
@@ -1569,19 +1566,18 @@ function <StructureName>_Drop, ^val
     .align
     stack record
         ok, boolean
-        transaction, boolean
         errorMessage, string
     endrecord
 
 proc
     ok = true
-    transaction = false
     errorMessage = String.Empty
 
     ;If we're in manual commit mode, start a transaction
+    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;Drop the database table and primary key constraint
@@ -1609,17 +1605,17 @@ proc
 
     ;Commit or rollback the transaction
 
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            ok = %RollbackSqlClient(errorMessage)
+            transaction.Rollback()
         end
     end
 
@@ -1928,7 +1924,6 @@ function <StructureName>_BulkLoad, ^val
 
      stack record local_data
         ok,                     boolean    ;;Return status
-        transaction,            boolean
         remoteBulkLoad,         boolean
         localCsvFile,           string
         localExceptionsFile,    string
@@ -2089,9 +2084,10 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
-    if (ok && Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    disposable data transaction, @SqlTransaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        ok = %StartTransactionSqlClient(transaction,errorMessage)
+        transaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;Execute the BULK INSERT statement
@@ -2340,25 +2336,17 @@ proc
     end
 
     ;If we're in manual commit mode, commit or rollback the transaction
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual && transaction)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            now = %datetime
-            ok = %CommitTransactionSqlClient(errorMessage)
+            transaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            data rollbackOk, boolean, false
-            data rollbackErrorMessage, string
-            now = %datetime
-            rollbackOk = %RollbackSqlClient(rollbackErrorMessage)
-            if (!rollbackOk)
-            begin
-                errorMessage = String.Format("{0}. Also: {1}",errorMessage,rollbackErrorMessage)
-            end
+            transaction.Rollback()
         end
     end
 

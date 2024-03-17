@@ -168,6 +168,9 @@
     <Compile Include="..\..\SRC\LIBRARY\IndexExists.dbl">
       <Link>IndexExists.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\InstanceDefaultSettings.dbl">
+      <Link>InstanceDefaultSettings.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\InstanceInfo.dbl">
       <Link>InstanceInfo.dbl</Link>
     </Compile>
