@@ -42,7 +42,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.BulkLoadBatchSize = setting.GetInt32()
+                        BulkLoadBatchSize = setting.GetInt32()
                     end
                 end
             end
@@ -60,7 +60,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.BulkLoadTimeout = setting.GetInt32()
+                        BulkLoadTimeout = setting.GetInt32()
                     end
                 end
             end
@@ -78,7 +78,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.CommitBatchSize = setting.GetInt32()
+                        CommitBatchSize = setting.GetInt32()
                     end
                 end
             end
@@ -97,11 +97,11 @@ namespace ReplicationLibrary
                     begin
                         using setting.GetString().ToUpper() select
                         ("AUTOMATIC"),
-                            Settings.DatabaseCommitMode = DatabaseCommitMode.Automatic
+                            DatabaseCommitMode = DatabaseCommitMode.Automatic
                         ("BATCH"),
-                            Settings.DatabaseCommitMode = DatabaseCommitMode.Batch
+                            DatabaseCommitMode = DatabaseCommitMode.Batch
                         ("MANUAL"),
-                            Settings.DatabaseCommitMode = DatabaseCommitMode.Manual
+                            DatabaseCommitMode = DatabaseCommitMode.Manual
                         (),
                             ok = false
                         endusing
@@ -127,18 +127,22 @@ namespace ReplicationLibrary
                     else
                     begin
                         data dbc, @DatabaseConnection
-                        Settings.DatabaseConnectionName = setting.GetString()
-                        Settings.DatabaseConnectString = ^null
+                        data connectionNameIsValid = false
 
                         foreach dbc in Settings.DatabaseConnections
                         begin
-                            if (dbc.Name.ToUpper().Equals(Settings.DatabaseConnectionName.ToUpper()))
-                            begin
-                                Settings.DatabaseConnectString = dbc.ConnectString
+                            if (dbc.Name.ToUpper().Equals(setting.GetString().ToUpper()))
+                                begin
+                                connectionNameIsValid = true
+                                exitloop
                             end
                         end
 
-                        if (String.IsNullOrWhitespace(Settings.DatabaseConnectString))
+                        if (connectionNameIsValid) then
+                        begin
+                            DatabaseConnectionName = setting.GetString()
+                        end
+                        else
                         begin
                             errorMessage = "InstanceDefaults.DatabaseConnectionName does not match an entry in DatabaseConnections!"
                             ok = false
@@ -160,7 +164,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.DatabaseRetryDelay = setting.GetInt32()
+                        DatabaseRetryDelay = setting.GetInt32()
                     end
                 end
             end
@@ -178,7 +182,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.DatabaseRetryMax = setting.GetInt32()
+                        DatabaseRetryMax = setting.GetInt32()
                     end
                 end
             end
@@ -196,7 +200,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.DatabaseTimeout = setting.GetInt32()
+                        DatabaseTimeout = setting.GetInt32()
                     end
                 end
             end
@@ -215,11 +219,11 @@ namespace ReplicationLibrary
                     begin
                         using setting.GetString().ToUpper() select
                         ("NONE"),
-                            Settings.DataCompressionMode = DatabaseDataCompression.None
+                            DataCompressionMode = DatabaseDataCompression.None
                         ("PAGE"),
-                            Settings.DataCompressionMode = DatabaseDataCompression.Page
+                            DataCompressionMode = DatabaseDataCompression.Page
                         ("ROW"),
-                            Settings.DataCompressionMode = DatabaseDataCompression.Row
+                            DataCompressionMode = DatabaseDataCompression.Row
                         (),
                             ok = false
                         endusing
@@ -244,7 +248,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.ErrorSleepTime = setting.GetDecimal()
+                        ErrorSleepTime = setting.GetDecimal()
                     end
                 end
             end
@@ -262,7 +266,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.FileServiceEnabled = setting.GetBoolean()
+                        FileServiceEnabled = setting.GetBoolean()
                     end
                 end
             end
@@ -280,7 +284,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.FileServiceHost = setting.GetString()
+                        FileServiceHost = setting.GetString()
                     end
                 end
             end
@@ -298,7 +302,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.FileServicePort = setting.GetInt32()
+                        FileServicePort = setting.GetInt32()
                     end
                 end
             end
@@ -321,7 +325,7 @@ namespace ReplicationLibrary
                         begin
                             data tmpfile = setting.GetString() + %datetime + ".tmp"
                             open(tmpch=0,o,tmpfile)
-                            Settings.LocalExportPath = setting.GetString()
+                            LocalExportPath = setting.GetString()
                         end
                         catch (e, @Exception)
                         begin
@@ -354,7 +358,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.LogBulkLoadExceptions = setting.GetBoolean()
+                        LogBulkLoadExceptions = setting.GetBoolean()
                     end
                 end
             end
@@ -372,7 +376,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.LogKeyValues = setting.GetBoolean()
+                        LogKeyValues = setting.GetBoolean()
                     end
                 end
             end
@@ -390,7 +394,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.LogLoadProgress = setting.GetBoolean()
+                        LogLoadProgress = setting.GetBoolean()
                     end
                 end
             end
@@ -408,7 +412,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.MaxColumns = setting.GetInt32()
+                        MaxColumns = setting.GetInt32()
                     end
                 end
             end
@@ -426,7 +430,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.MaxCursors = setting.GetInt32()
+                        MaxCursors = setting.GetInt32()
                     end
                 end
             end
@@ -444,7 +448,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.QueueReconnectAttempts = setting.GetInt32()
+                        QueueReconnectAttempts = setting.GetInt32()
                     end
                 end
             end
@@ -462,7 +466,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.QueueReconnectDelay = setting.GetInt32()
+                        QueueReconnectDelay = setting.GetInt32()
                     end
                 end
             end
@@ -481,7 +485,7 @@ namespace ReplicationLibrary
                     begin
                         using setting.GetString().ToUpper() select
                         ("ISAMFILE"),
-                            Settings.QueueType = MessageQueueType.IsamFile
+                            QueueType = MessageQueueType.IsamFile
                         ("KAFKA"),
 .ifdef DBLNET
                             Settings.QueueType = MessageQueueType.Kafka
@@ -512,7 +516,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.SleepTime = setting.GetInt32()
+                        SleepTime = setting.GetInt32()
                     end
                 end
             end
@@ -530,7 +534,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.SqlCommandReuse = setting.GetBoolean()
+                        SqlCommandReuse = setting.GetBoolean()
                     end
                 end
             end
@@ -548,7 +552,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.StopOnError = setting.GetBoolean()
+                        StopOnError = setting.GetBoolean()
                     end
                 end
             end
@@ -566,7 +570,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.SystemLogging = setting.GetBoolean()
+                        SystemLogging = setting.GetBoolean()
                     end
                 end
             end
@@ -584,7 +588,7 @@ namespace ReplicationLibrary
                     end
                     else
                     begin
-                        Settings.VerboseLogging = setting.GetBoolean()
+                        VerboseLogging = setting.GetBoolean()
                     end
                 end
             end

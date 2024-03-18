@@ -158,10 +158,9 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;Define the CREATE TABLE statement
@@ -219,6 +218,10 @@ proc
     try
     begin
         disposable data command = new SqlCommand(createTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
         command.ExecuteNonQuery()
     end
     catch (ex, @SqlException)
@@ -236,6 +239,10 @@ proc
         begin
             data sql = 'GRANT ALL ON "<StructureName>" TO PUBLIC'
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -253,13 +260,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return any error message to the calling routine
@@ -293,10 +302,9 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
@@ -316,6 +324,10 @@ proc
         try
         begin
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -355,6 +367,10 @@ proc
         try
         begin
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -385,13 +401,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return any error message to the calling routine
@@ -423,10 +441,9 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
   <IF NOT STRUCTURE_HAS_UNIQUE_PK>
@@ -436,6 +453,10 @@ proc
         begin
             data sql = '<PRIMARY_KEY>DROP INDEX IF EXISTS IX_<StructureName>_<KeyName></PRIMARY_KEY> ON "<StructureName>"'
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -456,6 +477,10 @@ proc
         begin
             data sql = 'DROP INDEX IF EXISTS IX_<StructureName>_<KeyName> ON "<StructureName>"'
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -474,13 +499,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return any error message to the calling routine
@@ -662,10 +689,9 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     if (ok)
@@ -673,6 +699,10 @@ proc
         try
         begin
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
 
 <IF STRUCTURE_RELATIVE>
             command.Parameters.AddWithValue("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber))
@@ -725,13 +755,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return any error message to the calling routine
@@ -851,6 +883,14 @@ proc
         begin
             data sql = "SET IMPLICIT_TRANSACTIONS ON"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -863,10 +903,9 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ; If we're binding once, create the SqlCommand object and define parameters
@@ -1006,6 +1045,10 @@ proc
             else
             begin
                 ;Create the SqlCommand, add parameters and bind the data for the current record
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
 <IF STRUCTURE_RELATIVE>
                 command.Parameters.AddWithValue(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
@@ -1092,18 +1135,20 @@ proc
 
     ;Commit or rollback the transaction
 
-    if (transaction != ^null)
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;If necessary, re-enable auto-commit
@@ -1113,9 +1158,11 @@ proc
         try
         begin
             data sql = "SET IMPLICIT_TRANSACTIONS OFF"
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { 
-            &    CommandTimeout = Settings.DatabaseTimeout
-            &    }
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -1292,10 +1339,9 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     if (ok)
@@ -1303,6 +1349,10 @@ proc
         try
         begin
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
 
             ;Bind the host variables for data to be updated
 <FIELD_LOOP>
@@ -1353,13 +1403,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return any error message to the calling routine
@@ -1408,10 +1460,9 @@ proc
     <structureName> = %<StructureName>KeyToRecord(a_key)
 
     ;If we're in manual commit mode, start a transaction
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;;Delete the row
@@ -1435,6 +1486,10 @@ proc
         try
         begin
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -1453,13 +1508,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return any error message to the calling routine
@@ -1492,10 +1549,9 @@ proc
     errorMessage = String.Empty
 
     ;If we're in manual commit mode, start a transaction
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;;Truncate the table
@@ -1505,6 +1561,10 @@ proc
         begin
             data sql = 'TRUNCATE TABLE "<StructureName>"'
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -1522,13 +1582,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return any error message to the calling routine
@@ -1559,10 +1621,9 @@ proc
     errorMessage = String.Empty
 
     ;If we're in manual commit mode, start a transaction
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;Drop the database table and primary key constraint
@@ -1570,6 +1631,10 @@ proc
     begin
         data sql = "DROP TABLE <StructureName>"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
         command.ExecuteNonQuery()
     end
     catch (ex, @SqlException)
@@ -1594,13 +1659,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return any error message to the calling routine
@@ -2068,10 +2135,9 @@ proc
 
     ;If we're in manual commit mode, start a transaction
 
-    disposable data transaction, @SqlTransaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
-        transaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
     ;Execute the BULK INSERT statement
@@ -2094,6 +2160,10 @@ proc
         try
         begin
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
             command.ExecuteNonQuery()
         end
         catch (ex, @SqlException)
@@ -2323,13 +2393,15 @@ proc
         if (ok) then
         begin
             ;Success, commit the transaction
-            transaction.Commit()
+            Settings.CurrentTransaction.Commit()
         end
         else
         begin
             ;There was an error, rollback the transaction
-            transaction.Rollback()
+            Settings.CurrentTransaction.Rollback()
         end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
     end
 
     ;Return the record and exceptions count

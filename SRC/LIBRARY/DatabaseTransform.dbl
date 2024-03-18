@@ -81,7 +81,6 @@ proc
         try
         begin
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-
             command.Parameters.AddWithValue("@TableName",tableName)
             command.Parameters.AddWithValue("@ColumnName",columnName)
 
@@ -148,6 +147,10 @@ proc
             try
             begin
                 disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
                 command.ExecuteNonQuery()
             end
             catch (ex, @SqlException)

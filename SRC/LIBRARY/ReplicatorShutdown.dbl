@@ -67,8 +67,8 @@ proc
 .ifdef DBLNET
         (DatabaseConnectionMode.SqlClient),
         begin
-            Settings.BatchTransaction.Commit()
-            Settings.BatchTransaction.Dispose()
+            Settings.CurrentTransaction.Commit()
+            Settings.CurrentTransaction.Dispose()
         end
 .endc
         endusing

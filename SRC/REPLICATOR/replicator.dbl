@@ -699,8 +699,8 @@ CommitTransaction,
     (DatabaseConnectionMode.SqlClient),
     begin
         ;Commit the current transaction
-        Settings.BatchTransaction.Commit()
-        Settings.BatchTransaction.Dispose()
+        Settings.CurrentTransaction.Commit()
+        Settings.CurrentTransaction.Dispose()
 
         ;;Delete all of the associated instructions from the queue file.
         foreach boxedRfa in uncommittedInstructions
@@ -736,7 +736,7 @@ CommitTransaction,
 
         ;Start a new transaction
 
-        Settings.BatchTransaction = Settings.DatabaseConnection.BeginTransaction()
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
 
         Counters.BatchCommits += 1
         Counters.BatchCounter = 0

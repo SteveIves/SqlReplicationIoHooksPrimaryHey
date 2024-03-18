@@ -256,9 +256,9 @@ namespace ReplicationLibrary
         public static readwrite property DatabaseConnection, @SqlConnection
 
         ;;; <summary>
-        ;;; The current transaction (Microsoft SqlClient and batch commit mode only)
+        ;;; The current transaction (Microsoft SqlClient mode only)
         ;;; </summary>
-        public static readwrite property BatchTransaction, @SqlTransaction
+        public static readwrite property CurrentTransaction, @SqlTransaction
 .endc
 
         ;;; <summary>

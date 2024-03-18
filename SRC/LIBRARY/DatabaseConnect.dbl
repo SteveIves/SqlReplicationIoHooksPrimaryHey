@@ -171,6 +171,10 @@ proc
             try
             begin
                 disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
                 command.ExecuteNonQuery()
             end
             catch (ex, @SqlException)
@@ -196,7 +200,7 @@ proc
 
         if (ok && Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         begin
-            Settings.BatchTransaction = Settings.DatabaseConnection.BeginTransaction()
+            Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
             Counters.BatchCounter = 0
         end
     end
