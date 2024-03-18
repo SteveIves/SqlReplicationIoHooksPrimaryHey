@@ -90,14 +90,25 @@ endfunction
 function Department_Create, ^val
     required out aErrorMessage, a
 
-    .align
     stack record
         ok, boolean
         errorMessage, string
     endrecord
+
+    literal
+        createTableCommand, string,"CREATE TABLE [Department] ("
+        & + "[DeptId] VARCHAR(15) NOT NULL,"
+        & + "[DeptName] VARCHAR(50) NOT NULL,"
+        & + "[DeptManager] DECIMAL(8) NOT NULL,"
+        & + "CONSTRAINT [PK_Department] PRIMARY KEY CLUSTERED([DeptId] ASC)"
+        & + ")"
+        grantCommand, string, "GRANT ALL ON [Department] TO PUBLIC"
+    endliteral
+
     static record
-        createTableCommand, string
+        finalCreateTableCommand, string
     endrecord
+
 proc
     ok = true
     errorMessage = String.Empty
@@ -109,22 +120,17 @@ proc
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    ;Define the CREATE TABLE statement
+    ;Define the final CREATE TABLE statement
 
-    if (ok && createTableCommand == ^null)
+    if (finalCreateTableCommand == ^null)
     begin
-        createTableCommand = 'CREATE TABLE "Department" ('
-        & + '"DeptId" VARCHAR(15) NOT NULL,'
-        & + '"DeptName" VARCHAR(50) NOT NULL,'
-        & + '"DeptManager" DECIMAL(8) NOT NULL,'
-        & + 'CONSTRAINT PK_Department PRIMARY KEY CLUSTERED("DeptId" ASC)'
-        & + ')'
-
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
-            createTableCommand = createTableCommand + " WITH(DATA_COMPRESSION=PAGE)"
+            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=PAGE)",createTableCommand)
         (DatabaseDataCompression.Row),
-            createTableCommand = createTableCommand + " WITH(DATA_COMPRESSION=ROW)"
+            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=ROW)",createTableCommand)
+        (),
+            finalCreateTableCommand = createTableCommand
         endusing
     end
 
@@ -132,7 +138,7 @@ proc
 
     try
     begin
-        disposable data command = new SqlCommand(createTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        disposable data command = new SqlCommand(finalCreateTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
@@ -152,8 +158,7 @@ proc
     begin
         try
         begin
-            data sql = 'GRANT ALL ON "Department" TO PUBLIC'
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            disposable data command = new SqlCommand(grantCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
                 command.Transaction = Settings.CurrentTransaction
@@ -225,7 +230,7 @@ proc
 
     if (ok && !%Index_Exists("IX_Department_DeptManager"))
     begin
-        data sql = 'CREATE  INDEX IX_Department_DeptManager ON "Department"("DeptManager" ASC)'
+        data sql = "CREATE  INDEX [IX_Department_DeptManager] ON [Department]([DeptManager] ASC)"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -321,7 +326,7 @@ proc
     begin
         try
         begin
-            data sql = 'DROP INDEX IF EXISTS IX_Department_DeptManager ON "Department"'
+            data sql = "DROP INDEX IF EXISTS [IX_Department_DeptManager] ON [Department]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -382,10 +387,10 @@ function Department_Insert, ^val
     endrecord
 
     literal
-        sql, string, "INSERT INTO Department ("
-        & + '"DeptId",'
-        & + '"DeptName",'
-        & + '"DeptManager"'
+        sql, string, "INSERT INTO [Department] ("
+        & + "[DeptId],"
+        & + "[DeptName],"
+        & + "[DeptManager]"
         & + ") VALUES("
         & + "@DeptId,"
         & + "@DeptName,"
@@ -551,10 +556,10 @@ function Department_InsertRows, ^val
     endrecord
 
     literal
-        sql, string, "INSERT INTO Department ("
-        & + '"DeptId",'
-        & + '"DeptName",'
-        & + '"DeptManager"'
+        sql, string, "INSERT INTO [Department] ("
+        & + "[DeptId],"
+        & + "[DeptName],"
+        & + "[DeptManager]"
         & + ") VALUES("
         & + "@DeptId,"
         & + "@DeptName,"
@@ -757,11 +762,11 @@ function Department_Update, ^val
     endrecord
 
     literal
-        sql, string, 'UPDATE Department SET '
-        & + '"DeptId"=@DeptId,'
-        & + '"DeptName"=@DeptName,'
-        & + '"DeptManager"=@DeptManager'
-        & + ' WHERE "DeptId"=@DeptId  '
+        sql, string, "UPDATE [Department] SET "
+        & + "[DeptId]=@DeptId,"
+        & + "[DeptName]=@DeptName,"
+        & + "[DeptManager]=@DeptManager"
+        & + " WHERE [DeptId]=@DeptId  "
     endliteral
 
     static record
@@ -897,8 +902,8 @@ proc
     ;;Delete the row
     if (ok)
     begin
-        sql = 'DELETE FROM "Department" WHERE'
-        & + ' "DeptId"=' + "'" + %atrim(department.dept_id) + "' "
+        sql = "DELETE FROM [Department] WHERE"
+        & + " [DeptId]='" + %atrim(department.dept_id) + "' "
 
         try
         begin
@@ -959,6 +964,10 @@ function Department_Clear, ^val
         errorMessage,   string  ;Returned error message text
     endrecord
 
+    literal
+        sql, string, "TRUNCATE TABLE [Department]"
+    endliteral
+
 proc
     init local_data
     ok = true
@@ -975,7 +984,6 @@ proc
     begin
         try
         begin
-            data sql = 'TRUNCATE TABLE "Department"'
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -1026,11 +1034,14 @@ endfunction
 function Department_Drop, ^val
     required out aErrorMessage, a
 
-    .align
     stack record
         ok, boolean
         errorMessage, string
     endrecord
+
+    literal
+        sql, string, "DROP TABLE [Department]"
+    endliteral
 
 proc
     ok = true
@@ -1045,7 +1056,6 @@ proc
     ;Drop the database table and primary key constraint
     try
     begin
-        data sql = "DROP TABLE Department"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
@@ -1509,7 +1519,7 @@ proc
 
     if (ok)
     begin
-        data sql = String.Format("BULK INSERT Department FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
+        data sql = String.Format("BULK INSERT [Department] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
 
         if (Settings.BulkLoadBatchSize > 0)
         begin

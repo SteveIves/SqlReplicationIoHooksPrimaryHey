@@ -90,14 +90,37 @@ endfunction
 function Employee_Create, ^val
     required out aErrorMessage, a
 
-    .align
     stack record
         ok, boolean
         errorMessage, string
     endrecord
+
+    literal
+        createTableCommand, string,"CREATE TABLE [Employee] ("
+        & + "[EmpId] DECIMAL(8) NOT NULL,"
+        & + "[EmpFirstName] VARCHAR(20) NOT NULL,"
+        & + "[EmpLastName] VARCHAR(20) NOT NULL,"
+        & + "[EmpDept] VARCHAR(15) NOT NULL,"
+        & + "[EmpHireDate] DATE,"
+        & + "[EmpPhoneWork] VARCHAR(14),"
+        & + "[EmpPhoneCell] VARCHAR(14),"
+        & + "[EmpPaid] DECIMAL(1),"
+        & + "[EmpDateOfBirth] DATE,"
+        & + "[EmpHireTime] TIME(0),"
+        & + "[EmpEmail] VARCHAR(40),"
+        & + "[EmpAddressStreet] VARCHAR(30),"
+        & + "[EmpAddressCity] VARCHAR(20),"
+        & + "[EmpAddressState] VARCHAR(2),"
+        & + "[EmpAddressZip] DECIMAL(5),"
+        & + "CONSTRAINT [PK_Employee] PRIMARY KEY CLUSTERED([EmpId] ASC)"
+        & + ")"
+        grantCommand, string, "GRANT ALL ON [Employee] TO PUBLIC"
+    endliteral
+
     static record
-        createTableCommand, string
+        finalCreateTableCommand, string
     endrecord
+
 proc
     ok = true
     errorMessage = String.Empty
@@ -109,34 +132,17 @@ proc
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    ;Define the CREATE TABLE statement
+    ;Define the final CREATE TABLE statement
 
-    if (ok && createTableCommand == ^null)
+    if (finalCreateTableCommand == ^null)
     begin
-        createTableCommand = 'CREATE TABLE "Employee" ('
-        & + '"EmpId" DECIMAL(8) NOT NULL,'
-        & + '"EmpFirstName" VARCHAR(20) NOT NULL,'
-        & + '"EmpLastName" VARCHAR(20) NOT NULL,'
-        & + '"EmpDept" VARCHAR(15) NOT NULL,'
-        & + '"EmpHireDate" DATE,'
-        & + '"EmpPhoneWork" VARCHAR(14),'
-        & + '"EmpPhoneCell" VARCHAR(14),'
-        & + '"EmpPaid" DECIMAL(1),'
-        & + '"EmpDateOfBirth" DATE,'
-        & + '"EmpHireTime" TIME(0),'
-        & + '"EmpEmail" VARCHAR(40),'
-        & + '"EmpAddressStreet" VARCHAR(30),'
-        & + '"EmpAddressCity" VARCHAR(20),'
-        & + '"EmpAddressState" VARCHAR(2),'
-        & + '"EmpAddressZip" DECIMAL(5),'
-        & + 'CONSTRAINT PK_Employee PRIMARY KEY CLUSTERED("EmpId" ASC)'
-        & + ')'
-
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
-            createTableCommand = createTableCommand + " WITH(DATA_COMPRESSION=PAGE)"
+            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=PAGE)",createTableCommand)
         (DatabaseDataCompression.Row),
-            createTableCommand = createTableCommand + " WITH(DATA_COMPRESSION=ROW)"
+            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=ROW)",createTableCommand)
+        (),
+            finalCreateTableCommand = createTableCommand
         endusing
     end
 
@@ -144,7 +150,7 @@ proc
 
     try
     begin
-        disposable data command = new SqlCommand(createTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        disposable data command = new SqlCommand(finalCreateTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
@@ -164,8 +170,7 @@ proc
     begin
         try
         begin
-            data sql = 'GRANT ALL ON "Employee" TO PUBLIC'
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            disposable data command = new SqlCommand(grantCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
                 command.Transaction = Settings.CurrentTransaction
@@ -237,7 +242,7 @@ proc
 
     if (ok && !%Index_Exists("IX_Employee_EmpDept"))
     begin
-        data sql = 'CREATE  INDEX IX_Employee_EmpDept ON "Employee"("EmpDept" ASC)'
+        data sql = "CREATE  INDEX [IX_Employee_EmpDept] ON [Employee]([EmpDept] ASC)"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -279,7 +284,7 @@ proc
 
     if (ok && !%Index_Exists("IX_Employee_EmpLastName"))
     begin
-        data sql = 'CREATE  INDEX IX_Employee_EmpLastName ON "Employee"("EmpLastName" ASC)'
+        data sql = "CREATE  INDEX [IX_Employee_EmpLastName] ON [Employee]([EmpLastName] ASC)"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -321,7 +326,7 @@ proc
 
     if (ok && !%Index_Exists("IX_Employee_StateCode"))
     begin
-        data sql = 'CREATE  INDEX IX_Employee_StateCode ON "Employee"("EmpAddressState" ASC)'
+        data sql = "CREATE  INDEX [IX_Employee_StateCode] ON [Employee]([EmpAddressState] ASC)"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -363,7 +368,7 @@ proc
 
     if (ok && !%Index_Exists("IX_Employee_ZipCode"))
     begin
-        data sql = 'CREATE  INDEX IX_Employee_ZipCode ON "Employee"("EmpAddressZip" ASC)'
+        data sql = "CREATE  INDEX [IX_Employee_ZipCode] ON [Employee]([EmpAddressZip] ASC)"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -459,7 +464,7 @@ proc
     begin
         try
         begin
-            data sql = 'DROP INDEX IF EXISTS IX_Employee_EmpDept ON "Employee"'
+            data sql = "DROP INDEX IF EXISTS [IX_Employee_EmpDept] ON [Employee]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -481,7 +486,7 @@ proc
     begin
         try
         begin
-            data sql = 'DROP INDEX IF EXISTS IX_Employee_EmpLastName ON "Employee"'
+            data sql = "DROP INDEX IF EXISTS [IX_Employee_EmpLastName] ON [Employee]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -503,7 +508,7 @@ proc
     begin
         try
         begin
-            data sql = 'DROP INDEX IF EXISTS IX_Employee_StateCode ON "Employee"'
+            data sql = "DROP INDEX IF EXISTS [IX_Employee_StateCode] ON [Employee]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -525,7 +530,7 @@ proc
     begin
         try
         begin
-            data sql = 'DROP INDEX IF EXISTS IX_Employee_ZipCode ON "Employee"'
+            data sql = "DROP INDEX IF EXISTS [IX_Employee_ZipCode] ON [Employee]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -586,22 +591,22 @@ function Employee_Insert, ^val
     endrecord
 
     literal
-        sql, string, "INSERT INTO Employee ("
-        & + '"EmpId",'
-        & + '"EmpFirstName",'
-        & + '"EmpLastName",'
-        & + '"EmpDept",'
-        & + '"EmpHireDate",'
-        & + '"EmpPhoneWork",'
-        & + '"EmpPhoneCell",'
-        & + '"EmpPaid",'
-        & + '"EmpDateOfBirth",'
-        & + '"EmpHireTime",'
-        & + '"EmpEmail",'
-        & + '"EmpAddressStreet",'
-        & + '"EmpAddressCity",'
-        & + '"EmpAddressState",'
-        & + '"EmpAddressZip"'
+        sql, string, "INSERT INTO [Employee] ("
+        & + "[EmpId],"
+        & + "[EmpFirstName],"
+        & + "[EmpLastName],"
+        & + "[EmpDept],"
+        & + "[EmpHireDate],"
+        & + "[EmpPhoneWork],"
+        & + "[EmpPhoneCell],"
+        & + "[EmpPaid],"
+        & + "[EmpDateOfBirth],"
+        & + "[EmpHireTime],"
+        & + "[EmpEmail],"
+        & + "[EmpAddressStreet],"
+        & + "[EmpAddressCity],"
+        & + "[EmpAddressState],"
+        & + "[EmpAddressZip]"
         & + ") VALUES("
         & + "@EmpId,"
         & + "@EmpFirstName,"
@@ -841,22 +846,22 @@ function Employee_InsertRows, ^val
     endrecord
 
     literal
-        sql, string, "INSERT INTO Employee ("
-        & + '"EmpId",'
-        & + '"EmpFirstName",'
-        & + '"EmpLastName",'
-        & + '"EmpDept",'
-        & + '"EmpHireDate",'
-        & + '"EmpPhoneWork",'
-        & + '"EmpPhoneCell",'
-        & + '"EmpPaid",'
-        & + '"EmpDateOfBirth",'
-        & + '"EmpHireTime",'
-        & + '"EmpEmail",'
-        & + '"EmpAddressStreet",'
-        & + '"EmpAddressCity",'
-        & + '"EmpAddressState",'
-        & + '"EmpAddressZip"'
+        sql, string, "INSERT INTO [Employee] ("
+        & + "[EmpId],"
+        & + "[EmpFirstName],"
+        & + "[EmpLastName],"
+        & + "[EmpDept],"
+        & + "[EmpHireDate],"
+        & + "[EmpPhoneWork],"
+        & + "[EmpPhoneCell],"
+        & + "[EmpPaid],"
+        & + "[EmpDateOfBirth],"
+        & + "[EmpHireTime],"
+        & + "[EmpEmail],"
+        & + "[EmpAddressStreet],"
+        & + "[EmpAddressCity],"
+        & + "[EmpAddressState],"
+        & + "[EmpAddressZip]"
         & + ") VALUES("
         & + "@EmpId,"
         & + "@EmpFirstName,"
@@ -1131,23 +1136,23 @@ function Employee_Update, ^val
     endrecord
 
     literal
-        sql, string, 'UPDATE Employee SET '
-        & + '"EmpId"=@EmpId,'
-        & + '"EmpFirstName"=@EmpFirstName,'
-        & + '"EmpLastName"=@EmpLastName,'
-        & + '"EmpDept"=@EmpDept,'
-        & + '"EmpHireDate"=@EmpHireDate,'
-        & + '"EmpPhoneWork"=@EmpPhoneWork,'
-        & + '"EmpPhoneCell"=@EmpPhoneCell,'
-        & + '"EmpPaid"=@EmpPaid,'
-        & + '"EmpDateOfBirth"=@EmpDateOfBirth,'
-        & + '"EmpHireTime"=@EmpHireTime,'
-        & + '"EmpEmail"=@EmpEmail,'
-        & + '"EmpAddressStreet"=@EmpAddressStreet,'
-        & + '"EmpAddressCity"=@EmpAddressCity,'
-        & + '"EmpAddressState"=@EmpAddressState,'
-        & + '"EmpAddressZip"=@EmpAddressZip'
-        & + ' WHERE "EmpId"=@EmpId  '
+        sql, string, "UPDATE [Employee] SET "
+        & + "[EmpId]=@EmpId,"
+        & + "[EmpFirstName]=@EmpFirstName,"
+        & + "[EmpLastName]=@EmpLastName,"
+        & + "[EmpDept]=@EmpDept,"
+        & + "[EmpHireDate]=@EmpHireDate,"
+        & + "[EmpPhoneWork]=@EmpPhoneWork,"
+        & + "[EmpPhoneCell]=@EmpPhoneCell,"
+        & + "[EmpPaid]=@EmpPaid,"
+        & + "[EmpDateOfBirth]=@EmpDateOfBirth,"
+        & + "[EmpHireTime]=@EmpHireTime,"
+        & + "[EmpEmail]=@EmpEmail,"
+        & + "[EmpAddressStreet]=@EmpAddressStreet,"
+        & + "[EmpAddressCity]=@EmpAddressCity,"
+        & + "[EmpAddressState]=@EmpAddressState,"
+        & + "[EmpAddressZip]=@EmpAddressZip"
+        & + " WHERE [EmpId]=@EmpId  "
     endliteral
 
     static record
@@ -1319,8 +1324,8 @@ proc
     ;;Delete the row
     if (ok)
     begin
-        sql = 'DELETE FROM "Employee" WHERE'
-        &    + ' "EmpId"=' + "'" + %string(employee.emp_id) + "' "
+        sql = "DELETE FROM [Employee] WHERE"
+        &    + " [EmpId]='" + %string(employee.emp_id) + "' "
 
         try
         begin
@@ -1381,6 +1386,10 @@ function Employee_Clear, ^val
         errorMessage,   string  ;Returned error message text
     endrecord
 
+    literal
+        sql, string, "TRUNCATE TABLE [Employee]"
+    endliteral
+
 proc
     init local_data
     ok = true
@@ -1397,7 +1406,6 @@ proc
     begin
         try
         begin
-            data sql = 'TRUNCATE TABLE "Employee"'
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -1448,11 +1456,14 @@ endfunction
 function Employee_Drop, ^val
     required out aErrorMessage, a
 
-    .align
     stack record
         ok, boolean
         errorMessage, string
     endrecord
+
+    literal
+        sql, string, "DROP TABLE [Employee]"
+    endliteral
 
 proc
     ok = true
@@ -1467,7 +1478,6 @@ proc
     ;Drop the database table and primary key constraint
     try
     begin
-        data sql = "DROP TABLE Employee"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
@@ -1931,7 +1941,7 @@ proc
 
     if (ok)
     begin
-        data sql = String.Format("BULK INSERT Employee FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
+        data sql = String.Format("BULK INSERT [Employee] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
 
         if (Settings.BulkLoadBatchSize > 0)
         begin

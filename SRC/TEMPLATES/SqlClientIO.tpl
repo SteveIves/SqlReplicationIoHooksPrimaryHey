@@ -148,14 +148,50 @@ endfunction
 function <StructureName>_Create, ^val
     required out aErrorMessage, a
 
-    .align
     stack record
         ok, boolean
         errorMessage, string
     endrecord
+
+    literal
+        createTableCommand, string,"CREATE TABLE [<StructureName>] ("
+<IF STRUCTURE_RELATIVE>
+        & + "[RecordNumber] INT NOT NULL,"
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF DEFINED_ASA_TIREMAX>
+      <IF STRUCTURE_ISAM AND USER>
+        & + "[<FieldSqlName>] DATE<IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>"
+      <ELSE STRUCTURE_ISAM AND NOT USER>
+        & + "[<FieldSqlName>] <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>"
+      <ELSE STRUCTURE_RELATIVE AND USER>
+        & + "[<FieldSqlName>] DATE<IF REQUIRED> NOT NULL</IF><,>"
+      <ELSE STRUCTURE_RELATIVE AND NOT USER>
+        & + "[<FieldSqlName>] <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><,>"
+      </IF STRUCTURE_ISAM>
+    <ELSE>
+      <IF STRUCTURE_ISAM>
+        & + "[<FieldSqlName>] <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>"
+      <ELSE STRUCTURE_RELATIVE>
+        & + "[<FieldSqlName>] <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><,>"
+      </IF STRUCTURE_ISAM>
+    </IF DEFINED_ASA_TIREMAX>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+<IF STRUCTURE_ISAM AND STRUCTURE_HAS_UNIQUE_PK>
+        & + "CONSTRAINT [PK_<StructureName>] PRIMARY KEY CLUSTERED(<PRIMARY_KEY><SEGMENT_LOOP>[<FieldSqlName>] <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>)"
+<ELSE STRUCTURE_RELATIVE>
+        & + "CONSTRAINT [PK_<StructureName>] PRIMARY KEY CLUSTERED([RecordNumber] ASC)"
+</IF STRUCTURE_ISAM>
+        & + ")"
+        grantCommand, string, "GRANT ALL ON [<StructureName>] TO PUBLIC"
+    endliteral
+
     static record
-        createTableCommand, string
+        finalCreateTableCommand, string
     endrecord
+
 proc
     ok = true
     errorMessage = String.Empty
@@ -167,53 +203,17 @@ proc
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    ;Define the CREATE TABLE statement
+    ;Define the final CREATE TABLE statement
 
-    if (ok && createTableCommand == ^null)
+    if (finalCreateTableCommand == ^null)
     begin
-        createTableCommand = 'CREATE TABLE "<StructureName>" ('
-;//
-;// Columns
-;//
-<IF STRUCTURE_RELATIVE>
-        & + '"RecordNumber" INT NOT NULL,'
-</IF STRUCTURE_RELATIVE>
-<FIELD_LOOP>
-  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <IF DEFINED_ASA_TIREMAX>
-      <IF STRUCTURE_ISAM AND USER>
-        & + '"<FieldSqlName>" DATE<IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>'
-      <ELSE STRUCTURE_ISAM AND NOT USER>
-        & + '"<FieldSqlName>" <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>'
-      <ELSE STRUCTURE_RELATIVE AND USER>
-        & + '"<FieldSqlName>" DATE<IF REQUIRED> NOT NULL</IF><,>'
-      <ELSE STRUCTURE_RELATIVE AND NOT USER>
-        & + '"<FieldSqlName>" <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><,>'
-      </IF STRUCTURE_ISAM>
-    <ELSE>
-      <IF STRUCTURE_ISAM>
-        & + '"<FieldSqlName>" <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>'
-      <ELSE STRUCTURE_RELATIVE>
-        & + '"<FieldSqlName>" <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><,>'
-      </IF STRUCTURE_ISAM>
-    </IF DEFINED_ASA_TIREMAX>
-  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-</FIELD_LOOP>
-;//
-;// Primary key constraint
-;//
-<IF STRUCTURE_ISAM AND STRUCTURE_HAS_UNIQUE_PK>
-        & + 'CONSTRAINT PK_<StructureName> PRIMARY KEY CLUSTERED(<PRIMARY_KEY><SEGMENT_LOOP>"<FieldSqlName>" <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>)'
-<ELSE STRUCTURE_RELATIVE>
-        & + 'CONSTRAINT PK_<StructureName> PRIMARY KEY CLUSTERED("RecordNumber" ASC)'
-</IF STRUCTURE_ISAM>
-        & + ')'
-
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
-            createTableCommand = createTableCommand + " WITH(DATA_COMPRESSION=PAGE)"
+            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=PAGE)",createTableCommand)
         (DatabaseDataCompression.Row),
-            createTableCommand = createTableCommand + " WITH(DATA_COMPRESSION=ROW)"
+            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=ROW)",createTableCommand)
+        (),
+            finalCreateTableCommand = createTableCommand
         endusing
     end
 
@@ -221,7 +221,7 @@ proc
 
     try
     begin
-        disposable data command = new SqlCommand(createTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        disposable data command = new SqlCommand(finalCreateTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
@@ -241,8 +241,7 @@ proc
     begin
         try
         begin
-            data sql = 'GRANT ALL ON "<StructureName>" TO PUBLIC'
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            disposable data command = new SqlCommand(grantCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
                 command.Transaction = Settings.CurrentTransaction
@@ -316,7 +315,7 @@ proc
 ;
     if (ok && !%Index_Exists("IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>"))
     begin
-        data sql = '<PRIMARY_KEY>CREATE INDEX IX_<StructureName>_<KeyName> ON "<StructureName>"(<SEGMENT_LOOP>"<FieldSqlName>" <SEGMENT_ORDER><,></SEGMENT_LOOP>)</PRIMARY_KEY>'
+        data sql = "<PRIMARY_KEY>CREATE INDEX [IX_<StructureName>_<KeyName>] ON [<StructureName>](<SEGMENT_LOOP>[<FieldSqlName>] <SEGMENT_ORDER><,></SEGMENT_LOOP>)</PRIMARY_KEY>"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -359,7 +358,7 @@ proc
 
     if (ok && !%Index_Exists("IX_<StructureName>_<KeyName>"))
     begin
-        data sql = 'CREATE <IF FIRST_UNIQUE_KEY>CLUSTERED<ELSE><KEY_UNIQUE></IF FIRST_UNIQUE_KEY> INDEX IX_<StructureName>_<KeyName> ON "<StructureName>"(<SEGMENT_LOOP>"<FieldSqlName>" <SEGMENT_ORDER><,></SEGMENT_LOOP>)'
+        data sql = "CREATE <IF FIRST_UNIQUE_KEY>CLUSTERED<ELSE><KEY_UNIQUE></IF FIRST_UNIQUE_KEY> INDEX [IX_<StructureName>_<KeyName>] ON [<StructureName>](<SEGMENT_LOOP>[<FieldSqlName>] <SEGMENT_ORDER><,></SEGMENT_LOOP>)"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -455,7 +454,7 @@ proc
     begin
         try
         begin
-            data sql = '<PRIMARY_KEY>DROP INDEX IF EXISTS IX_<StructureName>_<KeyName></PRIMARY_KEY> ON "<StructureName>"'
+            data sql = "<PRIMARY_KEY>DROP INDEX IF EXISTS [IX_<StructureName>_<KeyName>]</PRIMARY_KEY> ON [<StructureName>]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -479,7 +478,7 @@ proc
     begin
         try
         begin
-            data sql = 'DROP INDEX IF EXISTS IX_<StructureName>_<KeyName> ON "<StructureName>"'
+            data sql = "DROP INDEX IF EXISTS [IX_<StructureName>_<KeyName>] ON [<StructureName>]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -557,13 +556,13 @@ function <StructureName>_Insert, ^val
     endrecord
 
     literal
-        sql, string, "INSERT INTO <StructureName> ("
+        sql, string, "INSERT INTO [<StructureName>] ("
 <IF STRUCTURE_RELATIVE>
-        & + '"RecordNumber",'
+        & + "[RecordNumber],"
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-        & + '"<FieldSqlName>"<,>'
+        & + "[<FieldSqlName>]<,>"
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
         & + ") VALUES("
@@ -885,13 +884,13 @@ function <StructureName>_InsertRows, ^val
     endrecord
 
     literal
-        sql, string, "INSERT INTO <StructureName> ("
+        sql, string, "INSERT INTO [<StructureName>] ("
 <IF STRUCTURE_RELATIVE>
-        & + '"RecordNumber",'
+        & + "[RecordNumber],"
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-        & + '"<FieldSqlName>"<,>'
+        & + "[<FieldSqlName>]<,>"
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
         & + ") VALUES("
@@ -1250,20 +1249,20 @@ function <StructureName>_Update, ^val
     endrecord
 
     literal
-        sql, string, 'UPDATE <StructureName> SET '
+        sql, string, "UPDATE [<StructureName>] SET "
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF USERTIMESTAMP>
-        & + '"<FieldSqlName>"=CONVERT(DATETIME2,@<FieldSqlName>,21)<,>'
+        & + "[<FieldSqlName>]=CONVERT(DATETIME2,@<FieldSqlName>,21)<,>"
     <ELSE>
-        & + '"<FieldSqlName>"=@<FieldSqlName><,>'
+        & + "[<FieldSqlName>]=@<FieldSqlName><,>"
     </IF USERTIMESTAMP>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 <IF STRUCTURE_ISAM>
-        & + ' WHERE <UNIQUE_KEY><SEGMENT_LOOP>"<FieldSqlName>"=@<FieldSqlName> <AND> </SEGMENT_LOOP></UNIQUE_KEY>'
+        & + " WHERE <UNIQUE_KEY><SEGMENT_LOOP>[<FieldSqlName>]=@<FieldSqlName> <AND> </SEGMENT_LOOP></UNIQUE_KEY>"
 <ELSE STRUCTURE_RELATIVE>
-        & + ' WHERE "RecordNumber"=@RecordNumber'
+        & + " WHERE [RecordNumber]=@RecordNumber"
 </IF STRUCTURE_ISAM>
     endliteral
 
@@ -1499,17 +1498,17 @@ proc
     ;;Delete the row
     if (ok)
     begin
-        sql = 'DELETE FROM "<StructureName>" WHERE'
+        sql = "DELETE FROM [<StructureName>] WHERE"
 <UNIQUE_KEY>
   <SEGMENT_LOOP>
     <IF ALPHA>
-        & + ' "<FieldSqlName>"=' + "'" + %atrim(<structureName>.<segment_name>) + "' <AND>"
+        & + " [<FieldSqlName>]='" + %atrim(<structureName>.<segment_name>) + "' <AND>"
     <ELSE NOT DEFINED_ASA_TIREMAX>
-        &    + ' "<FieldSqlName>"=' + "'" + %string(<structureName>.<segment_name>) + "' <AND>"
+        &    + " [<FieldSqlName>]='" + %string(<structureName>.<segment_name>) + "' <AND>"
     <ELSE DEFINED_ASA_TIREMAX AND USER>
-        &    + " <SegmentName>='" + %TmJulianToYYYYMMDD(<structureName>.<segment_name>) + "' <AND>"
+        &    + " [<SegmentName>]='" + %TmJulianToYYYYMMDD(<structureName>.<segment_name>) + "' <AND>"
     <ELSE DEFINED_ASA_TIREMAX AND NOT USER>
-        &    + ' "<FieldSqlName>"=' + "'" + %string(<structureName>.<segment_name>) + "' <AND>"
+        &    + " [<FieldSqlName>]='" + %string(<structureName>.<segment_name>) + "' <AND>"
     </IF>
   </SEGMENT_LOOP>
 </UNIQUE_KEY>
@@ -1574,6 +1573,10 @@ function <StructureName>_Clear, ^val
         errorMessage,   string  ;Returned error message text
     endrecord
 
+    literal
+        sql, string, "TRUNCATE TABLE [<StructureName>]"
+    endliteral
+
 proc
     init local_data
     ok = true
@@ -1590,7 +1593,6 @@ proc
     begin
         try
         begin
-            data sql = 'TRUNCATE TABLE "<StructureName>"'
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -1641,11 +1643,14 @@ endfunction
 function <StructureName>_Drop, ^val
     required out aErrorMessage, a
 
-    .align
     stack record
         ok, boolean
         errorMessage, string
     endrecord
+
+    literal
+        sql, string, "DROP TABLE [<StructureName>]"
+    endliteral
 
 proc
     ok = true
@@ -1660,7 +1665,6 @@ proc
     ;Drop the database table and primary key constraint
     try
     begin
-        data sql = "DROP TABLE <StructureName>"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
@@ -2175,7 +2179,7 @@ proc
 
     if (ok)
     begin
-        data sql = String.Format("BULK INSERT <StructureName> FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
+        data sql = String.Format("BULK INSERT [<StructureName>] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
 
         if (Settings.BulkLoadBatchSize > 0)
         begin
