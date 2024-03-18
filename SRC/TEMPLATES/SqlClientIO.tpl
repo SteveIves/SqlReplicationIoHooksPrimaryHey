@@ -160,7 +160,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -304,7 +304,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -398,7 +398,7 @@ proc
     end
 
   </ALTERNATE_KEY_LOOP>
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -443,7 +443,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -496,7 +496,7 @@ proc
     end
 
   </ALTERNATE_KEY_LOOP>
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -548,11 +548,11 @@ function <StructureName>_Insert, ^val
 </IF DEFINED_ASA_TIREMAX>
     .align
     stack record local_data
-        ok          ,boolean    ;OK to continue
-        sts         ,int        ;Return status
-        errorMessage,string     ;Error message text
+        ok,             boolean     ;OK to continue
+        sts,            int         ;Return status
+        errorMessage,   string      ;Error message text
 <IF STRUCTURE_RELATIVE>
-        recordNumber,d28        ;Relative record number
+        recordNumber,   d28         ;Relative record number
 </IF STRUCTURE_RELATIVE>
     endrecord
 
@@ -566,10 +566,24 @@ function <StructureName>_Insert, ^val
         & + '"<FieldSqlName>"<,>'
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
-        & + ") VALUES(<IF STRUCTURE_RELATIVE>RecordNumber,</IF STRUCTURE_RELATIVE><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><IF USERTIMESTAMP>CONVERT(DATETIME2,@<FieldSqlName>,21)<,><ELSE>@<FieldSqlName><,></IF USERTIMESTAMP></IF CUSTOM_NOT_REPLICATOR_EXCLUDE></FIELD_LOOP>)"
+        & + ") VALUES("
+<IF STRUCTURE_RELATIVE>
+        & + "@RecordNumber,"
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+        & + "CONVERT(DATETIME2,@<FieldSqlName>,21)<,>"
+    <ELSE>
+        & + "@<FieldSqlName><,>"
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+        & + ")"
     endliteral
 
     static record
+        command, @SqlCommand
         <structure_name>, str<StructureName>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
@@ -603,156 +617,213 @@ proc
     recordNumber = a_recnum
 </IF STRUCTURE_RELATIVE>
 
-    if (ok)
-    begin
 <IF STRUCTURE_MAPPED>
-        ;Map the file data into the table data record
+    ;Map the file data into the table data record
 
-        <structure_name> = %<structure_name>_map(a_data)
+    <structure_name> = %<structure_name>_map(a_data)
 <ELSE>
-        ;Load the data into the bound record
+    ;Load the data into the bound record
 
-        <structure_name> = a_data
+    <structure_name> = a_data
 </IF STRUCTURE_MAPPED>
 
 <IF DEFINED_CLEAN_DATA>
   <IF STRUCTURE_ALPHA_FIELDS>
-        ;Clean up any alpha fields
+    ;Clean up any alpha fields
 
     <FIELD_LOOP>
       <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
         <IF NOT FIRST_UNIQUE_KEY_SEGMENT>
-        <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
+    <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
         </IF FIRST_UNIQUE_KEY_SEGMENT>
       </IF ALPHA>
     </FIELD_LOOP>
 
   </IF STRUCTURE_ALPHA_FIELDS>
   <IF STRUCTURE_DECIMAL_FIELDS>
-        ;Clean up any decimal fields
+    ;Clean up any decimal fields
 
     <FIELD_LOOP>
       <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
-        if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
-            clear <structure_name>.<field_original_name_modified>
+    if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
+        clear <structure_name>.<field_original_name_modified>
       </IF DECIMAL>
     </FIELD_LOOP>
 
   </IF STRUCTURE_DECIMAL_FIELDS>
   <IF STRUCTURE_DATE_FIELDS>
-        ;Clean up any date fields
+    ;Clean up any date fields
 
     <FIELD_LOOP>
       <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
-        if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
+    if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
         <IF FIRST_UNIQUE_KEY_SEGMENT>
-            ^a(<structure_name>.<field_original_name_modified>) = "17530101"
+        ^a(<structure_name>.<field_original_name_modified>) = "17530101"
         <ELSE>
-            ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
+        ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
         </IF FIRST_UNIQUE_KEY_SEGMENT>
       </IF DATE>
     </FIELD_LOOP>
 
   </IF STRUCTURE_DATE_FIELDS>
   <IF STRUCTURE_TIME_FIELDS>
-        ;Clean up any time fields
+    ;Clean up any time fields
 
     <FIELD_LOOP>
       <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
-        if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
-            ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
+    if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
+        ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
       </IF TIME>
     </FIELD_LOOP>
 
   </IF STRUCTURE_TIME_FIELDS>
 </IF DEFINED_CLEAN_DATA>
-        ;Assign data to any temporary time or user-defined timestamp fields
+    ;Assign data to any temporary time or user-defined timestamp fields
 
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF USERTIMESTAMP>
-        tmp<FieldSqlName> = %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX")
+    tmp<FieldSqlName> = %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX")
     <ELSE TIME_HHMM>
-        tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX")
+    tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX")
     <ELSE TIME_HHMMSS>
-        tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX:XX")
+    tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX:XX")
     <ELSE DEFINED_ASA_TIREMAX AND USER>
-        tmp<FieldSqlName> = %TmJulianToYYYYMMDD(<field_path>)
+    tmp<FieldSqlName> = %TmJulianToYYYYMMDD(<field_path>)
     </IF USERTIMESTAMP>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 
-        ;Assign values to temp fields for any fields with custom data types
+    ;Assign values to temp fields for any fields with custom data types
 
 <FIELD_LOOP>
   <IF CUSTOM_DBL_TYPE>
-        tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
+    tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
   </IF CUSTOM_DBL_TYPE>
 </FIELD_LOOP>
-    end
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    if (ok)
-    begin
-        try
-        begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
+    ; If we're reusing the SqlCommand and it's our first time here, create the command and define the parameters
 
+    if (Settings.SqlCommandReuse && command==^null)
+    begin
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
 <IF STRUCTURE_RELATIVE>
-            command.Parameters.AddWithValue("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber))
+        command.Parameters.Add(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
 </IF STRUCTURE_RELATIVE>
 <FIELD_LOOP>
   <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
     <IF CUSTOM_DBL_TYPE>
-            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+        command.Parameters.Add("@<FieldSqlName>")
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
+        command.Parameters.Add(new SqlParameter("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)))
     <ELSE USER AND USERTIMESTAMP>
-            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
-    <ELSE USER AND NOT USERTIMESTAMP>
-      <IF DEFINED_ASA_TIREMAX>
-            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
-      <ELSE>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
-      </IF DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
-
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            ok = false
-            sts = 0
-            using ex.Number Select
-            (-2627),    ;TODO: * * * MAY NOT BE THE CORRECT ERROR NUMBER FOR DUPLICATE KEY
-            begin
-                ;Duplicate key
-                errorMessage = "Duplicate key detected in database!"
-                sts = 2
-            end
-            (),
-            begin
-                errorMessage = "Failed to insert row into <StructureName>. Error was: " + ex.Message
-            end
-            endusing
-            xcall ThrowOnSqlClientError(errorMessage,ex)
-        end
-        endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're reusing the SqlCommand bind data to the existing parameters in the existing command
+    ;If not, create the command, define parameters, and bind data
+
+    if (Settings.SqlCommandReuse) then
+    begin
+        ;Existing command and parameters
+<IF STRUCTURE_RELATIVE>
+        command.Parameters["@RecordNumber"].Value = DblToNetConverter.NumberToInt(recordNumber)
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+        command.Parameters["@<FieldSqlName>"].Value = <FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND USERTIMESTAMP>
+        command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+        command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+        command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+    end
+    else
+    begin
+        ;New command and parameters
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+<IF STRUCTURE_RELATIVE>
+        command.Parameters.AddWithValue(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+        command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
+    <ELSE USER AND USERTIMESTAMP>
+        command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+        command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+        command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+    begin
+        command.Transaction = Settings.CurrentTransaction
+    end
+
+    ;Execute the SQL statement
+
+    try
+    begin
+        command.ExecuteNonQuery()
+    end
+    catch (ex, @SqlException)
+    begin
+        ok = false
+        sts = 0
+        using ex.Number Select
+        (-2627),
+        begin
+            errorMessage = "Violation of duplicate key constraint!"
+            sts = 2
+        end
+        (),
+        begin
+            errorMessage = "Failed to insert row into <StructureName>. Error was: " + ex.Message
+        end
+        endusing
+        xcall ThrowOnSqlClientError(errorMessage,ex)
+    end
+    finally
+    begin
+        if (!Settings.SqlCommandReuse)
+        begin
+            command.Dispose()
+            command = ^null
+        end
+    end
+    endtry
+
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -879,33 +950,7 @@ proc
 
     rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
-   ;If enabled, disable auto-commit
-
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-    begin
-        try
-        begin
-            data sql = "SET IMPLICIT_TRANSACTIONS ON"
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
-            ok = false
-        end
-        endtry
-    end
-
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -917,10 +962,6 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-        begin
-            command.Transaction = Settings.CurrentTransaction
-        end
 <IF STRUCTURE_RELATIVE>
         command.Parameters.Add(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
 </IF STRUCTURE_RELATIVE>
@@ -939,6 +980,10 @@ proc
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
     end
 
     ;Insert the rows into the database
@@ -1053,15 +1098,7 @@ proc
             else
             begin
                 ;Create the SqlCommand, add parameters and bind the data for the current record
-                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-                begin
-                    command.Transaction = Settings.CurrentTransaction
-                end
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-                begin
-                    command.Transaction = Settings.CurrentTransaction
-                end
 <IF STRUCTURE_RELATIVE>
                 command.Parameters.AddWithValue(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
 </IF STRUCTURE_RELATIVE>
@@ -1080,6 +1117,10 @@ proc
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
             end
 
             ; Execute the SQL statement
@@ -1161,28 +1202,6 @@ proc
         end
         Settings.CurrentTransaction.Dispose()
         Settings.CurrentTransaction = ^null
-    end
-
-    ;If necessary, re-enable auto-commit
-
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-    begin
-        try
-        begin
-            data sql = "SET IMPLICIT_TRANSACTIONS OFF"
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
-            ok = false
-        end
-        endtry
     end
 
     ;If we're returning exceptions then resize the buffer to the correct size
@@ -1349,7 +1368,7 @@ proc
   </IF CUSTOM_DBL_TYPE>
 </FIELD_LOOP>
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -1408,7 +1427,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -1471,7 +1490,7 @@ proc
     ;Put the unique key value into the record
     <structureName> = %<StructureName>KeyToRecord(a_key)
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -1513,7 +1532,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -1560,7 +1579,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -1588,7 +1607,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
@@ -1632,7 +1651,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -2145,7 +2164,7 @@ proc
         end
     end
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -2399,7 +2418,7 @@ proc
         fsc.Delete(remoteExceptionsLog)
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then

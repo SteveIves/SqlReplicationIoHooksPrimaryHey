@@ -102,7 +102,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -214,7 +214,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -263,7 +263,7 @@ proc
         end
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -308,7 +308,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -337,7 +337,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -376,9 +376,9 @@ function Department_Insert, ^val
 
     .align
     stack record local_data
-        ok          ,boolean    ;OK to continue
-        sts         ,int        ;Return status
-        errorMessage,string     ;Error message text
+        ok,             boolean     ;OK to continue
+        sts,            int         ;Return status
+        errorMessage,   string      ;Error message text
     endrecord
 
     literal
@@ -386,10 +386,15 @@ function Department_Insert, ^val
         & + '"DeptId",'
         & + '"DeptName",'
         & + '"DeptManager"'
-        & + ") VALUES(@DeptId,@DeptName,@DeptManager)"
+        & + ") VALUES("
+        & + "@DeptId,"
+        & + "@DeptName,"
+        & + "@DeptManager"
+        & + ")"
     endliteral
 
     static record
+        command, @SqlCommand
         department, strDepartment
     endrecord
 
@@ -398,73 +403,102 @@ proc
     ok = true
     sts = 1
 
-    if (ok)
-    begin
-        ;Load the data into the bound record
+    ;Load the data into the bound record
 
-        department = a_data
+    department = a_data
 
-        ;Clean up any alpha fields
+    ;Clean up any alpha fields
 
-        department.dept_name = %atrim(department.dept_name)+%char(0)
+    department.dept_name = %atrim(department.dept_name)+%char(0)
 
-        ;Clean up any decimal fields
+    ;Clean up any decimal fields
 
-        if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
-            clear department.dept_manager
+    if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
+        clear department.dept_manager
 
-        ;Assign data to any temporary time or user-defined timestamp fields
+    ;Assign data to any temporary time or user-defined timestamp fields
 
 
-        ;Assign values to temp fields for any fields with custom data types
+    ;Assign values to temp fields for any fields with custom data types
 
-    end
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    if (ok)
+    ; If we're reusing the SqlCommand and it's our first time here, create the command and define the parameters
+
+    if (Settings.SqlCommandReuse && command==^null)
     begin
-        try
-        begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-
-            command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
-            command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
-            command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
-
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            ok = false
-            sts = 0
-            using ex.Number Select
-            (-2627),    ;TODO: * * * MAY NOT BE THE CORRECT ERROR NUMBER FOR DUPLICATE KEY
-            begin
-                ;Duplicate key
-                errorMessage = "Duplicate key detected in database!"
-                sts = 2
-            end
-            (),
-            begin
-                errorMessage = "Failed to insert row into Department. Error was: " + ex.Message
-            end
-            endusing
-            xcall ThrowOnSqlClientError(errorMessage,ex)
-        end
-        endtry
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.Add(new SqlParameter("@DeptId",DblToNetConverter.AlphaToString(department.dept_id)))
+        command.Parameters.Add(new SqlParameter("@DeptName",DblToNetConverter.AlphaToString(department.dept_name)))
+        command.Parameters.Add(new SqlParameter("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager)))
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're reusing the SqlCommand bind data to the existing parameters in the existing command
+    ;If not, create the command, define parameters, and bind data
+
+    if (Settings.SqlCommandReuse) then
+    begin
+        ;Existing command and parameters
+        command.Parameters["@DeptId"].Value = DblToNetConverter.AlphaToString(department.dept_id)
+        command.Parameters["@DeptName"].Value = DblToNetConverter.AlphaToString(department.dept_name)
+        command.Parameters["@DeptManager"].Value = DblToNetConverter.SmallDecimalToInt(department.dept_manager)
+    end
+    else
+    begin
+        ;New command and parameters
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
+        command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
+        command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+    begin
+        command.Transaction = Settings.CurrentTransaction
+    end
+
+    ;Execute the SQL statement
+
+    try
+    begin
+        command.ExecuteNonQuery()
+    end
+    catch (ex, @SqlException)
+    begin
+        ok = false
+        sts = 0
+        using ex.Number Select
+        (-2627),
+        begin
+            errorMessage = "Violation of duplicate key constraint!"
+            sts = 2
+        end
+        (),
+        begin
+            errorMessage = "Failed to insert row into Department. Error was: " + ex.Message
+        end
+        endusing
+        xcall ThrowOnSqlClientError(errorMessage,ex)
+    end
+    finally
+    begin
+        if (!Settings.SqlCommandReuse)
+        begin
+            command.Dispose()
+            command = ^null
+        end
+    end
+    endtry
+
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -546,33 +580,7 @@ proc
 
     rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
-   ;If enabled, disable auto-commit
-
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-    begin
-        try
-        begin
-            data sql = "SET IMPLICIT_TRANSACTIONS ON"
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
-            ok = false
-        end
-        endtry
-    end
-
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -584,13 +592,13 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.Add(new SqlParameter("@DeptId",DblToNetConverter.AlphaToString(department.dept_id)))
+        command.Parameters.Add(new SqlParameter("@DeptName",DblToNetConverter.AlphaToString(department.dept_name)))
+        command.Parameters.Add(new SqlParameter("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager)))
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
         end
-        command.Parameters.Add(new SqlParameter("@DeptId",DblToNetConverter.AlphaToString(department.dept_id)))
-        command.Parameters.Add(new SqlParameter("@DeptName",DblToNetConverter.AlphaToString(department.dept_name)))
-        command.Parameters.Add(new SqlParameter("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager)))
     end
 
     ;Insert the rows into the database
@@ -624,18 +632,14 @@ proc
             else
             begin
                 ;Create the SqlCommand, add parameters and bind the data for the current record
-                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-                begin
-                    command.Transaction = Settings.CurrentTransaction
-                end
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-                begin
-                    command.Transaction = Settings.CurrentTransaction
-                end
                 command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
                 command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
                 command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
             end
 
             ; Execute the SQL statement
@@ -719,28 +723,6 @@ proc
         Settings.CurrentTransaction = ^null
     end
 
-    ;If necessary, re-enable auto-commit
-
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-    begin
-        try
-        begin
-            data sql = "SET IMPLICIT_TRANSACTIONS OFF"
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
-            ok = false
-        end
-        endtry
-    end
-
     ;If we're returning exceptions then resize the buffer to the correct size
 
     if (^passed(a_exception) && a_exception)
@@ -808,7 +790,7 @@ proc
 
     ;Assign values to temp fields for any fields with custom data types
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -847,7 +829,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -906,7 +888,7 @@ proc
     ;Put the unique key value into the record
     department = %DepartmentKeyToRecord(a_key)
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -936,7 +918,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -982,7 +964,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -1010,7 +992,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
@@ -1054,7 +1036,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -1516,7 +1498,7 @@ proc
         end
     end
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -1770,7 +1752,7 @@ proc
         fsc.Delete(remoteExceptionsLog)
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then

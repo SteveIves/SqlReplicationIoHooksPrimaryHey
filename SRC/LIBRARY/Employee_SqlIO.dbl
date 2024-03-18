@@ -102,7 +102,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -226,7 +226,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -401,7 +401,7 @@ proc
         end
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -446,7 +446,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -541,7 +541,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -580,9 +580,9 @@ function Employee_Insert, ^val
 
     .align
     stack record local_data
-        ok          ,boolean    ;OK to continue
-        sts         ,int        ;Return status
-        errorMessage,string     ;Error message text
+        ok,             boolean     ;OK to continue
+        sts,            int         ;Return status
+        errorMessage,   string      ;Error message text
     endrecord
 
     literal
@@ -602,10 +602,27 @@ function Employee_Insert, ^val
         & + '"EmpAddressCity",'
         & + '"EmpAddressState",'
         & + '"EmpAddressZip"'
-        & + ") VALUES(@EmpId,@EmpFirstName,@EmpLastName,@EmpDept,@EmpHireDate,@EmpPhoneWork,@EmpPhoneCell,@EmpPaid,@EmpDateOfBirth,@EmpHireTime,@EmpEmail,@EmpAddressStreet,@EmpAddressCity,@EmpAddressState,@EmpAddressZip)"
+        & + ") VALUES("
+        & + "@EmpId,"
+        & + "@EmpFirstName,"
+        & + "@EmpLastName,"
+        & + "@EmpDept,"
+        & + "@EmpHireDate,"
+        & + "@EmpPhoneWork,"
+        & + "@EmpPhoneCell,"
+        & + "@EmpPaid,"
+        & + "@EmpDateOfBirth,"
+        & + "@EmpHireTime,"
+        & + "@EmpEmail,"
+        & + "@EmpAddressStreet,"
+        & + "@EmpAddressCity,"
+        & + "@EmpAddressState,"
+        & + "@EmpAddressZip"
+        & + ")"
     endliteral
 
     static record
+        command, @SqlCommand
         employee, strEmployee
         tmpEmpHireTime, a5      ;Storage for HH:MM time field
     endrecord
@@ -615,110 +632,163 @@ proc
     ok = true
     sts = 1
 
-    if (ok)
-    begin
-        ;Load the data into the bound record
+    ;Load the data into the bound record
 
-        employee = a_data
+    employee = a_data
 
-        ;Clean up any alpha fields
+    ;Clean up any alpha fields
 
-        employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
-        employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
-        employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
-        employee.emp_phone_work = %atrim(employee.emp_phone_work)+%char(0)
-        employee.emp_phone_cell = %atrim(employee.emp_phone_cell)+%char(0)
-        employee.emp_email = %atrim(employee.emp_email)+%char(0)
-        employee.emp_address_street = %atrim(employee.emp_address_street)+%char(0)
-        employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
-        employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
+    employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
+    employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
+    employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
+    employee.emp_phone_work = %atrim(employee.emp_phone_work)+%char(0)
+    employee.emp_phone_cell = %atrim(employee.emp_phone_cell)+%char(0)
+    employee.emp_email = %atrim(employee.emp_email)+%char(0)
+    employee.emp_address_street = %atrim(employee.emp_address_street)+%char(0)
+    employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
+    employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
 
-        ;Clean up any decimal fields
+    ;Clean up any decimal fields
 
-        if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
-            clear employee.emp_id
-        if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
-            clear employee.emp_paid
-        if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
-            clear employee.emp_address_zip
+    if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
+        clear employee.emp_id
+    if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
+        clear employee.emp_paid
+    if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
+        clear employee.emp_address_zip
 
-        ;Clean up any date fields
+    ;Clean up any date fields
 
-        if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
-            ^a(employee.emp_hire_date(1:1)) = %char(0)
-        if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
-            ^a(employee.emp_date_of_birth(1:1)) = %char(0)
+    if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
+        ^a(employee.emp_hire_date(1:1)) = %char(0)
+    if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
+        ^a(employee.emp_date_of_birth(1:1)) = %char(0)
 
-        ;Clean up any time fields
+    ;Clean up any time fields
 
-        if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
-            ^a(employee.emp_hire_time(1:1))=%char(0)
+    if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
+        ^a(employee.emp_hire_time(1:1))=%char(0)
 
-        ;Assign data to any temporary time or user-defined timestamp fields
+    ;Assign data to any temporary time or user-defined timestamp fields
 
-        tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
+    tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
 
-        ;Assign values to temp fields for any fields with custom data types
+    ;Assign values to temp fields for any fields with custom data types
 
-    end
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    if (ok)
+    ; If we're reusing the SqlCommand and it's our first time here, create the command and define the parameters
+
+    if (Settings.SqlCommandReuse && command==^null)
     begin
-        try
-        begin
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-
-            command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
-            command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
-            command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
-            command.Parameters.AddWithValue("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept))
-            command.Parameters.AddWithValue("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date))
-            command.Parameters.AddWithValue("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work))
-            command.Parameters.AddWithValue("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell))
-            command.Parameters.AddWithValue("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid))
-            command.Parameters.AddWithValue("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
-            command.Parameters.AddWithValue("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
-            command.Parameters.AddWithValue("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email))
-            command.Parameters.AddWithValue("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street))
-            command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
-            command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
-            command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
-
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            ok = false
-            sts = 0
-            using ex.Number Select
-            (-2627),    ;TODO: * * * MAY NOT BE THE CORRECT ERROR NUMBER FOR DUPLICATE KEY
-            begin
-                ;Duplicate key
-                errorMessage = "Duplicate key detected in database!"
-                sts = 2
-            end
-            (),
-            begin
-                errorMessage = "Failed to insert row into Employee. Error was: " + ex.Message
-            end
-            endusing
-            xcall ThrowOnSqlClientError(errorMessage,ex)
-        end
-        endtry
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.Add(new SqlParameter("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id)))
+        command.Parameters.Add(new SqlParameter("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name)))
+        command.Parameters.Add(new SqlParameter("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name)))
+        command.Parameters.Add(new SqlParameter("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept)))
+        command.Parameters.Add(new SqlParameter("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell)))
+        command.Parameters.Add(new SqlParameter("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid)))
+        command.Parameters.Add(new SqlParameter("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)))
+        command.Parameters.Add(new SqlParameter("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time)))
+        command.Parameters.Add(new SqlParameter("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;If we're reusing the SqlCommand bind data to the existing parameters in the existing command
+    ;If not, create the command, define parameters, and bind data
+
+    if (Settings.SqlCommandReuse) then
+    begin
+        ;Existing command and parameters
+        command.Parameters["@EmpId"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_id)
+        command.Parameters["@EmpFirstName"].Value = DblToNetConverter.AlphaToString(employee.emp_first_name)
+        command.Parameters["@EmpLastName"].Value = DblToNetConverter.AlphaToString(employee.emp_last_name)
+        command.Parameters["@EmpDept"].Value = DblToNetConverter.AlphaToString(employee.emp_dept)
+        command.Parameters["@EmpHireDate"].Value = DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date)
+        command.Parameters["@EmpPhoneWork"].Value = DblToNetConverter.AlphaToString(employee.emp_phone_work)
+        command.Parameters["@EmpPhoneCell"].Value = DblToNetConverter.AlphaToString(employee.emp_phone_cell)
+        command.Parameters["@EmpPaid"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_paid)
+        command.Parameters["@EmpDateOfBirth"].Value = DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)
+        command.Parameters["@EmpHireTime"].Value = DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time)
+        command.Parameters["@EmpEmail"].Value = DblToNetConverter.AlphaToString(employee.emp_email)
+        command.Parameters["@EmpAddressStreet"].Value = DblToNetConverter.AlphaToString(employee.emp_address_street)
+        command.Parameters["@EmpAddressCity"].Value = DblToNetConverter.AlphaToString(employee.emp_address_city)
+        command.Parameters["@EmpAddressState"].Value = DblToNetConverter.AlphaToString(employee.emp_address_state)
+        command.Parameters["@EmpAddressZip"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)
+    end
+    else
+    begin
+        ;New command and parameters
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
+        command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
+        command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
+        command.Parameters.AddWithValue("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept))
+        command.Parameters.AddWithValue("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+        command.Parameters.AddWithValue("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work))
+        command.Parameters.AddWithValue("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell))
+        command.Parameters.AddWithValue("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid))
+        command.Parameters.AddWithValue("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+        command.Parameters.AddWithValue("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+        command.Parameters.AddWithValue("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email))
+        command.Parameters.AddWithValue("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street))
+        command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
+        command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
+        command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+    begin
+        command.Transaction = Settings.CurrentTransaction
+    end
+
+    ;Execute the SQL statement
+
+    try
+    begin
+        command.ExecuteNonQuery()
+    end
+    catch (ex, @SqlException)
+    begin
+        ok = false
+        sts = 0
+        using ex.Number Select
+        (-2627),
+        begin
+            errorMessage = "Violation of duplicate key constraint!"
+            sts = 2
+        end
+        (),
+        begin
+            errorMessage = "Failed to insert row into Employee. Error was: " + ex.Message
+        end
+        endusing
+        xcall ThrowOnSqlClientError(errorMessage,ex)
+    end
+    finally
+    begin
+        if (!Settings.SqlCommandReuse)
+        begin
+            command.Dispose()
+            command = ^null
+        end
+    end
+    endtry
+
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -825,33 +895,7 @@ proc
 
     rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
 
-   ;If enabled, disable auto-commit
-
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-    begin
-        try
-        begin
-            data sql = "SET IMPLICIT_TRANSACTIONS ON"
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            errorMessage = "Failed to disable auto-commit. Error was: " + ex.Message
-            ok = false
-        end
-        endtry
-    end
-
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -863,10 +907,6 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-        begin
-            command.Transaction = Settings.CurrentTransaction
-        end
         command.Parameters.Add(new SqlParameter("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id)))
         command.Parameters.Add(new SqlParameter("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name)))
         command.Parameters.Add(new SqlParameter("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name)))
@@ -882,6 +922,10 @@ proc
         command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city)))
         command.Parameters.Add(new SqlParameter("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state)))
         command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
     end
 
     ;Insert the rows into the database
@@ -950,15 +994,7 @@ proc
             else
             begin
                 ;Create the SqlCommand, add parameters and bind the data for the current record
-                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-                begin
-                    command.Transaction = Settings.CurrentTransaction
-                end
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-                begin
-                    command.Transaction = Settings.CurrentTransaction
-                end
                 command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
                 command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
                 command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
@@ -974,6 +1010,10 @@ proc
                 command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
                 command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
                 command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
             end
 
             ; Execute the SQL statement
@@ -1055,28 +1095,6 @@ proc
         end
         Settings.CurrentTransaction.Dispose()
         Settings.CurrentTransaction = ^null
-    end
-
-    ;If necessary, re-enable auto-commit
-
-    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Automatic)
-    begin
-        try
-        begin
-            data sql = "SET IMPLICIT_TRANSACTIONS OFF"
-            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
-            begin
-                command.Transaction = Settings.CurrentTransaction
-            end
-            command.ExecuteNonQuery()
-        end
-        catch (ex, @SqlException)
-        begin
-            errorMessage = "Failed to re-enable auto-commit. Error was: " + ex.Message
-            ok = false
-        end
-        endtry
     end
 
     ;If we're returning exceptions then resize the buffer to the correct size
@@ -1182,7 +1200,7 @@ proc
 
     ;Assign values to temp fields for any fields with custom data types
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -1233,7 +1251,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -1292,7 +1310,7 @@ proc
     ;Put the unique key value into the record
     employee = %EmployeeKeyToRecord(a_key)
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -1322,7 +1340,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -1368,7 +1386,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -1396,7 +1414,7 @@ proc
         endtry
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then
@@ -1440,7 +1458,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
@@ -1902,7 +1920,7 @@ proc
         end
     end
 
-    ;If we're in manual commit mode, start a transaction
+    ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
@@ -2156,7 +2174,7 @@ proc
         fsc.Delete(remoteExceptionsLog)
     end
 
-    ;If we're in manual commit mode, commit or rollback the transaction
+    ;In manual commit mode, commit or rollback the transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
     begin
         if (ok) then

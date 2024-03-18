@@ -86,11 +86,6 @@ proc
         end
         endusing
 
-        Logger.Log("Sleep interval:     " + %string(Settings.SleepTime) + " seconds.")
-
-        Logger.Log("Database timeout:   " + %string(Settings.DatabaseTimeout))
-        Logger.Log("Bulk load timeout:  " + %string(Settings.BulkLoadTimeout))
-
         using Settings.DatabaseCommitMode select
         (DatabaseCommitMode.Automatic),
             Logger.Log("Commit mode:        AUTOMATIC")
@@ -103,6 +98,8 @@ proc
             Logger.Log("Commit mode:        MANUAL")
         endusing
 
+        Logger.Log("Database timeout:   " + %string(Settings.DatabaseTimeout))
+        Logger.Log("Bulk load timeout:  " + %string(Settings.BulkLoadTimeout))
         Logger.Log("Bulk load batch:    " + %string(Settings.BulkLoadBatchSize))
 
         using Settings.DataCompressionMode select
@@ -113,6 +110,8 @@ proc
         (DatabaseDataCompression.Page),
             Logger.Log("Compression:        PAGE")
         endusing
+
+        Logger.Log("Sleep interval:     " + %string(Settings.SleepTime) + " seconds.")
     end
 
     ;For SQL Connection, check that no tables exceed the configured maximum columns
