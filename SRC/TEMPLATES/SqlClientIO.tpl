@@ -107,6 +107,10 @@ proc
     begin
         data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>'"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
         disposable data reader = command.ExecuteReader()
         if (reader.Read()) then
         begin
@@ -913,6 +917,10 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
 <IF STRUCTURE_RELATIVE>
         command.Parameters.Add(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
 </IF STRUCTURE_RELATIVE>
@@ -1050,6 +1058,10 @@ proc
                     command.Transaction = Settings.CurrentTransaction
                 end
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
 <IF STRUCTURE_RELATIVE>
                 command.Parameters.AddWithValue(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
 </IF STRUCTURE_RELATIVE>

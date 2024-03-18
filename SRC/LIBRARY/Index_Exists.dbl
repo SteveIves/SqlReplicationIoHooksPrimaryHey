@@ -66,7 +66,13 @@ proc
     try
     begin
         data sql = "SELECT name FROM SysIndexes WHERE name='" + aIndexName + "'"
+
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode!=DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
+
         disposable data reader = command.ExecuteReader()
 
         if (reader.Read()) then

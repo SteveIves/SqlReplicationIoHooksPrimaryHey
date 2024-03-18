@@ -49,6 +49,10 @@ proc
     begin
         data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Employee'"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
         disposable data reader = command.ExecuteReader()
         if (reader.Read()) then
         begin
@@ -859,6 +863,10 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
         command.Parameters.Add(new SqlParameter("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id)))
         command.Parameters.Add(new SqlParameter("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name)))
         command.Parameters.Add(new SqlParameter("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name)))
@@ -947,6 +955,10 @@ proc
                     command.Transaction = Settings.CurrentTransaction
                 end
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
                 command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
                 command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
                 command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
