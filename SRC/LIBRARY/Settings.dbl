@@ -90,6 +90,16 @@ namespace ReplicationLibrary
         public static readwrite property CommitBatchSize, int
 
         ;;; <summary>
+        ;;; The batch size to use when loading a database table via BCP
+        ;;; </summary>
+        public static readwrite property DatabaseBcpBatchSize, int, 25000
+
+        ;;; <summary>
+        ;;; The network packet size to use when loading a database table via BCP
+        ;;; </summary>
+        public static readwrite property DatabaseBcpPacketSize, int, 8192
+
+        ;;; <summary>
         ;;; Database commit mode (Automatic, Manual or Batch).
         ;;; </summary>
         public static readwrite property DatabaseCommitMode, DatabaseCommitMode
@@ -98,6 +108,16 @@ namespace ReplicationLibrary
         ;;; The name of the database connection to use
         ;;; </summary>
         public static readwrite property DatabaseConnectionName, string
+
+        ;;; <summary>
+        ;;; The name of the database within the SQL Server instance
+        ;;; </summary>
+        public static readwrite property DatabaseName, string ;,"SqlReplication"
+
+        ;;; <summary>
+        ;;; The password to be used to access the database
+        ;;; </summary>
+        public static readwrite property DatabasePassword, string
 
         ;;; <summary>
         ;;; How many seconds should replicator wait between database re-connect attempts?
@@ -110,9 +130,24 @@ namespace ReplicationLibrary
         public static readwrite property DatabaseRetryMax, int
 
         ;;; <summary>
+        ;;; The name of the database schema that owns the tables
+        ;;; </summary>
+        public static readwrite property DatabaseSchema, string ;,"dbo"
+
+        ;;; <summary>
+        ;;; The name or IP address of the database server
+        ;;; </summary>
+        public static readwrite property DatabaseServer, string ;,"localhost"
+
+        ;;; <summary>
         ;;; Database statement execution timeout in seconds. The default is 60 seconds.
         ;;; </summary>
         public static readwrite property DatabaseTimeout, int
+
+        ;;; <summary>
+        ;;; The database user to be used to access the database
+        ;;; </summary>
+        public static readwrite property DatabaseUser, string ;,"replicator"
 
         ;;; <summary>
         ;;; Use data compression for tables and indexes?
@@ -331,6 +366,16 @@ namespace ReplicationLibrary
                 ;If the database is local we can always bulk load
                 mreturn true
             end
+        endmethod
+
+        ;;; <summary>
+        ;;; Are we able to use bulk copy?
+        ;;; </summary>
+        ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
+        public static method CanBulkCopy, boolean
+        proc
+            ;TODO: * * * NEEDS IMPLEMENTING ASAP * * *
+            mreturn true
         endmethod
 
         ;;; <summary>

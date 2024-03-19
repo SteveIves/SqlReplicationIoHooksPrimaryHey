@@ -46,7 +46,7 @@ proc
         if (aTime(1:2) < 0 || aTime(1:2) > 24 || aTime(3:2) < 0 || aTime(3:2) > 59) then
             freturn ""
         else
-        freturn %string(aTime,"XX:XX")
+        freturn %string(aTime,"XX:XX:00")
     end
     (6),
     begin

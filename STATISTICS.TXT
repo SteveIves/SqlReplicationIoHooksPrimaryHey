@@ -5,13 +5,13 @@ EMPLOYEE file (1M records)                            LOCAL          REMOTE     
 -------------------------------------------------------------------------------------------
 LOAD TABLE
 
-Traditional/SQL Connection      man             125 seconds     ??? seconds     ??? seconds
+Traditional/SQL Connection      man             125 seconds     738 seconds     ??? seconds
 Traditional/SQL Connection      aut             128 seconds     ??? seconds     ??? seconds
-.NET/SqlConnection              man             123 seconds     ??? seconds     ??? seconds
+.NET/SqlConnection              man             123 seconds     672 seconds     ??? seconds
 .NET/SqlConnection              aut             124 seconds     ??? seconds     ??? seconds
-.NET/SqlClient                  no reuse, man   145 seconds     ??? seconds     ??? seconds
+.NET/SqlClient                  no reuse, man   145 seconds     553 seconds     ??? seconds
 .NET/SqlClient                  no reuse, aut   150 seconds     ??? seconds     ??? seconds
-.NET/SqlClient                  reuse, man      153 seconds     ??? seconds     ??? seconds
+.NET/SqlClient                  reuse, man      153 seconds     682 seconds     ??? seconds
 .NET/SqlClient                  reuse, aut      155 seconds     ??? seconds     ??? seconds
 
 In this test, when in SqlClient mode, reuse means a new SqlCommand is created for each batch
@@ -22,6 +22,13 @@ BULK LOAD TABLE                                                   (1GB LAN)     
 
 Traditional/SQL Connection                       17 seconds      22 seconds     ??? seconds
 .NET/SqlConnection                               13 seconds      19 seconds     ??? seconds
-.NET/SqlClient                                   13 seconds      19 seconds     ??? seconds
+.NET/SqlClient                                   13 seconds      17 seconds     ??? seconds
+
+-------------------------------------------------------------------------------------------
+BCP LOAD TABLE                                                    (1GB LAN)      (Internet)
+
+Traditional/SQL Connection                       ?? seconds      ?? seconds     ??? seconds
+.NET/SqlConnection                               ?? seconds      ?? seconds     ??? seconds
+.NET/SqlClient                                   12 seconds      14 seconds     ??? seconds
 
 -------------------------------------------------------------------------------------------

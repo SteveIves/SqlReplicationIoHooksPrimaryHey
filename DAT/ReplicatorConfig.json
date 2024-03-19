@@ -3,23 +3,29 @@
   "Instances": [
     {
       "InstanceName": "DEFAULT",
-      "Enabled": true,
-      "DatabaseConnectionName": "SqlClient_LOCAL"
+      "Enabled": true
     }
   ],
   "InstanceDefaults": {
     "BulkLoadBatchSize": 10000,
     "BulkLoadTimeout": 900,
     "CommitBatchSize": 1000,
+    "DatabaseBcpBatchSize": 25000,
+    "DatabaseBcpPacketSize": 8192,
     "DatabaseCommitMode": "Manual",
-    "DatabaseConnectionName": "DEFAULT",
+    "DatabaseConnectionName": "SqlClient_PSGSRV",
+    "DatabaseName": "SqlReplication",
+    "DatabasePassword": "p@ssw0rd",
     "DatabaseRetryDelay": 30,
     "DatabaseRetryMax": 10,
+    "DatabaseSchema": "dbo",
+    "DatabaseServer": "psgsrv",
     "DatabaseTimeout": 60,
+    "DatabaseUser": "replicator",
     "DataCompressionMode": "None",
     "ErrorSleepTime": 0.01,
-    "FileServiceEnabled": false,
-    "FileServiceHost": "localhost",
+    "FileServiceEnabled": true,
+    "FileServiceHost": "psgsrv",
     "FileServicePort": 8080,
     "LocalExportPath": "C:\\DEV_SYNERGEX\\SqlReplication\\CSV\\",
     "LogBulkLoadExceptions": false,
@@ -31,7 +37,7 @@
     "QueueReconnectDelay": 30,
     "QueueType": "IsamFile",
     "SleepTime": 2,
-    "SqlCommandReuse": false,
+    "SqlCommandReuse": true,
     "StopOnError": false,
     "SystemLogging": false,
     "VerboseLogging": true

@@ -220,13 +220,14 @@ proc
             xcall w_disp(mainwnd,WD_POS, 5,40,"CL. Create and load table")
             xcall w_disp(mainwnd,WD_POS, 6,40,"BL. Bulk load table")
             xcall w_disp(mainwnd,WD_POS, 7,40,"BR. Bulk load first 1000")
-            xcall w_disp(mainwnd,WD_POS, 8,40,"AI. Add indexes")
-            xcall w_disp(mainwnd,WD_POS, 9,40,"DI. Delete indexes")
-            xcall w_disp(mainwnd,WD_POS,10,40,"TR. Truncate table")
-            xcall w_disp(mainwnd,WD_POS,11,40,"D.  Delete table")
-            xcall w_disp(mainwnd,WD_POS,12,40,"X.  Export to CSV")
+            xcall w_disp(mainwnd,WD_POS, 8,40,"BC. Bulk copy table")
+            xcall w_disp(mainwnd,WD_POS, 9,40,"AI. Add indexes")
+            xcall w_disp(mainwnd,WD_POS,10,40,"DI. Delete indexes")
+            xcall w_disp(mainwnd,WD_POS,11,40,"TR. Truncate table")
+            xcall w_disp(mainwnd,WD_POS,12,40,"D.  Delete table")
+            xcall w_disp(mainwnd,WD_POS,13,40,"X.  Export to CSV")
 .ifdef DBLNET
-            xcall w_disp(mainwnd,WD_POS,15,40,"TT. Transform TEST")
+            xcall w_disp(mainwnd,WD_POS,16,40,"TT. Transform TEST")
 .endc
             if (windows && (tableName=="Employee" || tableName=="Department"))
                 xcall w_disp(mainwnd,WD_POS,13,40,"M.  Maintainance")
@@ -753,6 +754,17 @@ proc
             if (tableName) then
             begin
                 xcall Replicate(instanceName,REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000,tableName)
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
+            end
+            else
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
+        end
+
+        ("BC"),
+        begin
+            if (tableName) then
+            begin
+                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.BULK_COPY_TABLE,tableName)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
             else

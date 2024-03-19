@@ -60,6 +60,7 @@ main replicator
         switchMode,                 boolean             ;;Switched from INSERT to UPDATE or vice versa
         switchDone,                 boolean             ;;Have we tried to switch modes before?
         bulkLoad,                   boolean             ;;Use bulk load?
+        bulkCopy,                   boolean             ;;Use bulk copy?
         doCheckCommit,              boolean             ;;Do we need to check if it's time to commit?
         doForceCommit,              boolean             ;;Do we need to force a commit?
         shutdownRequested,          boolean             ;;A shutdown instruction was received and processed
@@ -331,6 +332,7 @@ proc
                 begin
                     Logger.Log("Load table " + %atrim(instruction.structure_name))
                     bulkLoad = false
+                    bulkCopy = false
                     maxRowsToLoad = 0
                     call DoLoadTable
                     doForceCommit = true
@@ -338,6 +340,7 @@ proc
 
                 (REPLICATION_INSTRUCTION.BULK_LOAD_TABLE),
                 begin
+                    bulkCopy = false
                     if (bulkLoad = Settings.CanBulkLoad()) then
                         Logger.Log("Bulk load table " + %atrim(instruction.structure_name))
                     else
@@ -352,6 +355,7 @@ proc
 
                 (REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000),
                 begin
+                    bulkCopy = false
                     if (bulkLoad = Settings.CanBulkLoad()) then
                     begin
                         Logger.Log("Bulk load 1000 records to table " + %atrim(instruction.structure_name))
@@ -362,6 +366,21 @@ proc
                         Logger.Log("Load 1000 records to table " + %atrim(instruction.structure_name))
                     end
                     maxRowsToLoad = 1000
+                    call DoLoadTable
+                    doForceCommit = true
+                end
+
+                (REPLICATION_INSTRUCTION.BULK_COPY_TABLE),
+                begin
+                    bulkLoad = false
+                    if (bulkCopy = Settings.CanBulkCopy()) then
+                        Logger.Log("Bulk copy table " + %atrim(instruction.structure_name))
+                    else
+                    begin
+                        Logger.Log("Bulk copy requested but unavailable!")
+                        Logger.Log("Load table " + %atrim(instruction.structure_name))
+                    end
+                    maxRowsToLoad = 0
                     call DoLoadTable
                     doForceCommit = true
                 end
@@ -935,8 +954,16 @@ CreateTable,
     if (status) then
     begin
         ;;Now do an initial load of the data
-        if (Settings.CanBulkLoad()) then
+        if (Settings.CanBulkCopy()) then
         begin
+            bulkCopy = true
+            bulkLoad = false
+            call BulkLoadTable
+        end
+        else if (Settings.CanBulkLoad()) then
+        begin
+            bulkCopy = false
+            bulkLoad = true
             call BulkLoadTable
         end
         else
@@ -1078,18 +1105,28 @@ BulkLoadTable,
     if (doReturn)
         return
 
-    Logger.Log(" - Bulk load starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
+    if (bulkCopy) then
+        Logger.Log(" - Bulk copy starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
+    else if (bulkLoad)
+        Logger.Log(" - Bulk load starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
 
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
+    begin
         functionName = %atrim(instruction.structure_name) + "BulkLoad"
+    end
     (DatabaseConnectionMode.SqlClient),
-        functionName = %atrim(instruction.structure_name) + "_BulkLoad"
+    begin
+        if (bulkCopy) then
+            functionName = %atrim(instruction.structure_name) + "_BulkCopy"
+        else if (bulkLoad)
+            functionName = %atrim(instruction.structure_name) + "_BulkLoad"
+    end
     endusing
 
     if (EmailSettings.CanSendEmail())
     begin
-        data subject, string, "SQL replicator " + Settings.InstanceName + " is bulk loading table " + %atrim(instruction.structure_name) + " with " + %string(recordCount) + " rows"
+        data subject, string, "SQL replicator " + Settings.InstanceName + " is loading table " + %atrim(instruction.structure_name) + " with " + %string(recordCount) + " rows"
         xcall SendEmail(subject,^null,false)
     end
 
@@ -1113,7 +1150,7 @@ BulkLoadTable,
 
                 if (EmailSettings.CanSendEmail())
                 begin
-                    data subject, string, "SQL replicator " + Settings.InstanceName + " has finished bulk loading table " + %atrim(instruction.structure_name)
+                    data subject, string, "SQL replicator " + Settings.InstanceName + " has finished loading table " + %atrim(instruction.structure_name)
                     data body = new string[2]
                     body[1] = "Rows inserted: " + %string(totalRows - failRows)
                     body[2] = "Rows failed:   " + %string(failRows)
@@ -1126,7 +1163,7 @@ BulkLoadTable,
 
                 if (EmailSettings.CanSendEmail())
                 begin
-                    data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to complete bulk load of table " + %atrim(instruction.structure_name)
+                    data subject, string, "ERROR: SQL replicator " + Settings.InstanceName + " failed to load table " + %atrim(instruction.structure_name)
                     data body = new string[1]
                     body[1] = "Error was: " + %atrimtostring(dberrtxt)
                     xcall SendEmail(subject,body,false)
@@ -1747,7 +1784,7 @@ DoLoadTable,
         ;;Delete any and all existing data before loading new data
         call DoDeleteAllRows
 
-        if (bulkLoad) then
+        if (bulkLoad || bulkCopy) then
         begin
             call BulkLoadTable
         end

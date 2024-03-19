@@ -27,7 +27,12 @@ namespace ReplicationLibrary
 
             ;TODO: Compiler bug? Can't set these two as initial values!
             this.DatabaseConnectionName = "DEFAULT"
-            this.FileServiceHost = "LOCALHOST"
+            this.DatabaseName = "SqlReplication"
+            this.DatabasePassword = ""
+            this.DatabaseSchema = "dbo"
+            this.DatabaseServer = "localhost"
+            this.DatabaseServer = "replicator"
+            this.FileServiceHost = "localhost"
 
             ;BulkLoadBatchSize
 
@@ -73,12 +78,48 @@ namespace ReplicationLibrary
                 begin
                     if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100) then
                     begin
-                        errorMessage = "InstanceDefaults.CommitBatchSize must have an integervalue >= 100!"
+                        errorMessage = "InstanceDefaults.CommitBatchSize must have an integer value >= 100!"
                         ok = false
                     end
                     else
                     begin
                         CommitBatchSize = setting.GetInt32()
+                    end
+                end
+            end
+
+            ;DatabaseBcpBatchSize
+
+            if (ok)
+            begin
+                if (defaults.TryGetProperty("DatabaseBcpBatchSize",setting))
+                begin
+                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100  || setting.GetInt32()>50000) then
+                    begin
+                        errorMessage = "InstanceDefaults.DatabaseBcpBatchSize must have an integer value between 100 and 50000!"
+                        ok = false
+                    end
+                    else
+                    begin
+                        DatabaseBcpBatchSize = setting.GetInt32()
+                    end
+                end
+            end
+
+            ;DatabaseBcpPacketSize
+
+            if (ok)
+            begin
+                if (defaults.TryGetProperty("DatabaseBcpPacketSize",setting))
+                begin
+                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<4096 || setting.GetInt32()>65535) then
+                    begin
+                        errorMessage = "InstanceDefaults.DatabaseBcpPacketSize must have an integer value between 4096 and 65535!"
+                        ok = false
+                    end
+                    else
+                    begin
+                        DatabaseBcpPacketSize = setting.GetInt32()
                     end
                 end
             end
@@ -151,6 +192,42 @@ namespace ReplicationLibrary
                 end
             end
 
+            ;DatabaseName
+
+            if (ok)
+            begin
+                if (defaults.TryGetProperty("DatabaseName",setting))
+                begin
+                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                    begin
+                        errorMessage = "InstanceDefaults.DatabaseName must have a non-blank string value!"
+                        ok = false
+                    end
+                    else
+                    begin
+                        DatabaseName = setting.GetString()
+                    end
+                end
+            end
+
+            ;DatabasePassword
+
+            if (ok)
+            begin
+                if (defaults.TryGetProperty("DatabasePassword",setting))
+                begin
+                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                    begin
+                        errorMessage = "InstanceDefaults.DatabasePassword must have a non-blank string value!"
+                        ok = false
+                    end
+                    else
+                    begin
+                        DatabasePassword = setting.GetString()
+                    end
+                end
+            end
+
             ;DatabaseRetryDelay
 
             if (ok)
@@ -187,6 +264,42 @@ namespace ReplicationLibrary
                 end
             end
 
+            ;DatabaseSchema
+
+            if (ok)
+            begin
+                if (defaults.TryGetProperty("DatabaseSchema",setting))
+                begin
+                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                    begin
+                        errorMessage = "InstanceDefaults.DatabaseSchema must have a non-blank string value!"
+                        ok = false
+                    end
+                    else
+                    begin
+                        DatabaseSchema = setting.GetString()
+                    end
+                end
+            end
+
+            ;DatabaseServer
+
+            if (ok)
+            begin
+                if (defaults.TryGetProperty("DatabaseServer",setting))
+                begin
+                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                    begin
+                        errorMessage = "InstanceDefaults.DatabaseServer must have a non-blank string value!"
+                        ok = false
+                    end
+                    else
+                    begin
+                        DatabaseServer = setting.GetString()
+                    end
+                end
+            end
+
             ;DatabaseTimeout
 
             if (ok)
@@ -201,6 +314,24 @@ namespace ReplicationLibrary
                     else
                     begin
                         DatabaseTimeout = setting.GetInt32()
+                    end
+                end
+            end
+
+            ;DatabaseUser
+
+            if (ok)
+            begin
+                if (defaults.TryGetProperty("DatabaseUser",setting))
+                begin
+                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                    begin
+                        errorMessage = "InstanceDefaults.DatabaseUser must have a non-blank string value!"
+                        ok = false
+                    end
+                    else
+                    begin
+                        DatabaseUser = setting.GetString()
                     end
                 end
             end
@@ -612,6 +743,16 @@ namespace ReplicationLibrary
         public readwrite property CommitBatchSize, int, 1000
 
         ;;; <summary>
+        ;;; The batch size to use when loading a database table via BCP
+        ;;; </summary>
+        public readwrite property DatabaseBcpBatchSize, int, 25000
+
+        ;;; <summary>
+        ;;; The network packet size to use when loading a database table via BCP
+        ;;; </summary>
+        public readwrite property DatabaseBcpPacketSize, int, 8192
+
+        ;;; <summary>
         ;;; Database commit mode (Automatic, Manual or Batch).
         ;;; </summary>
         public readwrite property DatabaseCommitMode, DatabaseCommitMode, DatabaseCommitMode.Batch
@@ -620,6 +761,16 @@ namespace ReplicationLibrary
         ;;; The name of the database connection to use
         ;;; </summary>
         public readwrite property DatabaseConnectionName, string ;,"DEFAULT"
+
+        ;;; <summary>
+        ;;; The name of the database within the SQL Server instance
+        ;;; </summary>
+        public readwrite property DatabaseName, string ;,"SqlReplication"
+
+        ;;; <summary>
+        ;;; The password to be used to access the database
+        ;;; </summary>
+        public readwrite property DatabasePassword, string
 
         ;;; <summary>
         ;;; How many seconds should replicator wait between database re-connect attempts?
@@ -632,9 +783,24 @@ namespace ReplicationLibrary
         public readwrite property DatabaseRetryMax, int, 10
 
         ;;; <summary>
+        ;;; The name of the database schema that owns the tables
+        ;;; </summary>
+        public readwrite property DatabaseSchema, string ;,"dbo"
+
+        ;;; <summary>
+        ;;; The name or IP address of the database server
+        ;;; </summary>
+        public readwrite property DatabaseServer, string ;,"localhost"
+
+        ;;; <summary>
         ;;; Database statement execution timeout in seconds. The default is 60 seconds.
         ;;; </summary>
         public readwrite property DatabaseTimeout, int, 60
+
+        ;;; <summary>
+        ;;; The database user to be used to access the database
+        ;;; </summary>
+        public readwrite property DatabaseUser, string ;,"replicator"
 
         ;;; <summary>
         ;;; Use data compression for tables and indexes?

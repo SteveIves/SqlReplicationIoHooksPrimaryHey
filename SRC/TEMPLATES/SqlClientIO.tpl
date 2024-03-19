@@ -75,6 +75,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
 import System.Data.SqlClient
+import System.Diagnostics
 import System.IO
 import System.Text
 
@@ -303,6 +304,9 @@ proc
     ok = true
     errorMessage = String.Empty
 
+    data timer = new Timer()
+    timer.Start()
+
     ;In manual commit mode, start a transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
@@ -417,6 +421,11 @@ proc
 
     ;Return any error message to the calling routine
     aErrorMessage = ok ? String.Empty : errorMessage
+
+    timer.Stop()
+    now = %datetime
+    writelog(String.Format("Adding indexes took {0} seconds",timer.Seconds))
+    writett(String.Format("Adding indexes took {0} seconds",timer.Seconds))
 
     freturn ok
 
@@ -1476,7 +1485,6 @@ function <StructureName>_Delete, ^val
     .align
     stack record local_data
         ok,             boolean     ;Return status
-        cursor,         int         ;Database cursor
         errorMessage,   string      ;Error message
         sql,            string      ;SQL statement
     endrecord
@@ -1770,7 +1778,6 @@ function <StructureName>_Load, ^val
         tmperrmsg,      a512        ;Temporary error message
         errorMessage,   string      ;Error message text
         now,            a20        ;;Current date and time
-        timer,          @Timer
 <IF STRUCTURE_RELATIVE>
         recordNumber,   d28
 </IF STRUCTURE_RELATIVE>
@@ -1781,7 +1788,7 @@ proc
     ok = true
     errorMessage = String.Empty
 
-    timer = new Timer()
+    data timer = new Timer()
     timer.Start()
 
     ;If we are logging exceptions, delete any existing exceptions file.
@@ -1912,13 +1919,13 @@ proc
 
     if (ok) then
     begin
-        writelog("Load COMPLETE after " + timer.ElapsedTimeString)
-        writett("Load COMPLETE after " + timer.ElapsedTimeString)
+        writelog(String.Format("Load finished in {0} seconds",timer.Seconds))
+        writett(String.Format("Load finished in {0} seconds",timer.Seconds))
     end
     else
     begin
-        writelog("Load FAILED after " + timer.ElapsedTimeString)
-        writett("Load FAILED after " + timer.ElapsedTimeString)
+        writelog(String.Format("Load failed after {0} seconds",timer.Seconds))
+        writett(String.Format("Load failed after {0} seconds",timer.Seconds))
     end
 
     freturn ok
@@ -1994,7 +2001,7 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
+;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
@@ -2017,9 +2024,7 @@ function <StructureName>_BulkLoad, ^val
         remoteCsvFile,          string
         remoteExceptionsFile,   string
         remoteExceptionsLog,    string
-        copyTarget,             string
         fileToLoad,             string
-        cursor,                 int
         length,                 int
         dberror,                int
         recordCount,            int	        ;# records loaded
@@ -2028,14 +2033,13 @@ function <StructureName>_BulkLoad, ^val
         errorMessage,           string      ;Error message
         fsc,                    @FileServiceClient
         now,                    a20
-        timer,                  @Timer
     endrecord
 
 proc
     init local_data
     ok = true
 
-    timer = new Timer()
+    data timer = new Timer()
     timer.Start()
 
     ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
@@ -2064,11 +2068,7 @@ proc
 
     if (ok)
     begin
-        .ifdef OS_VMS
-        localCsvFile = String.Format("{0}<StructureName>.csv",Settings.LocalExportPath)
-        .else
         localCsvFile = Path.Combine(Settings.LocalExportPath,"<StructureName>.csv")
-        .endc
         localExceptionsFile = String.Format("{0}_err",localCsvFile)
         localExceptionsLog = String.Format("{0}.Error.Txt",localExceptionsFile)
 
@@ -2145,9 +2145,17 @@ proc
         writelog("Exporting data")
         writett("Exporting data")
 
+        data exportTimer = new Timer()
+        exportTimer.Start()
+
         ok = %<StructureName>_Csv(localCsvFile,0,recordCount,errtxt)
 
         errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
+
+        exportTimer.Stop()
+        now = %datetime
+        writelog(String.Format("Export took {0} seconds",exportTimer.Seconds))
+        writett(String.Format("Export took {0} seconds",exportTimer.Seconds))
     end
 
     ;If necessary, upload the exported file to the database server
@@ -2159,8 +2167,18 @@ proc
             now = %datetime
             writelog("Uploading data to database server")
             writett("Uploading data to database server")
+
+            data uploadTimer = new Timer()
+            uploadTimer.Start()
+
             ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
+
             errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
+
+            uploadTimer.Stop()
+            now = %datetime
+            writelog(String.Format("Upload took {0} seconds",uploadTimer.Seconds))
+            writett(String.Format("Upload took {0} seconds",uploadTimer.Seconds))
         end
         else
         begin
@@ -2199,7 +2217,16 @@ proc
             begin
                 command.Transaction = Settings.CurrentTransaction
             end
+
+            data insertTimer = new Timer()
+            insertTimer.Start()
+
             command.ExecuteNonQuery()
+
+            insertTimer.Stop()
+            now = %datetime
+            writelog(String.Format("Insert took {0} seconds",insertTimer.Seconds))
+            writett(String.Format("Insert took {0} seconds",insertTimer.Seconds))
         end
         catch (ex, @SqlException)
         begin
@@ -2448,14 +2475,14 @@ proc
 
     if (ok) then
     begin
-        writelog("Bulk load finished in " + timer.ElapsedTimeString)
-        writett("Bulk load finished in " + timer.ElapsedTimeString)
+        writelog(String.Format("Bulk load finished in {0} seconds",timer.Seconds))
+        writett(String.Format("Bulk load finished in {0} seconds",timer.Seconds))
     end
     else
     begin
         aErrorMessage = errorMessage
-        writelog("Bulk load failed after " + timer.ElapsedTimeString)
-        writett("Bulk load failed after " + timer.ElapsedTimeString)
+        writelog(String.Format("Bulk load failed after {0} seconds",timer.Seconds))
+        writett(String.Format("Bulk load failed after {0} seconds",timer.Seconds))
     end
 
     freturn ok
@@ -2505,7 +2532,6 @@ function <StructureName>_Csv, boolean
         records,    int     ;Number of records exported
         errtxt,     a512    ;Error message text
         now,        a20     ;The time now
-        timer,      @Timer  ;A timer
     endrecord
 
 proc
@@ -2513,9 +2539,6 @@ proc
     ok = true
     recordCount = 0
     errorMessage = ""
-
-    timer = new Timer()
-    timer.Start()
 
     ;;Open the data file associated with the structure
 
@@ -2534,9 +2557,6 @@ proc
 .endc
 .ifdef OS_UNIX
         open(outchn=0,o,fileSpec)
-.endc
-.ifdef OS_VMS
-        open(outchn=0,o,fileSpec,OPTIONS:"/stream")
 .endc
 
         ;;Add a row of column headers
@@ -2671,17 +2691,196 @@ eof,
     ;Return any error message to the calling routine
     errorMessage = %atrim(errtxt)
 
-    timer.Stop()
-    now = %datetime
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Bulk copy data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a delimited text file.
+;;; </summary>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="a_records">Records loaded</param>
+;;; <param name="a_exceptions">Records failes</param>
+;;; <param name="aErrorMessage">Error message (if return value is false)</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function <StructureName>_BulkCopy, ^val
+    required in recordsToLoad,  n
+    required out a_records,     n
+    required out a_exceptions,  n
+    required out aErrorMessage, a
+
+     stack record local_data
+        ok,                     boolean    ;;Return status
+        remoteBulkLoad,         boolean
+        localCsvFile,           string
+        length,                 int
+        dberror,                int
+        recordCount,            int	        ;# records loaded
+        exceptionCount,         int         ;# records failed
+        errtxt,                 a512        ;Temp error message
+        errorMessage,           string      ;Error message
+        now,                    a20
+    endrecord
+
+proc
+    init local_data
+    ok = true
+
+    data timer = new Timer()
+    timer.Start()
+
+    remoteBulkLoad = Settings.CanBulkLoad() && Settings.DatabaseIsRemote()
+
+    ;Define temp file names and make sure there are no local temp files left over from a previous operation
 
     if (ok)
     begin
-        writelog("Export took " + timer.ElapsedTimeString)
-        writett("Export took " + timer.ElapsedTimeString)
+        localCsvFile = Path.Combine(Settings.LocalExportPath,"<StructureName>.csv")
+
+        now = %datetime
+        writelog("Deleting local temp files")
+        writett("Deleting local temp files")
+
+        if (File.Exists(localCsvFile))
+        begin
+            try
+            begin
+                File.Delete(localCsvFile)
+            end
+            catch (ex)
+            begin
+                nop
+            end
+            endtry
+        end
+
+        ;Were we asked to load a specific number of records?
+
+        recordCount =  recordCount > 0 ? recordCount : 0
+
+        ;And export the data
+
+        now = %datetime
+        writelog("Exporting data")
+        writett("Exporting data")
+
+        data exportTimer = new Timer()
+        exportTimer.Start()
+
+        ok = %<StructureName>_Csv(localCsvFile,0,recordCount,errtxt)
+
+        errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
+
+        exportTimer.Stop()
+        now = %datetime
+        writelog(String.Format("Export took {0} seconds",exportTimer.Seconds))
+        writett(String.Format("Export took {0} seconds",exportTimer.Seconds))
+    end
+
+    ;Execute the BCP command
+
+    if (ok)
+    begin
+        data bcpCommand = String.Format('bcp {1}.<StructureName> in {2} -S {3} -U {4} -P {5} -d {0} -c -F 1 -t "|" -b {6} -a {7}',
+        &   Settings.DatabaseName,
+        &   Settings.DatabaseSchema,
+        &   localCsvFile,
+        &   Settings.DatabaseServer,
+        &   Settings.DatabaseUser,
+        &   Settings.DatabasePassword,
+        &   Settings.DatabaseBcpBatchSize,
+        &   Settings.DatabaseBcpPacketSize)
+
+        data psi = new ProcessStartInfo() {
+        &   FileName = "cmd.exe",
+        &   RedirectStandardInput = true,
+        &   RedirectStandardOutput = true,
+        &   UseShellExecute = false,
+        &   CreateNoWindow = true
+        & }
+
+        disposable data prc = new Process() { StartInfo=psi }
+
+
+        try
+        begin
+            ;Start the process
+            prc.Start()
+
+            now = %datetime
+            writelog("Inserting data")
+            writett("Inserting data")
+            data bcpTimer = new Timer()
+            bcpTimer.Start()
+
+            ;Send the bcp command to cmd.exe
+            prc.StandardInput.WriteLine(bcpCommand)
+            prc.StandardInput.Flush()
+            prc.StandardInput.Close()
+
+            ;Eait for the process to exit
+            prc.WaitForExit()
+
+            bcpTimer.Stop()
+            now = %datetime
+            writelog(String.Format("Insert took {0} seconds",bcpTimer.Seconds))
+            writett(String.Format("Insert took {0} seconds",bcpTimer.Seconds))
+
+            ;Check the exit status
+            if (prc.ExitCode != 0)
+            begin
+                errorMessage = "BCP process returned a fail exit status!"
+                ok = false
+            end
+        end
+        catch (ex, @Exception)
+        begin
+            errorMessage = "BCP load failed. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
+    end
+
+    ;Delete local temp files
+
+    now = %datetime
+    writelog("Deleting local temp file")
+    writett("Deleting local temp file")
+
+    if (File.Exists(localCsvFile))
+    begin
+        try
+        begin
+            File.Delete(localCsvFile)
+        end
+        catch (ex)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    ;Return the record and exceptions count
+    a_records = recordCount
+    a_exceptions = exceptionCount
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog(String.Format("Bulk load finished in {0} seconds",timer.Seconds))
+        writett(String.Format("Bulk load finished in {0} seconds",timer.Seconds))
+    end
+    else
+    begin
+        aErrorMessage = errorMessage
+        writelog(String.Format("Bulk load failed after {0} seconds",timer.Seconds))
+        writett(String.Format("Bulk load failed after {0} seconds",timer.Seconds))
     end
 
     freturn ok
 
 endfunction
-
-.endc

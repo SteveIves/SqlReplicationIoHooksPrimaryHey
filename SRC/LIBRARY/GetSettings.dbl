@@ -300,6 +300,8 @@ proc
         Settings.BulkLoadBatchSize      = instanceDefaults.BulkLoadBatchSize
         Settings.BulkLoadTimeout        = instanceDefaults.BulkLoadTimeout
         Settings.CommitBatchSize        = instanceDefaults.CommitBatchSize
+        Settings.DatabaseBcpBatchSize   = instanceDefaults.DatabaseBcpBatchSize
+        Settings.DatabaseBcpPacketSize  = instanceDefaults.DatabaseBcpPacketSize
         Settings.DatabaseCommitMode     = instanceDefaults.DatabaseCommitMode
         Settings.DatabaseConnectionName = instanceDefaults.DatabaseConnectionName
         begin
@@ -313,9 +315,14 @@ proc
                 end
             end
         end
+        Settings.DatabaseName           = instanceDefaults.DatabaseName
+        Settings.DatabasePassword       = instanceDefaults.DatabasePassword
         Settings.DatabaseRetryDelay     = instanceDefaults.DatabaseRetryDelay
         Settings.DatabaseRetryMax       = instanceDefaults.DatabaseRetryMax
+        Settings.DatabaseSchema         = instanceDefaults.DatabaseSchema
+        Settings.DatabaseServer         = instanceDefaults.DatabaseServer
         Settings.DatabaseTimeout        = instanceDefaults.DatabaseTimeout
+        Settings.DatabaseUser           = instanceDefaults.DatabaseUser
         Settings.DataCompressionMode    = instanceDefaults.DataCompressionMode
         Settings.ErrorSleepTime         = instanceDefaults.ErrorSleepTime
         Settings.FileServiceEnabled     = instanceDefaults.FileServiceEnabled
@@ -402,6 +409,40 @@ proc
         end
         if (!ok) exit
 
+        ;DatabaseBcpBatchSize
+        if (ok)
+        begin
+            if (instance.TryGetProperty("DatabaseBcpBatchSize",setting))
+            begin
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100  || setting.GetInt32()>50000) then
+                begin
+                    errorMessage = "DatabaseBcpBatchSize must have an integer value between 100 and 50000!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.DatabaseBcpBatchSize = setting.GetInt32()
+                end
+            end
+        end
+
+        ;DatabaseBcpPacketSize
+        if (ok)
+        begin
+            if (instance.TryGetProperty("DatabaseBcpPacketSize",setting))
+            begin
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<4096 || setting.GetInt32()>65535) then
+                begin
+                    errorMessage = "DatabaseBcpPacketSize must have an integer value between 4096 and 65535!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.DatabaseBcpPacketSize = setting.GetInt32()
+                end
+            end
+        end
+
         ;DatabaseCommitMode
         if (instance.TryGetProperty("DatabaseCommitMode",setting))
         begin
@@ -461,6 +502,40 @@ proc
         end
         if (!ok) exit
 
+        ;DatabaseName
+        if (ok)
+        begin
+            if (instance.TryGetProperty("DatabaseName",setting))
+            begin
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "DatabaseName must have a non-blank string value!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.DatabaseName = setting.GetString()
+                end
+            end
+        end
+
+        ;DatabasePassword
+        if (ok)
+        begin
+            if (instance.TryGetProperty("DatabasePassword",setting))
+            begin
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "DatabasePassword must have a non-blank string value!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.DatabasePassword = setting.GetString()
+                end
+            end
+        end
+
         ;DatabaseRetryDelay
         if (instance.TryGetProperty("DatabaseRetryDelay",setting))
         begin
@@ -491,6 +566,40 @@ proc
         end
         if (!ok) exit
 
+        ;DatabaseSchema
+        if (ok)
+        begin
+            if (instance.TryGetProperty("DatabaseSchema",setting))
+            begin
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "DatabaseSchema must have a non-blank string value!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.DatabaseSchema = setting.GetString()
+                end
+            end
+        end
+
+        ;DatabaseServer
+        if (ok)
+        begin
+            if (instance.TryGetProperty("DatabaseServer",setting))
+            begin
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "DatabaseServer must have a non-blank string value!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.DatabaseServer = setting.GetString()
+                end
+            end
+        end
+
         ;DatabaseTimeout
         if (instance.TryGetProperty("DatabaseTimeout",setting))
         begin
@@ -505,6 +614,23 @@ proc
             end
         end
         if (!ok) exit
+
+        ;DatabaseUser
+        if (ok)
+        begin
+            if (instance.TryGetProperty("DatabaseUser",setting))
+            begin
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "DatabaseUser must have a non-blank string value!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.DatabaseUser = setting.GetString()
+                end
+            end
+        end
 
         ;DataCompressionMode
         if (instance.TryGetProperty("DataCompressionMode",setting))

@@ -185,16 +185,6 @@ namespace ReplicationLibrary
             endmethod
         endproperty
 
-        public method AddTestData, void
-            required in aStartTime, a20
-            required in aStopTime, a20
-        proc
-            mStartTime = %datetime_to_i8(aStartTime)
-            mStopTime = %datetime_to_i8(aStopTime)
-            mStarted = true
-            mRunning = false
-        endmethod
-
     endclass
 
 endnamespace
