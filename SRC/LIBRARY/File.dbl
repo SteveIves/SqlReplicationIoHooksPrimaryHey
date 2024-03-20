@@ -43,41 +43,53 @@ namespace ReplicationLibrary
     public class File
 
         ;;; <summary>
+        ;;; Deletes a file
+        ;;; </summary>
+        ;;; <param name="fileSpec">File spec of the file to delete. Any valid Synergy file spec may be used.</param>
+        ;;; <returns>True if the file was deleted, otherwise false.</returns>
+        public static method Delete, boolean
+            required in fileSpec, string
+        proc
+            try
+            begin
+                xcall delet(fileSpec)
+                mreturn true
+            end
+            catch (e, @Exception)
+            begin
+                mreturn false
+            end
+            endtry
+        endmethod
+
+        ;;; <summary>
         ;;; Determines whether a file exists
         ;;; </summary>
         ;;; <param name="fileSpec">File spec of the file to check. Any valid Synergy file spec may be used.</param>
         ;;; <returns>True if the file exists, otherwise false.</returns>
         public static method Exists, boolean
             required in fileSpec, string
-            endparams
-
-            stack record
-                ch, int
-                ok, boolean
-            endrecord
         proc
             try
             begin
-                open(ch=0,i,fileSpec)
+                data ch = 0
+                open(ch,i,fileSpec)
                 close ch
-                ok = true
+                mreturn true
             end
             catch (e, @FileInUseException)
             begin
-                ok = true
+                mreturn true
             end
             catch (e, @ProtectionViolationException)
             begin
-                ok = true
+                mreturn true
             end
             catch (e, @Exception)
             begin
-                ok = false
+                mreturn false
             end
             endtry
-
-            mreturn ok
-
         endmethod
 
         public static method ReadAllLines, boolean

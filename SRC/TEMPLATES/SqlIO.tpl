@@ -3162,7 +3162,7 @@ endfunction
 ; <returns>Always returns true</returns>
 
 function <StructureName>KeyVal, ^val
-    required in  aRecord, str<StructureName>
+    required in  aRecord, a
     required out aKeyVal, a
     required out aKeyLen, n
 

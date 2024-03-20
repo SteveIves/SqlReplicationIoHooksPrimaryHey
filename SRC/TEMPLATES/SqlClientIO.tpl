@@ -74,10 +74,12 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
+import System.Collections.Generic
 import System.Data.SqlClient
 import System.Diagnostics
 import System.IO
 import System.Text
+import System.Text.RegularExpressions
 
 .ifndef str<StructureName>
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
@@ -1409,16 +1411,8 @@ proc
     </IF CUSTOM_DBL_TYPE>
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
-
-            ;Bind the host variables for the key segments / WHERE clause
-<IF STRUCTURE_ISAM>
-  <UNIQUE_KEY>
-    <SEGMENT_LOOP>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<IF DATEORTIME>^a(</IF DATEORTIME><structure_name>.<segment_name><IF DATEORTIME>)</IF DATEORTIME>)
-    </SEGMENT_LOOP>
-  </UNIQUE_KEY>
-<ELSE STRUCTURE_RELATIVE>
-            command.Parameters.AddWithValue("@RecordNumber",a_recnum)
+<IF STRUCTURE_RELATIVE>
+            command.Parameters.AddWithValue("@RecordNumber",DblToNetConverter.NumberToInt(a_recnum))
 </IF STRUCTURE_ISAM>
 
             rows = command.ExecuteNonQuery()
@@ -2711,12 +2705,10 @@ function <StructureName>_BulkCopy, ^val
     required out a_exceptions,  n
     required out aErrorMessage, a
 
-     stack record local_data
+     stack record
         ok,                     boolean    ;;Return status
         remoteBulkLoad,         boolean
         localCsvFile,           string
-        length,                 int
-        dberror,                int
         recordCount,            int	        ;# records loaded
         exceptionCount,         int         ;# records failed
         errtxt,                 a512        ;Temp error message
@@ -2725,8 +2717,8 @@ function <StructureName>_BulkCopy, ^val
     endrecord
 
 proc
-    init local_data
     ok = true
+    errorMessage = String.Empty
 
     data timer = new Timer()
     timer.Start()
@@ -2803,9 +2795,46 @@ proc
 
         disposable data prc = new Process() { StartInfo=psi }
 
+        data output = new List<string>()
+        data errors = new List<string>()
 
         try
         begin
+            ;Monitor the process output
+            lambda outputReceived(sender,args)
+            begin
+;NOT WORKING. NEVER GETS HERE!
+                output.Add(args.Data)
+                if (args.Data.Contains("rows copied")) then
+                begin
+                    ;1000000 rows copied.
+                    data regex = new Regex("^\d+")
+                    data match = regex.Match(args.data)
+                    if (match.Success)
+                    begin
+                        recordCount = int.Parse(match.Value)
+                    end
+                end
+                else if (args.Data.StartsWith("Network packet size")) then
+                begin
+                    ;Network packet size (bytes): 8000
+
+                end
+                else if (args.Data.StartsWith("Clock Time"))
+                begin
+                    ;Clock Time (ms.) Total     : 36484  Average : (27409.28 rows per sec.)
+
+                end
+            end
+            prc.OutputDataReceived += outputReceived
+
+            lambda errorReceived(sender,args)
+            begin
+;NOT WORKING. NEVER GETS HERE!
+                errors.Add(args.Data)
+            end
+            prc.ErrorDataReceived += errorReceived
+
             ;Start the process
             prc.Start()
 
@@ -2820,7 +2849,7 @@ proc
             prc.StandardInput.Flush()
             prc.StandardInput.Close()
 
-            ;Eait for the process to exit
+            ;Wait for the process to exit
             prc.WaitForExit()
 
             bcpTimer.Stop()

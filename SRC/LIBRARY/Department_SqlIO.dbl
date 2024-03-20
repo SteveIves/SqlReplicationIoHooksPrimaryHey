@@ -16,10 +16,12 @@
 
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
+import System.Collections.Generic
 import System.Data.SqlClient
 import System.Diagnostics
 import System.IO
 import System.Text
+import System.Text.RegularExpressions
 
 .ifndef strDepartment
 .include "DEPARTMENT" repository, structure="strDepartment", end
@@ -825,9 +827,6 @@ proc
             command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
             command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
             command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
-
-            ;Bind the host variables for the key segments / WHERE clause
-            command.Parameters.AddWithValue("@DeptId",department.dept_id)
 
             rows = command.ExecuteNonQuery()
 
@@ -1970,12 +1969,10 @@ function Department_BulkCopy, ^val
     required out a_exceptions,  n
     required out aErrorMessage, a
 
-     stack record local_data
+     stack record
         ok,                     boolean    ;;Return status
         remoteBulkLoad,         boolean
         localCsvFile,           string
-        length,                 int
-        dberror,                int
         recordCount,            int	        ;# records loaded
         exceptionCount,         int         ;# records failed
         errtxt,                 a512        ;Temp error message
@@ -1984,8 +1981,8 @@ function Department_BulkCopy, ^val
     endrecord
 
 proc
-    init local_data
     ok = true
+    errorMessage = String.Empty
 
     data timer = new Timer()
     timer.Start()
@@ -2062,9 +2059,46 @@ proc
 
         disposable data prc = new Process() { StartInfo=psi }
 
+        data output = new List<string>()
+        data errors = new List<string>()
 
         try
         begin
+            ;Monitor the process output
+            lambda outputReceived(sender,args)
+            begin
+;NOT WORKING. NEVER GETS HERE!
+                output.Add(args.Data)
+                if (args.Data.Contains("rows copied")) then
+                begin
+                    ;1000000 rows copied.
+                    data regex = new Regex("^\d+")
+                    data match = regex.Match(args.data)
+                    if (match.Success)
+                    begin
+                        recordCount = int.Parse(match.Value)
+                    end
+                end
+                else if (args.Data.StartsWith("Network packet size")) then
+                begin
+                    ;Network packet size (bytes): 8000
+
+                end
+                else if (args.Data.StartsWith("Clock Time"))
+                begin
+                    ;Clock Time (ms.) Total     : 36484  Average : (27409.28 rows per sec.)
+
+                end
+            end
+            prc.OutputDataReceived += outputReceived
+
+            lambda errorReceived(sender,args)
+            begin
+;NOT WORKING. NEVER GETS HERE!
+                errors.Add(args.Data)
+            end
+            prc.ErrorDataReceived += errorReceived
+
             ;Start the process
             prc.Start()
 
@@ -2079,7 +2113,7 @@ proc
             prc.StandardInput.Flush()
             prc.StandardInput.Close()
 
-            ;Eait for the process to exit
+            ;Wait for the process to exit
             prc.WaitForExit()
 
             bcpTimer.Stop()

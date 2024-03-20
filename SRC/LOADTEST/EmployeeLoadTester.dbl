@@ -1,0 +1,276 @@
+;*****************************************************************************
+;
+; File:         NetLoadTester.dbl
+;
+; Type:         Class
+;
+; Description:  Random read/write I/O to the EMPLOYEE file
+;
+;*****************************************************************************
+;
+; Copyright (c) 2024, Synergex International, Inc.
+; All rights reserved.
+;
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions are met:
+;
+; * Redistributions of source code must retain the above copyright notice,
+;   this list of conditions and the following disclaimer.
+;
+; * Redistributions in binary form must reproduce the above copyright notice,
+;   this list of conditions and the following disclaimer in the documentation
+;   and/or other materials provided with the distribution.
+;
+; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+; POSSIBILITY OF SUCH DAMAGE.
+;
+;*****************************************************************************
+
+import System
+import System.Threading
+import System.Threading.Tasks
+
+namespace NetLoadTester
+
+    .include "EMPLOYEE" repository, structure="strEmployee", end
+
+    ;;; <summary>
+    ;;; Random read/write I/O to REPLICATOR_DATA:EMPLOYEE.ISM
+    ;;; </summary>
+    public class EmployeeLoadTester implements IWorkerTask, IDisposable
+
+        private mTaskNumber, int
+        private mCancelToken, CancellationToken
+        private mChn, i4
+        private static mRecordCount, int
+        private static mHighestEmployeeNumber, int
+
+        public static inserts, int
+        public static updates, int
+        public static deletes, int
+
+        public method EmployeeLoadTester
+            taskNumber, int
+            cancelToken, CancellationToken
+
+            .include "REPLICATOR_INCLUDE:sqlgbl.def"
+
+        proc
+            mTaskNumber = taskNumber
+            mCancelToken = cancelToken
+
+            ;Open the employee file
+            open(mChn=0,U:I,"REPLICATOR_DATA:EMPLOYEE.ISM")
+
+            ;Get the record count
+            Monitor.Enter(^typeof(EmployeeLoadTester))
+            if (mHighestEmployeeNumber == 0)
+            begin
+                mRecordCount = %isinfo(mChn,"NUMRECS")
+
+                data rec, strEmployee
+                try
+                begin
+                    read(mChn,rec,^LAST,LOCK:Q_NO_LOCK)
+                    mHighestEmployeeNumber = rec.emp_id
+                end
+                catch (ex)
+                begin
+                    Console.WriteLine("Task {0} failed to determine highest employee number. Using record count.",mTaskNumber)
+                    mHighestEmployeeNumber = mRecordCount
+                end
+                endtry
+                Console.WriteLine("Task {0} determined highest employee number to be {1}",mTaskNumber,mHighestEmployeeNumber)
+            end
+            Monitor.Exit(^typeof(EmployeeLoadTester))
+
+            ;Add replication I/O hooks to the channel
+            xcall ConfigureReplication(mChn)
+
+            Console.WriteLine("Task {0} has opened REPLICATOR_DATA:EMPLOYEE.ISM on channel {1}",mTaskNumber,mChn)
+
+        endmethod
+
+        public virtual method IDisposable.Dispose, void
+            endparams
+        proc
+            Console.WriteLine("Task {0} is closing channel {1}", mTaskNumber, mChn)
+            if (mChn)
+            begin
+                close mChn
+                mChn = 0
+            end
+        endmethod
+
+        public method DoWork, void
+        proc
+            Console.WriteLine("Task {0} is starting processing", mTaskNumber)
+            
+            data operation = 0
+            data rec, strEmployee
+
+            while (!mCancelToken.IsCancellationRequested)
+            begin
+                ;Pick a random operation type from
+                ; 1 = create a new record
+                ; 2 = update a record
+                ; 3 = delete a record
+
+                operation = Random.Shared.Next(1,4)
+
+                ;Pick an employee number
+
+                Monitor.Enter(^typeof(EmployeeLoadTester))
+                rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
+                Monitor.Exit(^typeof(EmployeeLoadTester))
+
+                using operation select
+                (1), ;CREATE
+                begin
+                    Console.WriteLine("Task {0} is creating employee {1}",mTaskNumber,rec.emp_id)
+
+                    ;Pick the next available employee number
+                    Monitor.Enter(^typeof(EmployeeLoadTester))
+                    rec.emp_id = (mHighestEmployeeNumber+=1)
+                    Monitor.Exit(^typeof(EmployeeLoadTester))
+
+                    data now, a20, %datetime
+
+                    rec.emp_first_name      = "New"
+                    rec.emp_last_name       = "Employee"
+                    rec.emp_dept            = "PRODUCTION"
+                    rec.emp_hire_date       = ^d(now(1,8))
+                    rec.emp_phone_home      = "(555) 123-4567"
+                    rec.emp_phone_work      = "(555) 321-7654"
+                    rec.emp_phone_cell      = "(555) 456-1234"
+                    rec.emp_paid            = 1
+                    rec.emp_home_ok         = 0
+                    rec.emp_date_of_birth   = 19940225
+                    rec.emp_hire_time       = ^d(now(9,12))
+                    rec.emp_email           = "new.employee@yahoo.com"
+                    rec.emp_address_street  = "123 Some Street"
+                    rec.emp_address_city    = "Some Town"
+                    rec.emp_address_state   = "TX"
+                    rec.emp_address_zip     = "43554"
+
+                    try
+                    begin
+                        store(mChn,rec)
+                        Monitor.Enter(^typeof(EmployeeLoadTester))
+                        mRecordCount += 1
+                        Monitor.Exit(^typeof(EmployeeLoadTester))
+                        inserts += 1
+                    end
+                    catch (e, @Exception)
+                    begin
+                        Console.WriteLine("Task {0} failed to create employee {1}",mTaskNumber,rec.emp_id)
+                    end
+                    endtry
+                end
+                (2), ;UPDATE
+                begin
+                    Console.WriteLine("Task {0} is updating employee {1}",mTaskNumber,rec.emp_id)
+
+                    repeat
+                    begin
+                        if (mCancelToken.IsCancellationRequested)
+                            exitloop
+
+                        try
+                        begin
+                            read(mChn,rec,rec.emp_id,WAIT:1)
+                            rec.emp_first_name = "Newname"
+                            write(mChn,rec)
+                            updates+=1
+                            exitloop
+                        end
+                        catch (ex, @RecordLockedException)
+                        begin
+                            ;On READ: Record locked for 1 second, give up and try another!
+                            Monitor.Enter(^typeof(EmployeeLoadTester))
+                            rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
+                            Monitor.Exit(^typeof(EmployeeLoadTester))
+                        end
+                        catch (ex, @KeyNotSameException)
+                        begin
+                            ;On READ: Record not found, may have already been deleted. Pick another employee.
+                            Monitor.Enter(^typeof(EmployeeLoadTester))
+                            rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
+                            Monitor.Exit(^typeof(EmployeeLoadTester))
+                        end
+                        catch (ex, @EndOfFileException)
+                        begin
+                            ;On READ: Record not found, may have already been deleted. Pick another employee.
+                            Monitor.Enter(^typeof(EmployeeLoadTester))
+                            rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
+                            Monitor.Exit(^typeof(EmployeeLoadTester))
+                        end
+                        catch (ex, @Exception)
+                        begin
+                            Console.WriteLine("Task {0} failed to update employee {1}. Error was {2}",mTaskNumber,rec.emp_id,ex.Message)
+                            exitloop
+                        end
+                        endtry
+                    end
+                end
+                (3), ;DELETE
+                begin
+                    Console.WriteLine("Task {0} is deleting employee {1}",mTaskNumber,rec.emp_id)
+
+                    repeat
+                    begin
+                        if (mCancelToken.IsCancellationRequested)
+                            exitloop
+
+                        try
+                        begin
+                            read(mChn,rec,rec.emp_id,WAIT:1)
+                            delete(mChn)
+                            deletes+=1
+                            exitloop
+                        end
+                        catch (ex, @RecordLockedException)
+                        begin
+                            ;On READ: Record locked for 1 second, give up and try another!
+                            Monitor.Enter(^typeof(EmployeeLoadTester))
+                            rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
+                            Monitor.Exit(^typeof(EmployeeLoadTester))
+                        end
+                        catch (ex, @KeyNotSameException)
+                        begin
+                            ;On READ: Record not found, may have already been deleted. Pick another employee.
+                            Monitor.Enter(^typeof(EmployeeLoadTester))
+                            rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
+                            Monitor.Exit(^typeof(EmployeeLoadTester))
+                        end
+                        catch (ex, @EndOfFileException)
+                        begin
+                            ;On READ: Record not found, may have already been deleted. Pick another employee.
+                            Monitor.Enter(^typeof(EmployeeLoadTester))
+                            rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
+                            Monitor.Exit(^typeof(EmployeeLoadTester))
+                        end
+                        catch (ex, @Exception)
+                        begin
+                            Console.WriteLine("Task {0} failed to delete employee {1}. Error was {2}",mTaskNumber,rec.emp_id,ex.Message)
+                            exitloop
+                        end
+                        endtry
+                    end
+                end
+                endusing
+            end
+        endmethod
+
+    endclass
+
+endnamespace

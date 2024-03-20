@@ -22,6 +22,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
 		azure-pipelines.yml = azure-pipelines.yml
+		BcpSampleOutput.txt = BcpSampleOutput.txt
 		ConfigureDatabase.sql = ConfigureDatabase.sql
 		LICENSE.md = LICENSE.md
 		README.md = README.md
@@ -98,6 +99,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "XDL", "XDL", "{432DB05E-764
 		XDL\EMPLOYEE.XDL = XDL\EMPLOYEE.XDL
 		XDL\REPLICATION.XDL = XDL\REPLICATION.XDL
 	EndProjectSection
+EndProject
+Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetLoadTester", "PRJVS\NetLoadTester\NetLoadTester.synproj", "{87248708-6294-43D9-9BAD-A33FF7693DEA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -279,6 +282,24 @@ Global
 		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x64.Build.0 = Release|Any CPU
 		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x86.ActiveCfg = Release|x86
 		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x86.Build.0 = Release|x86
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Debug|x64.Build.0 = Debug|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Debug|x86.ActiveCfg = Debug|x86
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Debug|x86.Build.0 = Debug|x86
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Deploy|Any CPU.ActiveCfg = Debug|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Deploy|Any CPU.Build.0 = Debug|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Deploy|x64.ActiveCfg = Debug|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Deploy|x64.Build.0 = Debug|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Deploy|x86.ActiveCfg = Debug|x86
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Deploy|x86.Build.0 = Debug|x86
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Release|x64.ActiveCfg = Release|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Release|x64.Build.0 = Release|Any CPU
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Release|x86.ActiveCfg = Release|x86
+		{87248708-6294-43D9-9BAD-A33FF7693DEA}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

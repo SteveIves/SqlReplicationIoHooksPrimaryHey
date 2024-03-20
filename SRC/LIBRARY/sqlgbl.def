@@ -1,4 +1,8 @@
 
 common
+.ifdef DBLNET
+    repkey_required, [8192]d1
+.else
     repkey_required, [1024]d1
+.endc
 endcommon

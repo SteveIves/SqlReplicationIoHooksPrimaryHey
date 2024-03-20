@@ -2705,7 +2705,7 @@ endfunction
 ; <returns>Always returns true</returns>
 
 function EmployeeKeyVal, ^val
-    required in  aRecord, strEmployee
+    required in  aRecord, a
     required out aKeyVal, a
     required out aKeyLen, n
 

@@ -197,6 +197,7 @@ proc
         xcall w_disp(mainwnd,WD_POS,8,2, "V.  View instructions")
         xcall w_disp(mainwnd,WD_POS,9,2, "P.  Purge instructions")
         xcall w_disp(mainwnd,WD_POS,10,2,"PF. Purge first instruction")
+        xcall w_disp(mainwnd,WD_POS,11,2,"EI. Export instructions")
 .ifndef D_VMS
         xcall w_disp(mainwnd,WD_POS,12,2,"Q.  Queue length")
 .endc
@@ -400,6 +401,8 @@ proc
                         outbuf.operation = "Load table"
                     (REPLICATION_INSTRUCTION.BULK_LOAD_TABLE),
                         outbuf.operation = "Bulk load table"
+                    (REPLICATION_INSTRUCTION.BULK_COPY_TABLE),
+                        outbuf.operation = "Bulk copy table"
                     (REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE),
                         outbuf.operation = "Create & load table"
                     (REPLICATION_INSTRUCTION.DELETE_ALL_ROWS),
@@ -487,6 +490,45 @@ proc
         begin
             xcall Replicate(instanceName,REPLICATION_INSTRUCTION.DELETE_FIRST_INSTRUCTION)
             xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command executed")
+        end
+
+        ("EI"), ;Export instructions
+        begin
+            data inch = 0
+            data outch = 0
+            data exportFile = queueFileName.Replace(".ISM",".TXT")
+
+            if (File.Exists(exportFile))
+            begin
+                File.Delete(exportFile)
+            end
+
+            try
+            begin
+                open(inch,i:i,queueFileName,SHARE:Q_EXCL_RW)
+                open(outch,o:s,exportFile)
+                repeat
+                begin
+                    reads(inch,instruction)
+                    writes(outch,%atrim(instruction(^size(instruction.transaction_id)+1,^size(instruction))))
+                end
+            end
+            catch (e, @EndOfFileException)
+            begin
+                nop
+            end
+            catch (e, @Exception)
+            begin
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Failed to export instructions!")
+            end
+            finally
+            begin
+                if (inch && %chopen(inch))
+                    close inch
+                if (outch && %chopen(outch))
+                    close outch
+            end
+            endtry
         end
 
 .ifndef D_VMS

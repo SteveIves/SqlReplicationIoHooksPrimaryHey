@@ -1,0 +1,48 @@
+
+Starting copy...
+SQLState = 22005, NativeError = 0
+Error = [Microsoft][ODBC Driver 17 for SQL Server]Invalid character value for cast specification
+25000 rows sent to SQL Server. Total sent: 25000
+25000 rows sent to SQL Server. Total sent: 50000
+25000 rows sent to SQL Server. Total sent: 75000
+25000 rows sent to SQL Server. Total sent: 100000
+25000 rows sent to SQL Server. Total sent: 125000
+25000 rows sent to SQL Server. Total sent: 150000
+25000 rows sent to SQL Server. Total sent: 175000
+25000 rows sent to SQL Server. Total sent: 200000
+25000 rows sent to SQL Server. Total sent: 225000
+25000 rows sent to SQL Server. Total sent: 250000
+25000 rows sent to SQL Server. Total sent: 275000
+25000 rows sent to SQL Server. Total sent: 300000
+25000 rows sent to SQL Server. Total sent: 325000
+25000 rows sent to SQL Server. Total sent: 350000
+25000 rows sent to SQL Server. Total sent: 375000
+25000 rows sent to SQL Server. Total sent: 400000
+25000 rows sent to SQL Server. Total sent: 425000
+25000 rows sent to SQL Server. Total sent: 450000
+25000 rows sent to SQL Server. Total sent: 475000
+25000 rows sent to SQL Server. Total sent: 500000
+25000 rows sent to SQL Server. Total sent: 525000
+25000 rows sent to SQL Server. Total sent: 550000
+25000 rows sent to SQL Server. Total sent: 575000
+25000 rows sent to SQL Server. Total sent: 600000
+25000 rows sent to SQL Server. Total sent: 625000
+25000 rows sent to SQL Server. Total sent: 650000
+25000 rows sent to SQL Server. Total sent: 675000
+25000 rows sent to SQL Server. Total sent: 700000
+25000 rows sent to SQL Server. Total sent: 725000
+25000 rows sent to SQL Server. Total sent: 750000
+25000 rows sent to SQL Server. Total sent: 775000
+25000 rows sent to SQL Server. Total sent: 800000
+25000 rows sent to SQL Server. Total sent: 825000
+25000 rows sent to SQL Server. Total sent: 850000
+25000 rows sent to SQL Server. Total sent: 875000
+25000 rows sent to SQL Server. Total sent: 900000
+25000 rows sent to SQL Server. Total sent: 925000
+25000 rows sent to SQL Server. Total sent: 950000
+25000 rows sent to SQL Server. Total sent: 975000
+25000 rows sent to SQL Server. Total sent: 1000000
+
+1000000 rows copied.
+Network packet size (bytes): 8000
+Clock Time (ms.) Total     : 36484  Average : (27409.28 rows per sec.)

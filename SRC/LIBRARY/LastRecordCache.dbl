@@ -52,7 +52,11 @@ namespace ReplicationLibrary
         .else
         static method LastRecordCache
         proc
+.ifdef DBLNET
+            cache = new string[8192]
+.else
             cache = new string[1024]
+.endc
         endmethod
         .endc   
         public static method Init, void

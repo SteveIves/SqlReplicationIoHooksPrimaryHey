@@ -17,15 +17,15 @@ rem ---------------------------------------------------------------------------
 rem Configure the CodeGen environment
 
 set ROOT=%~dp0
-set STDOPTS=-i %ROOT%SRC\TEMPLATES -o %ROOT%SRC\LIBRARY -rps %RPSMFIL% %RPSTFIL% -e -r -lf %USE_STRUCTURE_ALIASES% %USE_ALTERNATE_FIELD_NAMES% %ENABLE_CLEAN_DATA% %ENABLE_EXCLUDE_KEYS% %DBLV11% %ASA_TIREMAX%
+set STDOPTS=-i "%ROOT%SRC\TEMPLATES" -rps "%RPSMFIL%" "%RPSTFIL%" -e -r -lf %USE_STRUCTURE_ALIASES% %USE_ALTERNATE_FIELD_NAMES% %ENABLE_CLEAN_DATA% %ENABLE_EXCLUDE_KEYS% %DBLV11% %ASA_TIREMAX%
 
 rem ---------------------------------------------------------------------------
 rem Generate code
 
 rem Generate SQL I/O routines for the structures being replicated
-codegen  -s %STRUCTURES% -t SqlIO SqlClientIO %STDOPTS%
+codegen -s %STRUCTURES% -t SqlIO SqlClientIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
 
 rem Generate the GetReplicatedTables routine
-codegen  -s %STRUCTURES% -ms -t GetReplicatedTables %STDOPTS%
+codegen -s %STRUCTURES% -ms -t GetReplicatedTables -o "%ROOT%SRC\LIBRARY" %STDOPTS%
 
 endlocal
