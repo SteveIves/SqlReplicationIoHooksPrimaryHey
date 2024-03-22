@@ -7,7 +7,7 @@
     }
   ],
   "InstanceDefaults": {
-    "DatabaseConnectionName": "DEFAULT",
+    "DatabaseConnectionName": "SqlConnection_LOCAL",
     "DatabaseServer": "localhost",
     "DatabaseName": "SqlReplication",
     "DatabaseSchema": "dbo",
@@ -43,11 +43,6 @@
     "VerboseLogging": true
   },
   "DatabaseConnections": [
-    {
-      "Name": "DEFAULT",
-      "Mode": "SQLCONNECTION",
-      "ConnectString": "VTX12_SQLNATIVE://SqlReplication/.///Trusted_connection=yes"
-    },
     {
       "Name": "SqlConnection_LOCAL",
       "Mode": "SQLCONNECTION",
