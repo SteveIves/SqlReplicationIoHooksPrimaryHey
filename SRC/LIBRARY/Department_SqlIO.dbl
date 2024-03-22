@@ -17,7 +17,7 @@
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
 import System.Collections.Generic
-import System.Data.SqlClient
+import Microsoft.Data.SqlClient
 import System.Diagnostics
 import System.IO
 import System.Text

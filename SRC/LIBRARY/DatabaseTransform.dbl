@@ -32,7 +32,7 @@ import ReplicationLibrary
 
 .ifdef DBLNET
 
-import System.Data.SqlClient
+import Microsoft.Data.SqlClient
 
 function DatabaseTransformSqlClient, boolean
     required in transformType, REPLICATION_TRANSFORM

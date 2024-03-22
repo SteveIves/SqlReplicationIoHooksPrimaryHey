@@ -13,7 +13,7 @@
 
 import ReplicationLibrary
 .ifdef DBLNET
-import System.Data.SqlClient
+import Microsoft.Data.SqlClient
 .endc
 
 function DatabaseConnect, boolean

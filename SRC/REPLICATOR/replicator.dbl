@@ -39,7 +39,7 @@
 import ReplicationLibrary
 import System.Collections
 .ifdef DBLNET
-import System.Data.SqlClient
+import Microsoft.Data.SqlClient
 .include "REPLICATION_TRANSFORM" repository, enum, end
 .endc
 

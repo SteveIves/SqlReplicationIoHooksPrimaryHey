@@ -5,14 +5,14 @@ EMPLOYEE file (1M records)                            LOCAL          REMOTE     
 -------------------------------------------------------------------------------------------
 LOAD TABLE
 
-Traditional/SQL Connection      man             125 seconds     738 seconds     ??? seconds
-Traditional/SQL Connection      aut             128 seconds     ??? seconds     ??? seconds
-.NET/SqlConnection              man             123 seconds     672 seconds     ??? seconds
-.NET/SqlConnection              aut             124 seconds     ??? seconds     ??? seconds
-.NET/SqlClient                  no reuse, man   145 seconds     553 seconds     ??? seconds
-.NET/SqlClient                  no reuse, aut   150 seconds     ??? seconds     ??? seconds
-.NET/SqlClient                  reuse, man      153 seconds     682 seconds     ??? seconds
-.NET/SqlClient                  reuse, aut      155 seconds     ??? seconds     ??? seconds
+Traditional/SQL Connection      man             ___ seconds     ___ seconds     ___ seconds
+Traditional/SQL Connection      aut             ___ seconds     ___ seconds     ___ seconds
+.NET/SqlConnection              man             ___ seconds     ___ seconds     ___ seconds
+.NET/SqlConnection              aut             ___ seconds     ___ seconds     ___ seconds
+.NET/SqlClient                  no reuse, man   ___ seconds     ___ seconds     ___ seconds
+.NET/SqlClient                  no reuse, aut   ___ seconds     ___ seconds     ___ seconds
+.NET/SqlClient                  reuse, man      ___ seconds     ___ seconds     ___ seconds
+.NET/SqlClient                  reuse, aut      ___ seconds     ___ seconds     ___ seconds
 
 In this test, when in SqlClient mode, reuse means a new SqlCommand is created for each batch
 of 1000 records, no reuse means a new SqlCommand is created for every record
@@ -20,15 +20,15 @@ of 1000 records, no reuse means a new SqlCommand is created for every record
 -------------------------------------------------------------------------------------------
 BULK LOAD TABLE                                                   (1GB LAN)      (Internet)
 
-Traditional/SQL Connection                       17 seconds      22 seconds     ??? seconds
-.NET/SqlConnection                               13 seconds      19 seconds     ??? seconds
-.NET/SqlClient                                   13 seconds      17 seconds     ??? seconds
+Traditional/SQL Connection                       __ seconds      __ seconds     ___ seconds
+.NET/SqlConnection                               __ seconds      __ seconds     ___ seconds
+.NET/SqlClient                                   __ seconds      __ seconds     ___ seconds
 
 -------------------------------------------------------------------------------------------
 BCP LOAD TABLE                                                    (1GB LAN)      (Internet)
 
-Traditional/SQL Connection                       ?? seconds      ?? seconds     ??? seconds
-.NET/SqlConnection                               ?? seconds      ?? seconds     ??? seconds
-.NET/SqlClient                                   12 seconds      14 seconds     ??? seconds
+Traditional/SQL Connection                       __ seconds      __ seconds     ___ seconds
+.NET/SqlConnection                               __ seconds      __ seconds     ___ seconds
+.NET/SqlClient                                   __ seconds      __ seconds     ___ seconds
 
 -------------------------------------------------------------------------------------------

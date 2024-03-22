@@ -7,7 +7,7 @@
     }
   ],
   "InstanceDefaults": {
-    "DatabaseConnectionName": "SqlClient_LOCAL",
+    "DatabaseConnectionName": "DEFAULT",
     "DatabaseServer": "localhost",
     "DatabaseName": "SqlReplication",
     "DatabaseSchema": "dbo",
@@ -37,7 +37,7 @@
     "QueueReconnectDelay": 30,
     "QueueType": "IsamFile",
     "SleepTime": 2,
-    "SqlCommandReuse": true,
+    "SqlCommandReuse": false,
     "StopOnError": false,
     "SystemLogging": false,
     "VerboseLogging": true
@@ -61,12 +61,12 @@
     {
       "Name": "SqlClient_LOCAL",
       "Mode": "SQLCLIENT",
-      "ConnectString": "Data Source=localhost;Initial Catalog=SqlReplication;Integrated Security=True;"
+      "ConnectString": "Data Source=localhost;Initial Catalog=SqlReplication;Integrated Security=True;TrustServerCertificate=true;"
     },
     {
       "Name": "SqlClient_PSGSRV",
       "Mode": "SQLCLIENT",
-      "ConnectString": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;"
+      "ConnectString": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;TrustServerCertificate=true;"
     }
   ],
   "EmailSettings": {

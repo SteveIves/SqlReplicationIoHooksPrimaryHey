@@ -37,7 +37,7 @@
 
 .ifdef DBLNET
 
-import System.Data.SqlClient
+import Microsoft.Data.SqlClient
 import ReplicationLibrary
 
 ;;; <summary>

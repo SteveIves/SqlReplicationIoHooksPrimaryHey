@@ -27,7 +27,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;//              whose columns match the fields defined in a Synergy
 ;//              repository structure.
 ;//
-;//              The code uses the System.Data.SqlClient classes
+;//              The code uses the Microsoft.Data.SqlClient classes
 ;//
 ;// Author:      Steve Ives, Synergex Professional Services Group
 ;//
@@ -75,7 +75,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
 import System.Collections.Generic
-import System.Data.SqlClient
+import Microsoft.Data.SqlClient
 import System.Diagnostics
 import System.IO
 import System.Text
