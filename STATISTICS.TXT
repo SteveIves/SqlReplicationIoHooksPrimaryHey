@@ -5,30 +5,42 @@ EMPLOYEE file (1M records)                            LOCAL          REMOTE     
 -------------------------------------------------------------------------------------------
 LOAD TABLE
 
-Traditional/SQL Connection      man             ___ seconds     ___ seconds     ___ seconds
-Traditional/SQL Connection      aut             ___ seconds     ___ seconds     ___ seconds
-.NET/SqlConnection              man             ___ seconds     ___ seconds     ___ seconds
-.NET/SqlConnection              aut             ___ seconds     ___ seconds     ___ seconds
-.NET/SqlClient                  no reuse, man   ___ seconds     ___ seconds     ___ seconds
-.NET/SqlClient                  no reuse, aut   ___ seconds     ___ seconds     ___ seconds
-.NET/SqlClient                  reuse, man      ___ seconds     ___ seconds     ___ seconds
-.NET/SqlClient                  reuse, aut      ___ seconds     ___ seconds     ___ seconds
+Traditional/SQL Connection      man             114 seconds     656 seconds     ___ seconds
+Traditional/SQL Connection      aut             109 seconds     622 seconds     ___ seconds
+.NET/SqlConnection              man             125 seconds     601 seconds     ___ seconds
+.NET/SqlConnection              aut             126 seconds     667 seconds     ___ seconds
+.NET/SqlClient                  no reuse, man   170 seconds     540 seconds     ___ seconds
+.NET/SqlClient                  no reuse, aut   176 seconds     532 seconds     ___ seconds
+.NET/SqlClient                  reuse, man      162 seconds     625 seconds     ___ seconds
+.NET/SqlClient                  reuse, aut      166 seconds     694 seconds     ___ seconds
 
-In this test, when in SqlClient mode, reuse means a new SqlCommand is created for each batch
-of 1000 records, no reuse means a new SqlCommand is created for every record
-
--------------------------------------------------------------------------------------------
-BULK LOAD TABLE                                                   (1GB LAN)      (Internet)
-
-Traditional/SQL Connection                       __ seconds      __ seconds     ___ seconds
-.NET/SqlConnection                               __ seconds      __ seconds     ___ seconds
-.NET/SqlClient                                   __ seconds      __ seconds     ___ seconds
+In this test replicator reads records into memory in batches of 1000, then inserts them
+individually to the database.
+In SqlClient mode, reuse means a new SqlCommand is created for each batch of 1000 records,
+otherwise a new SqlCommand is created for each row inserted.
 
 -------------------------------------------------------------------------------------------
-BCP LOAD TABLE                                                    (1GB LAN)      (Internet)
+BULK LOAD TABLE (SQL BULK INSERT)                                 (1GB LAN)      (Internet)
 
-Traditional/SQL Connection                       __ seconds      __ seconds     ___ seconds
-.NET/SqlConnection                               __ seconds      __ seconds     ___ seconds
-.NET/SqlClient                                   __ seconds      __ seconds     ___ seconds
+Traditional/SQL Connection                       19 seconds      21 seconds     ___ seconds
+.NET/SqlConnection                               13 seconds      18 seconds     ___ seconds
+.NET/SqlClient                                   14 seconds      17 seconds     ___ seconds
+
+In this test replicator reads and exports the file to a delimited text file, uploads the
+file to the database server (if the database is remote), then executes a single BULK INSERT
+statement.
+
+-------------------------------------------------------------------------------------------
+BULK COPY TABLE (BCP UTILITY)                                     (1GB LAN)      (Internet)
+
+Traditional/SQL Connection                      n/a seconds     n/a seconds     ___ seconds
+.NET/SqlConnection                              n/a seconds     n/a seconds     ___ seconds
+.NET/SqlClient                                   11 seconds      14 seconds     ___ seconds
+
+In this test replicator reads and exports the file to a delimited text file, then uses the
+SQL Server BCP (bulk copy) command to insert the data. There is no separate upload step if
+the database is remote as that is handled by the BCP command.
+
+Not implemented yet in SQL Connection mode.
 
 -------------------------------------------------------------------------------------------
