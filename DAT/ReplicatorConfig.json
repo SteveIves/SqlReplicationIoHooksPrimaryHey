@@ -62,6 +62,11 @@
       "Name": "SqlClient_PSGSRV",
       "Mode": "SQLCLIENT",
       "ConnectString": "Data Source=psgsrv;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;TrustServerCertificate=true;"
+    },
+    {
+      "Name": "SqlClient_SIROCKY",
+      "Mode": "SQLCLIENT",
+      "ConnectString": "Data Source=10.1.10.21;Initial Catalog=SqlReplication;User ID=replicator;Password=p@ssw0rd;TrustServerCertificate=true;"
     }
   ],
   "EmailSettings": {
