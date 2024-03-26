@@ -3,7 +3,9 @@
   "Instances": [
     {
       "InstanceName": "DEFAULT",
-      "Enabled": true
+      "Enabled": true,
+      "QueueType": "Kafka",
+      "KafkaServers": "localhost:19092,localhost:29092,localhost:39092"
     }
   ],
   "InstanceDefaults": {
@@ -27,6 +29,7 @@
     "FileServiceEnabled": false,
     "FileServiceHost": "localhost",
     "FileServicePort": 8080,
+    "KafkaServers": "",
     "LocalExportPath": "C:\\DEV_SYNERGEX\\SqlReplication\\CSV\\",
     "LogBulkLoadExceptions": false,
     "LogKeyValues": false,

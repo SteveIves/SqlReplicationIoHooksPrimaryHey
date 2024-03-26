@@ -328,6 +328,9 @@ proc
         Settings.FileServiceEnabled     = instanceDefaults.FileServiceEnabled
         Settings.FileServiceHost        = instanceDefaults.FileServiceHost
         Settings.FileServicePort        = instanceDefaults.FileServicePort
+.ifdef DBLNET
+        Settings.KafkaServers           = instanceDefaults.KafkaServers
+.endc
         Settings.LocalExportPath        = instanceDefaults.LocalExportPath
         Settings.LogBulkLoadExceptions  = instanceDefaults.LogBulkLoadExceptions
         Settings.LogKeyValues           = instanceDefaults.LogKeyValues
@@ -719,6 +722,24 @@ proc
         end
         if (!ok) exit
 
+        ;KafkaServers
+.ifdef DBLNET
+        if (ok)
+        begin
+            if (instance.TryGetProperty("KafkaServers",setting))
+            begin
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "KafkaServers must have a non-blank string value!"
+                    ok = false
+                end
+                else
+                begin
+                    Settings.KafkaServers = setting.GetString()
+                end
+            end
+        end
+.endc
         ;LocalExportPath
         if (instance.TryGetProperty("LocalExportPath",setting))
         begin

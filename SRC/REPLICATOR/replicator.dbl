@@ -1,41 +1,44 @@
-;;*****************************************************************************
-;;
-;; File:        replicator.dbl
-;;
-;; Type:        Application (SQL Replicator)
-;;
-;; Description: Replicates Synergy data file changes that have been recorded
-;;              in the replucation log file to a SQL Server database.
-;;
-;;*****************************************************************************
-;;
-;; Copyright (c) 2008, Synergex International, Inc.
-;; All rights reserved.
-;;
-;; Redistribution and use in source and binary forms, with or without
-;; modification, are permitted provided that the following conditions are met:
-;;
-;; * Redistributions of source code must retain the above copyright notice,
-;;   this list of conditions and the following disclaimer.
-;;
-;; * Redistributions in binary form must reproduce the above copyright notice,
-;;   this list of conditions and the following disclaimer in the documentation
-;;   and/or other materials provided with the distribution.
-;;
-;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-;; POSSIBILITY OF SUCH DAMAGE.
-;;
-;;*****************************************************************************
+;*****************************************************************************
+;
+; File:         replicator.dbl
+;
+; Type:         Application (SQL Replicator)
+;
+; Description:  Replicates Synergy data file changes that have been recorded
+;               in the replucation log file to a SQL Server database.
+;
+;*****************************************************************************
+;
+; Copyright (c) 2008, Synergex International, Inc.
+; All rights reserved.
+;
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions are met:
+;
+; * Redistributions of source code must retain the above copyright notice,
+;   this list of conditions and the following disclaimer.
+;
+; * Redistributions in binary form must reproduce the above copyright notice,
+;   this list of conditions and the following disclaimer in the documentation
+;   and/or other materials provided with the distribution.
+;
+; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+; POSSIBILITY OF SUCH DAMAGE.
+;
+;*****************************************************************************
 
+.ifdef DBLNET
+import Confluent.Kafka
+.endc
 import ReplicationLibrary
 import System.Collections
 .ifdef DBLNET
@@ -55,31 +58,34 @@ main replicator
 
 .align
     record
-        ok,                         boolean             ;;Main status
-        noMoreInstructions,         boolean             ;;End of instruction file
-        switchMode,                 boolean             ;;Switched from INSERT to UPDATE or vice versa
-        switchDone,                 boolean             ;;Have we tried to switch modes before?
-        bulkLoad,                   boolean             ;;Use bulk load?
-        bulkCopy,                   boolean             ;;Use bulk copy?
-        doCheckCommit,              boolean             ;;Do we need to check if it's time to commit?
-        doForceCommit,              boolean             ;;Do we need to force a commit?
-        shutdownRequested,          boolean             ;;A shutdown instruction was received and processed
-        doReturn,                   boolean             ;;Need to return from the current internal subroutine
-        nsptr,                      i4                  ;;Namespace pointer
-        status,                     i4                  ;;General working status return
-        rows,                       i4                  ;;Number of rows affected
-        oldSleepTime,               i4                  ;;Previous sleep time value
-        maxRowsToLoad,              i4                  ;;Maximum rows to load
-        recordCount,                i4                  ;;Number of records in a file
-        functionName,               string              ;;External function to call
-        keyValue,                   a256                ;;Key value of the current ISAM record
-        keyLength,                  i4                  ;;Key length of the current ISAM record
-        recordNumber,               d28                 ;;Record number of the current relative record
-        dberrtxt,                   a1024               ;;Error text from a failed database call
-        structure_data,             strStructureData    ;;Data stored for each structure
-        uncommittedInstructions,    @ArrayList          ;;RFA's of any operation instructions pending commit
-        unboxedRfa,                 a6                  ;;RFA of instruction record
-        boxedRfa,                   @a                  ;;A boxed RFA value
+        ok,                         boolean             ;Main status
+        noMoreInstructions,         boolean             ;End of instruction file
+        switchMode,                 boolean             ;Switched from INSERT to UPDATE or vice versa
+        switchDone,                 boolean             ;Have we tried to switch modes before?
+        bulkLoad,                   boolean             ;Use bulk load?
+        bulkCopy,                   boolean             ;Use bulk copy?
+        doCheckCommit,              boolean             ;Do we need to check if it's time to commit?
+        doForceCommit,              boolean             ;Do we need to force a commit?
+        shutdownRequested,          boolean             ;A shutdown instruction was received and processed
+        doReturn,                   boolean             ;Need to return from the current internal subroutine
+        nsptr,                      i4                  ;Namespace pointer
+        status,                     i4                  ;General working status return
+        rows,                       i4                  ;Number of rows affected
+        oldSleepTime,               i4                  ;Previous sleep time value
+        maxRowsToLoad,              i4                  ;Maximum rows to load
+        recordCount,                i4                  ;Number of records in a file
+        functionName,               string              ;External function to call
+        keyValue,                   a256                ;Key value of the current ISAM record
+        keyLength,                  i4                  ;Key length of the current ISAM record
+        recordNumber,               d28                 ;Record number of the current relative record
+        dberrtxt,                   a1024               ;Error text from a failed database call
+        structure_data,             strStructureData    ;Data stored for each structure
+        uncommittedInstructions,    @ArrayList          ;RFA's of any operation instructions pending commit
+        unboxedRfa,                 a6                  ;RFA of instruction record
+        boxedRfa,                   @a                  ;A boxed RFA value
+.ifdef DBLNET
+        kafkaMessage,               @ConsumeResult<string,string>
+.endc
     endrecord
 
     external function
@@ -121,94 +127,313 @@ proc
 .endc
         end
 
-        ;;If we're in batch commit mode then initialize a collection to store the RFA's of pending operations
+        ;If we're in batch commit mode then initialize a collection to store the RFA's of pending operations
         if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
         begin
             uncommittedInstructions = new ArrayList()
         end
 
-        ;;Main processing loop
+        ;Main processing loop
         repeat
         begin
-            ;;Get the next instruction from the queue
+            ;Get the next instruction from the queue
             repeat
             begin
-                try
+                using Settings.QueueType select
+                ;-------------------------------------------------------------------------------
+                (MessageQueueType.IsamFile),
                 begin
-                    reads(Settings.InstructionChannel,instruction,,LOCK:Q_AUTO_LOCK,GETRFA:unboxedRfa)
-                    noMoreInstructions = false
-
-                    ;;In batch commit mode, add the instructions RFA to the list of records to be deleted on commit
-                    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
+                    ;Next ISAM message
+                    try
                     begin
-                        uncommittedInstructions.Add((@a)unboxedRfa)
-                    end
+                        reads(Settings.InstructionChannel,instruction,,LOCK:Q_AUTO_LOCK,GETRFA:unboxedRfa)
+                        noMoreInstructions = false
 
-                    exitloop
+                        ;In batch commit mode, add the instructions RFA to the list of records to be deleted on commit
+                        if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
+                        begin
+                            uncommittedInstructions.Add((@a)unboxedRfa)
+                        end
+
+                        exitloop
+                    end
+                    catch (ex, @EndOfFileException)
+                    begin
+                        noMoreInstructions = true
+                        exitloop
+                    end
+                    catch (ex, @RecordLockedException)
+                    begin
+                        sleep Settings.ErrorSleepTime
+                        nextloop
+                    end
+                    catch (ex, @NetworkException); $ERR_NETPROB (320)
+                    begin
+                        if (%ReOpenQueueFile) nextloop
+                    end
+                    catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
+                    begin
+                        if (%ReOpenQueueFile) nextloop
+                    end
+                    endtry
                 end
-                catch (ex, @EndOfFileException)
+.ifdef DBLNET
+                ;-------------------------------------------------------------------------------
+                (MessageQueueType.Kafka),
                 begin
-                    noMoreInstructions = true
-                    exitloop
+                    ;Next Kafka message
+                    try
+                    begin
+                        kafkaMessage = Settings.KafkaConsumer.Consume(TimeSpan.FromSeconds(Settings.SleepTime))
+
+                        ;Did our sleep timer fire?
+                        if (kafkaMessage == ^null)
+                        begin
+                            noMoreInstructions = true
+                            exitloop
+                        end
+
+                        ;We received a message. Populate the instruction record
+
+                        using kafkaMessage.Key select
+                        ("CREATE_ROW"),
+                        begin
+                            ;TODO: Needs implementing
+                            instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_ROW
+                            instruction.structure_name = ""
+                            instruction.record = ""
+                        end
+                        ("UPDATE_ROW"),
+                        begin
+                            ;TODO: Needs implementing
+                            instruction.action = (i)REPLICATION_INSTRUCTION.UPDATE_ROW
+                            instruction.structure_name = ""
+                            instruction.record = ""
+                        end
+                        ("DELETE_ROW"),
+                        begin
+                            ;TODO: Needs implementing
+                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ROW
+                            instruction.structure_name = ""
+                            instruction.record = ""
+                        end
+                        ("CREATE_TABLE"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_TABLE
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("LOAD_TABLE"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.LOAD_TABLE
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("CREATE_AND_LOAD_TABLE"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("DELETE_ALL_ROWS"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ALL_ROWS
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("DELETE_TABLE"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_TABLE
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("SHUTDOWN"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.SHUTDOWN
+                            instruction.structure_name = ""
+                            instruction.record = ""
+                        end
+                        ("INSERT_RELATIVE"),
+                        begin
+                            ;TODO: Needs implementing
+                            instruction.action = (i)REPLICATION_INSTRUCTION.INSERT_RELATIVE
+                            instruction.structure_name = ""
+                            instruction.record = ""
+                        end
+                        ("UPDATE_RELATIVE"),
+                        begin
+                            ;TODO: Needs implementing
+                            instruction.action = (i)REPLICATION_INSTRUCTION.UPDATE_RELATIVE
+                            instruction.structure_name = ""
+                            instruction.record = ""
+                        end
+                        ("ADD_INDEXES"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.ADD_INDEXES
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("DELETE_INDEXES"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_INDEXES
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("BULK_LOAD_TABLE"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.BULK_LOAD_TABLE
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("BULK_LOAD_FIRST_1000"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("BULK_COPY_TABLE"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.BULK_COPY_TABLE
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+;TODO: Not supported in Kafka mode. Need to commit the message to prevent getting it again then nextloop!
+;                        ("DELETE_ALL_INSTRUCTIONS"),
+;                        begin
+;                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ALL_INSTRUCTIONS
+;                            instruction.structure_name = ""
+;                            instruction.record = ""
+;                        end
+;TODO: Not supported in Kafka mode. Need to commit the message to prevent getting it again then nextloop!
+;                        ("CLOSE_FILE"),
+;                        begin
+;                            instruction.action = (i)REPLICATION_INSTRUCTION.CLOSE_FILE
+;                            instruction.structure_name = ""
+;                            instruction.record = ""
+;                        end
+                        ("CHANGE_INTERVAL"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.CHANGE_INTERVAL
+                            instruction.structure_name = ""
+                            instruction.record = kafkaMessage.Value
+                        end
+                        ("CREATE_CSV"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_CSV
+                            instruction.structure_name = kafkaMessage.Value
+                            instruction.record = ""
+                        end
+                        ("CYCLE_LOG"),
+                        begin
+                            instruction.action = (i)REPLICATION_INSTRUCTION.CYCLE_LOG
+                            instruction.structure_name = ""
+                            instruction.record = ""
+                        end
+;TODO: Not supported in Kafka mode. Need to commit the message to prevent getting it again then nextloop!
+;                        ("OPEN_FILE"),
+;                        begin
+;                            instruction.action = (i)REPLICATION_INSTRUCTION.OPEN_FILE
+;                            instruction.structure_name = ""
+;                            instruction.record = ""
+;                        end
+;TODO: Not supported in Kafka mode. Need to commit the message to prevent getting it again then nextloop!
+;                        ("DELETE_FIRST_INSTRUCTION"),
+;                        begin
+;                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_FIRST_INSTRUCTION
+;                            instruction.structure_name = ""
+;                            instruction.record = ""
+;                        end
+                        ("TRANSFORM_COLUMN"),
+                        begin
+                            ;TODO: Needs implementing
+                            instruction.action = (i)REPLICATION_INSTRUCTION.TRANSFORM_COLUMN
+                            instruction.structure_name = ""
+                            instruction.record = ""
+                        end
+                        endusing
+
+                        noMoreInstructions = false
+
+                        ;TODO: Figure out what this looks like in Kafka
+                        ;In batch commit mode, add the instructions RFA to the list of records to be deleted on commit
+                        ;if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch)
+                        ;begin
+                        ;    uncommittedInstructions.Add((@a)unboxedRfa)
+                        ;end
+
+                        exitloop
+                    end
+                    catch (ex, @ConsumeException)
+                    begin
+                        ;TODO: Figure out what to do here. Close and re-open the connection to the Kafka server?
+
+                        sleep 0.05
+
+
+                    end
+                    endtry
                 end
-                catch (ex, @RecordLockedException)
-                begin
-                    sleep Settings.ErrorSleepTime
-                    nextloop
-                end
-                catch (ex, @NetworkException); $ERR_NETPROB (320)
-                begin
-                    if (%ReOpenQueueFile) nextloop
-                end
-                catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-                begin
-                    if (%ReOpenQueueFile) nextloop
-                end
-                endtry
-            end
+.endc
+                endusing
+                ;-------------------------------------------------------------------------------
+            end ;of inner repeat (get next instruction)
 
             if (noMoreInstructions) then
             begin
-                ;;The queue is currently empty. If we're in batch commit mode then commit any outstanding changes
+                ;The queue is currently empty. If we're in batch commit mode then commit any outstanding changes
                 if ((Settings.DatabaseCommitMode == DatabaseCommitMode.Batch) && (Counters.BatchCounter > 0))
                 begin
                     call CommitTransaction
                 end
 
-                ;;And sleep for a while before trying again
-                sleep Settings.SleepTime
-
-                ;;Reset to beginning of file
-                repeat
+                using Settings.QueueType select
+                (MessageQueueType.IsamFile),
                 begin
-                    try
+                    ;And sleep for a while before trying again
+                    sleep Settings.SleepTime
+
+                    ;Reset to beginning of file
+                    repeat
                     begin
-                        find(Settings.InstructionChannel,,^FIRST,LOCK:Q_NO_LOCK)
-                        exitloop
+                        try
+                        begin
+                            find(Settings.InstructionChannel,,^FIRST,LOCK:Q_NO_LOCK)
+                            exitloop
+                        end
+                        catch (ex, @EndOfFileException); Instruction queue is empty
+                        begin
+                            exitloop
+                        end
+                        catch (ex, @NetworkException); $ERR_NETPROB (320)
+                        begin
+                            if (%ReOpenQueueFile)
+                                nextloop
+                        end
+                        catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
+                        begin
+                            if (%ReOpenQueueFile)
+                                nextloop
+                        end
+                        endtry
                     end
-                    catch (ex, @EndOfFileException); Instruction queue is empty
-                    begin
-                        exitloop
-                    end
-                    catch (ex, @NetworkException); $ERR_NETPROB (320)
-                    begin
-                        if (%ReOpenQueueFile)
-                            nextloop
-                    end
-                    catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-                    begin
-                        if (%ReOpenQueueFile)
-                            nextloop
-                    end
-                    endtry
                 end
+.ifdef DBLNET
+                (MessageQueueType.Kafka),
+                begin
+                    ;Nothing more to do here because the sleep delay is built in to the "Consume" operation above
+                    nop
+                end
+.endc
+                endusing
             end
             else
             begin
-                ;;Any action with a negative value has been co-opted to signify a shutdown request.
+                ;We received an instruction
+
+                ;Any action with a negative value has been co-opted to signify a shutdown request.
                 if (instruction.action < 0)
                 begin
-                    ;;Restore the recorded action to it's original (positive) value
+                    ;Restore the recorded action to it's original (positive) value
                     instruction.action = -instruction.action
 
                     repeat
@@ -222,7 +447,7 @@ proc
                         begin
                             if (%ReOpenQueueFile)
                             begin
-                                ;;Re-read and lock the instruction record. What if THIS fails????
+                                ;Re-read and lock the instruction record. What if THIS fails????
                                 read(Settings.InstructionChannel,instruction,instruction.transaction_id)
                                 nextloop
                             end
@@ -231,7 +456,7 @@ proc
                         begin
                             if (%ReOpenQueueFile)
                             begin
-                                ;;Re-read and lock the instruction record. What if THIS fails????
+                                ;Re-read and lock the instruction record. What if THIS fails????
                                 read(Settings.InstructionChannel,instruction,instruction.transaction_id)
                                 nextloop
                             end
@@ -239,20 +464,20 @@ proc
                         endtry
                     end
 
-                    ;;And shutdown
+                    ;And shutdown
                     Logger.Log("Shutdown requested")
                     xcall ReplicatorShutdown
                 end
 
-                ;;We have an instruction to process
+                ;We have an instruction to process
 
                 doCheckCommit = false
                 doForceCommit = false
                 switchDone = false
 
-                ;;If this is a routine request (create/update/delete) then do
-                ;;file and table checks to ensure we have the file open and the
-                ;;database table exists
+                ;If this is a routine request (create/update/delete) then do
+                ;file and table checks to ensure we have the file open and the
+                ;database table exists
                 if    ((instruction.action==(i)REPLICATION_INSTRUCTION.CREATE_ROW)
                 &    || (instruction.action==(i)REPLICATION_INSTRUCTION.UPDATE_ROW)
                 &    || (instruction.action==(i)REPLICATION_INSTRUCTION.DELETE_ROW)
@@ -260,10 +485,10 @@ proc
                 &    || (instruction.action==(i)REPLICATION_INSTRUCTION.UPDATE_RELATIVE)
                 &    )
                 begin
-                    ;;Check if we already have the file open
+                    ;Check if we already have the file open
                     call CheckFileTable
 
-                    ;;If we failed to check the table for the file then we probably have a configuration problem
+                    ;If we failed to check the table for the file then we probably have a configuration problem
                     if (!status)
                     begin
                         Logger.ErrorLog("Abnormal replicator shutdown!")
@@ -271,11 +496,11 @@ proc
                     end
                 end
 
-                ;;Execute the instruction
+                ;Execute the instruction
 
                 using (instruction.action) select
 
-                ;;"Routine" processing requests
+                ;"Routine" processing requests
 
                 (REPLICATION_INSTRUCTION.CREATE_ROW),
                 begin
@@ -312,7 +537,7 @@ proc
                     doCheckCommit = true
                 end
 
-                ;;"Special" processing requests
+                ;"Special" processing requests
 
                 (REPLICATION_INSTRUCTION.ADD_INDEXES),
                 begin
@@ -423,9 +648,7 @@ proc
                 (REPLICATION_INSTRUCTION.CHANGE_INTERVAL),
                 begin
                     Logger.Log("Change processing interval")
-
                     oldSleepTime = Settings.SleepTime
-    
                     try
                     begin
                         Settings.SleepTime = %integer(%atrim(instruction.record))
@@ -445,71 +668,12 @@ proc
                         Settings.SleepTime = oldSleepTime
                     end
                     endtry
-
-;I suspect this code should have been removed when batch commit mode was added, but it was missed!
-;                    repeat
-;                    begin
-;                        try
-;                        begin
-;                            delete(Settings.InstructionChannel)
-;                            exitloop
-;                        end
-;                        catch (ex, @NetworkException); $ERR_NETPROB (320)
-;                        begin
-;                            if (%ReOpenQueueFile)
-;                            begin
-;                                ;;Re-read and lock the instruction record. What if THIS fails????
-;                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-;                                nextloop
-;                            end
-;                        end
-;                        catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-;                        begin
-;                            if (%ReOpenQueueFile)
-;                            begin
-;                                ;;Re-read and lock the instruction record. What if THIS fails????
-;                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-;                                nextloop
-;                            end
-;                        end
-;                        endtry
-;                    end
                 end
 
                 (REPLICATION_INSTRUCTION.CYCLE_LOG),
                 begin
                     Logger.Log("Cycle log file")
                     Logger.CycleLog()
-
-;I suspect this code should have been removed when batch commit mode was added, but it was missed!
-;                    ;; Delete the "Cycle Log" instruction from the instructions 
-;                    repeat
-;                    begin
-;                        try
-;                        begin
-;                            delete(Settings.InstructionChannel)
-;                            exitloop
-;                        end
-;                        catch (ex, @NetworkException); $ERR_NETPROB (320)
-;                        begin
-;                            if (%ReOpenQueueFile)
-;                            begin
-;                                ;;Re-read and lock the instruction record. What if THIS fails????
-;                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-;                                nextloop
-;                            end
-;                        end
-;                        catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-;                        begin
-;                            if (%ReOpenQueueFile)
-;                            begin
-;                                ;;Re-read and lock the instruction record. What if THIS fails????
-;                                read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-;                                nextloop
-;                            end
-;                        end
-;                        endtry
-;                    end
                 end
 
                 (REPLICATION_INSTRUCTION.TRANSFORM_COLUMN),
@@ -553,19 +717,131 @@ proc
                 begin
                     Logger.Log("Shutdown requested")
 
-                    ;;Delete the "Shutdown" instruction from the queue
-                    repeat
+                    ;Delete the "Shutdown" instruction from the queue
+
+                    using Settings.QueueType select
+                    ;-------------------------------------------------------------------------------
+                    (MessageQueueType.IsamFile),
+                    begin
+                        repeat
+                        begin
+                            try
+                            begin
+                                delete(Settings.InstructionChannel)
+                                exitloop
+                            end
+                            catch (ex, @NetworkException); $ERR_NETPROB (320)
+                            begin
+                                if (%ReOpenQueueFile)
+                                begin
+                                    ;Re-read and lock the instruction record. What if THIS fails????
+                                    read(Settings.InstructionChannel,instruction,instruction.transaction_id)
+                                    nextloop
+                                end
+                            end
+                            catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
+                            begin
+                                if (%ReOpenQueueFile)
+                                begin
+                                    ;Re-read and lock the instruction record. What if THIS fails????
+                                    read(Settings.InstructionChannel,instruction,instruction.transaction_id)
+                                    nextloop
+                                end
+                            end
+                            endtry
+                        end
+                    end
+.ifdef DBLNET
+                    ;-------------------------------------------------------------------------------
+                    (MessageQueueType.Kafka),
+                    begin
+                        try
+                        begin
+                            Settings.KafkaConsumer.Commit(kafkaMessage)
+                        end
+                        catch (ex, @KafkaException)
+                        begin
+                            ;Thrown if the request failed
+                            ;TODO: Now what?
+
+
+                        end
+                        catch (ex, @TopicPartitionOffsetException)
+                        begin
+                            ;Thrown if the result is in error
+                            ;TODO: Now what?
+
+
+                        end
+                        endtry
+                    end
+.endc
+                    endusing
+                    ;-------------------------------------------------------------------------------
+
+                    xcall ReplicatorShutdown
+                end
+
+                endusing
+
+                ;If we're in batch commit mode, do we need to commit?
+                if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch) then
+                begin
+                    using Settings.QueueType select
+                    ;-------------------------------------------------------------------------------
+                    (MessageQueueType.IsamFile),
+                    begin
+                        ;In batch commit mode we don't delete instructions until the batch has been committed
+                        try
+                        begin
+                            unlock Settings.InstructionChannel
+                        end
+                        catch (ex, @NetworkException); $ERR_NETPROB (320)
+                        begin
+                            if (%ReOpenQueueFile) nop
+                        end
+                        catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
+                        begin
+                            if (%ReOpenQueueFile) nop
+                        end
+                        endtry
+                    end
+.ifdef DBLNET
+                    ;-------------------------------------------------------------------------------
+                    (MessageQueueType.Kafka),
+                    begin
+                        ;TODO: Figure out how to commit all the kafka messages associated with the current batch
+
+
+
+                    end
+.endc
+                    endusing
+                    ;-------------------------------------------------------------------------------
+
+                    ;This logic may look a little "hokey", but there is a reason for it!
+                    if ((doForceCommit && (Counters.BatchCounter+=1)) || (doCheckCommit && ((Counters.BatchCounter += 1) == Settings.CommitBatchSize)))
+                    begin
+                        call CommitTransaction
+                    end
+                end
+                else
+                begin
+                    ;Delete the instruction
+
+                    using Settings.QueueType select
+                    ;-------------------------------------------------------------------------------
+                    (MessageQueueType.IsamFile),
                     begin
                         try
                         begin
                             delete(Settings.InstructionChannel)
-                            exitloop
                         end
                         catch (ex, @NetworkException); $ERR_NETPROB (320)
                         begin
                             if (%ReOpenQueueFile)
                             begin
-                                ;;Re-read and lock the instruction record. What if THIS fails????
+                                ;Re-read and lock the instruction record. What if THIS fails????
                                 read(Settings.InstructionChannel,instruction,instruction.transaction_id)
                                 nextloop
                             end
@@ -574,94 +850,84 @@ proc
                         begin
                             if (%ReOpenQueueFile)
                             begin
-                                ;;Re-read and lock the instruction record. What if THIS fails????
+                                ;Re-read and lock the instruction record. What if THIS fails????
                                 read(Settings.InstructionChannel,instruction,instruction.transaction_id)
                                 nextloop
                             end
                         end
                         endtry
                     end
-
-                    xcall ReplicatorShutdown
-                end
-
-                endusing
-
-                ;;If we're in batch commit mode, do we need to commit?
-                if (Settings.DatabaseCommitMode == DatabaseCommitMode.Batch) then
-                begin
-                    ;;In batch commit mode we don't delete instructions until the batch has been committed
-                    try
+.ifdef DBLNET
+                    ;-------------------------------------------------------------------------------
+                    (MessageQueueType.Kafka),
                     begin
-                        unlock Settings.InstructionChannel
-                    end
-                    catch (ex, @NetworkException); $ERR_NETPROB (320)
-                    begin
-                        if (%ReOpenQueueFile) nop
-                    end
-                    catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-                    begin
-                        if (%ReOpenQueueFile) nop
-                    end
-                    endtry
-
-                    ;;This logic may look a little "hokey", but there is a reason for it!
-                    if ((doForceCommit && (Counters.BatchCounter+=1)) || (doCheckCommit && ((Counters.BatchCounter += 1) == Settings.CommitBatchSize)))
-                    begin
-                        call CommitTransaction
-                    end
-                end
-                else
-                begin
-                    try
-                    begin
-                        delete(Settings.InstructionChannel)
-                    end
-                    catch (ex, @NetworkException); $ERR_NETPROB (320)
-                    begin
-                        if (%ReOpenQueueFile)
+                        try
                         begin
-                            ;;Re-read and lock the instruction record. What if THIS fails????
-                            read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-                            nextloop
+                            Settings.KafkaConsumer.Commit(kafkaMessage)
                         end
-                    end
-                    catch (ex, @ServerNotRunningException); $ERR_NOSERVER (321)
-                    begin
-                        if (%ReOpenQueueFile)
+                        catch (ex, @KafkaException)
                         begin
-                            ;;Re-read and lock the instruction record. What if THIS fails????
-                            read(Settings.InstructionChannel,instruction,instruction.transaction_id)
-                            nextloop
+                            ;Thrown if the request failed
+                            ;TODO: Now what?
+
+
                         end
+                        catch (ex, @TopicPartitionOffsetException)
+                        begin
+                            ;Thrown if the result is in error
+                            ;TODO: Now what?
+
+
+                        end
+                        endtry
                     end
-                    endtry
+.endc
+                    endusing
+                    ;-------------------------------------------------------------------------------
                 end
             end
         end
     end
 
-    ;;Close the database
+    ;Close the database
     xcall DatabaseDisconnect
 
-    ;;Release the namespace
+    ;Release the namespace
     if (Settings.ChannelInfo)
     begin
         xcall nspc_close(Settings.ChannelInfo)
     end
 
-    ;;Close the instructions file
-    if (Settings.InstructionChannel && %chopen(Settings.InstructionChannel))
-    begin
-        close Settings.InstructionChannel
-    end
+    ;Close the instruction queue
 
-    ;;All done
+    using Settings.QueueType select
+    ;-------------------------------------------------------------------------------
+    (MessageQueueType.IsamFile),
+    begin
+        if (Settings.InstructionChannel)
+        begin
+            close Settings.InstructionChannel
+            Settings.InstructionChannel = 0
+        end
+    end
+.ifdef DBLNET
+    ;-------------------------------------------------------------------------------
+    (MessageQueueType.Kafka),
+    begin
+        Settings.KafkaConsumer.Close()
+        Settings.KafkaConsumer.Dispose()
+        Settings.KafkaConsumer = ^null
+    end
+.endc
+    endusing
+    ;-------------------------------------------------------------------------------
+
+    ;All done
     stop
 
-    ;;-----------------------------------------------------------------------------
-    ;; Commit the current transaction and start a new one (only used in batch transaction mode)
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Commit the current transaction and start a new one (only used in batch transaction mode)
+    ;
 CommitTransaction,
 
     Logger.VerboseLog(" - Committing transaction batch with " + %string(Counters.BatchCounter) + " change(s)")
@@ -675,7 +941,7 @@ CommitTransaction,
         begin
             ;TODO: This code is duplicated below but can't be turned into an internal subroutine because of "label"
 
-            ;;Delete all of the associated instructions from the queue file.
+            ;Delete all of the associated instructions from the queue file.
             foreach boxedRfa in uncommittedInstructions
             begin
                 unboxedRfa = (a)boxedRfa
@@ -694,10 +960,10 @@ CommitTransaction,
                 end
                 catch (e, @Exception)
                 begin
-                    ;;This can happen from time to time, because some "special"
-                    ;;instructions like "change interval" and "cycle log" are deleted
-                    ;;from the queue immediately even though the rfa has already been
-                    ;;recorded. Just ignore it.
+                    ;This can happen from time to time, because some "special"
+                    ;instructions like "change interval" and "cycle log" are deleted
+                    ;from the queue immediately even though the rfa has already been
+                    ;recorded. Just ignore it.
                     nop
                 end
                 endtry
@@ -721,7 +987,7 @@ CommitTransaction,
         Settings.CurrentTransaction.Commit()
         Settings.CurrentTransaction.Dispose()
 
-        ;;Delete all of the associated instructions from the queue file.
+        ;Delete all of the associated instructions from the queue file.
         foreach boxedRfa in uncommittedInstructions
         begin
             unboxedRfa = (a)boxedRfa
@@ -742,10 +1008,10 @@ CommitTransaction,
             end
             catch (e, @Exception)
             begin
-                ;;This can happen from time to time, because some "special"
-                ;;instructions like "change interval" and "cycle log" are deleted
-                ;;from the queue immediately even though the rfa has already been
-                ;;recorded. Just ignore it.
+                ;This can happen from time to time, because some "special"
+                ;instructions like "change interval" and "cycle log" are deleted
+                ;from the queue immediately even though the rfa has already been
+                ;recorded. Just ignore it.
                 nop
             end
             endtry
@@ -765,12 +1031,12 @@ CommitTransaction,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Check if we have already opened this file in this process
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Check if we have already opened this file in this process
+    ;
 CheckFileTable,
 
-    ;;If there is an entry for the file in our namespace then we're good to go
+    ;If there is an entry for the file in our namespace then we're good to go
 
     if (nsptr = %nspc_find(Settings.ChannelInfo,instruction.structure_name,structure_data))
     begin
@@ -780,11 +1046,11 @@ CheckFileTable,
 
     Logger.VerboseLog("First instruction checks for table " + %atrim(instruction.structure_name))
 
-    ;;Make sure the table exists in the database
+    ;Make sure the table exists in the database
 
     call CheckTable
 
-    ;;If we failed verify the table then we have a serious problem!
+    ;If we failed verify the table then we have a serious problem!
 
     if (!status)
     begin
@@ -792,11 +1058,11 @@ CheckFileTable,
         return
     end
 
-    ;;Get the record size of the file
+    ;Get the record size of the file
     functionName = %atrim(instruction.structure_name) + "Length"
     structure_data.structure_size = %xsubr(functionName)
 
-    ;;Get the type of the file
+    ;Get the type of the file
     functionName = %atrim(instruction.structure_name) + "Type"
     xcall xsubr(functionName,structure_data.structure_type)
 
@@ -804,33 +1070,33 @@ CheckFileTable,
 
     ("DBL ISAM"),
     begin
-        ;;Get the key number of the first unique key. There should always be one, because without
-        ;;one the constructor in the I/O hooks class would not activate replication for the file.
+        ;Get the key number of the first unique key. There should always be one, because without
+        ;one the constructor in the I/O hooks class would not activate replication for the file.
         functionName = %atrim(instruction.structure_name) + "KeyNum"
         structure_data.structure_keynum = %xsubr(functionName)
 
-        ;;Report the key that will be used
+        ;Report the key that will be used
         Logger.VerboseLog(" - Key " + %string(structure_data.structure_keynum) + " will be used to synchronize data")
 
-        ;;And save the structure name
+        ;And save the structure name
         structure_data.structure_name = instruction.structure_name
 
-        ;;Record the table in the namespace
+        ;Record the table in the namespace
         nsptr = %nspc_add(Settings.ChannelInfo,instruction.structure_name,structure_data)
     end
 
     ("RELATIVE"),
     begin
-        ;;Report that record numbers will be used
+        ;Report that record numbers will be used
         Logger.VerboseLog(" - Record numbers will be used to synchronize data")
 
-        ;;Set the key number to -1 to prevent it being used accidentally
+        ;Set the key number to -1 to prevent it being used accidentally
         structure_data.structure_keynum = -1
 
-        ;;And save the structure name
+        ;And save the structure name
         structure_data.structure_name = instruction.structure_name
 
-        ;;Record the table in the namespace
+        ;Record the table in the namespace
         nsptr = %nspc_add(Settings.ChannelInfo,instruction.structure_name,structure_data)
     end
 
@@ -838,9 +1104,9 @@ CheckFileTable,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Find out if a table exists in the SQL database. If not create and load it.
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Find out if a table exists in the SQL database. If not create and load it.
+    ;
 CheckTable,
 
     Logger.VerboseLog(" - Checking if table exists")
@@ -862,10 +1128,10 @@ CheckTable,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -902,12 +1168,12 @@ CheckTable,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Create and load a new table in the SQL database
-    ;; This code is only used when doing an initial check for a table because of
-    ;; a first replication instruction. Explicit CREATE_TABLE instructions are
-    ;; handled by DoCreateTable.
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Create and load a new table in the SQL database
+    ; This code is only used when doing an initial check for a table because of
+    ; a first replication instruction. Explicit CREATE_TABLE instructions are
+    ; handled by DoCreateTable.
+    ;
 CreateTable,
 
     Logger.Log(" - Creating table")
@@ -929,10 +1195,10 @@ CreateTable,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -953,7 +1219,7 @@ CreateTable,
 
     if (status) then
     begin
-        ;;Now do an initial load of the data
+        ;Now do an initial load of the data
         if (Settings.CanBulkCopy()) then
         begin
             bulkCopy = true
@@ -978,9 +1244,9 @@ CreateTable,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Perform an initial load of a new table in the SQL database
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Perform an initial load of a new table in the SQL database
+    ;
 LoadTable,
 
     try
@@ -1057,10 +1323,10 @@ LoadTable,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1076,7 +1342,7 @@ LoadTable,
         endtry
     end
 
-    ;;Now add alternate key indexes
+    ;Now add alternate key indexes
     if (ok && status)
     begin
         call DoAddIndexes
@@ -1084,9 +1350,9 @@ LoadTable,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Perform a bulk load of a table from a delimited text file.
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Perform a bulk load of a table from a delimited text file.
+    ;
 BulkLoadTable,
 
     try
@@ -1173,10 +1439,10 @@ BulkLoadTable,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1192,7 +1458,7 @@ BulkLoadTable,
         endtry
     end
 
-    ;;Now add alternate key indexes
+    ;Now add alternate key indexes
     if (ok && status)
     begin
         call DoAddIndexes
@@ -1200,9 +1466,9 @@ BulkLoadTable,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Add a new row (ISAM)
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Add a new row (ISAM)
+    ;
 DoInsert,
 
     if (switchMode) then
@@ -1238,10 +1504,10 @@ DoInsert,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1288,9 +1554,9 @@ DoInsert,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Add a new row (RELATIVE)
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Add a new row (RELATIVE)
+    ;
 DoInsertRelative,
 
     if (switchMode) then
@@ -1327,10 +1593,10 @@ DoInsertRelative,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1377,9 +1643,9 @@ DoInsertRelative,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Update an existing row (ISAM)
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Update an existing row (ISAM)
+    ;
 DoUpdate,
     
     if (switchMode) then
@@ -1415,10 +1681,10 @@ DoUpdate,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1466,9 +1732,9 @@ DoUpdate,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Update an existing row (RELATIVE)
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Update an existing row (RELATIVE)
+    ;
 DoUpdateRelative,
 
     if (switchMode) then
@@ -1505,10 +1771,10 @@ DoUpdateRelative,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1556,9 +1822,9 @@ DoUpdateRelative,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Delete a row
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Delete a row
+    ;
 DoDelete,
 
     functionName = %atrim(instruction.structure_name) + "KeyVal"
@@ -1596,10 +1862,10 @@ DoDelete,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1617,13 +1883,13 @@ DoDelete,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Create a new table
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Create a new table
+    ;
 DoCreateTable,
 
-    ;;Create a new table (only)
-    ;;If the table already exists, do nothing
+    ;Create a new table (only)
+    ;If the table already exists, do nothing
 
     Logger.VerboseLog(" - Checking if table exists")
 
@@ -1678,10 +1944,10 @@ DoCreateTable,
                     end
                     catch (ex, @DatabaseCommunicationException)
                     begin
-                        ;;Attempt to disconnect from and re-connect to the database
+                        ;Attempt to disconnect from and re-connect to the database
                         if (%DatabaseReconnect) then
                         begin
-                            ;;Re-connected, retry the previous operation
+                            ;Re-connected, retry the previous operation
                             nextloop
                         end
                         else
@@ -1707,10 +1973,10 @@ DoCreateTable,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1728,12 +1994,12 @@ DoCreateTable,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Load new data into existing table
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Load new data into existing table
+    ;
 DoLoadTable,
 
-    ;;Do a full load of an existing table with new data
+    ;Do a full load of an existing table with new data
 
     Logger.VerboseLog(" - Checking if table exists")
 
@@ -1754,10 +2020,10 @@ DoLoadTable,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1781,7 +2047,7 @@ DoLoadTable,
     begin
         Logger.VerboseLog(" - Table exists")
 
-        ;;Delete any and all existing data before loading new data
+        ;Delete any and all existing data before loading new data
         call DoDeleteAllRows
 
         if (bulkLoad || bulkCopy) then
@@ -1805,20 +2071,20 @@ DoLoadTable,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Create a new table and load new data into it
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Create a new table and load new data into it
+    ;
 DoCreateAndLoadTable,
     
-    ;;Create a new table, do nothing if the table already exists
-    ;;We create the table, then do a full load of data
+    ;Create a new table, do nothing if the table already exists
+    ;We create the table, then do a full load of data
     call CheckTable
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Export ISAM file to CSV file
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Export ISAM file to CSV file
+    ;
 DoCreateCsv,
 
     Logger.Log(" - Export starting at " + %TimeNow)
@@ -1854,9 +2120,9 @@ DoCreateCsv,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Delete all rows from an existing table
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Delete all rows from an existing table
+    ;
 DoDeleteAllRows,
 
     using Settings.DatabaseConnectMode select
@@ -1890,10 +2156,10 @@ DoDeleteAllRows,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -1911,12 +2177,12 @@ DoDeleteAllRows,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Delete an existing table
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Delete an existing table
+    ;
 DoDeleteTable,
 
-    ;;Is the table recorded in the list of open tables?
+    ;Is the table recorded in the list of open tables?
     if (nsptr=%nspc_find(Settings.ChannelInfo,instruction.structure_name,structure_data))
     begin
         ;Yes, remove it
@@ -1978,10 +2244,10 @@ DoDeleteTable,
                     end
                     catch (ex, @DatabaseCommunicationException)
                     begin
-                        ;;Attempt to disconnect from and re-connect to the database
+                        ;Attempt to disconnect from and re-connect to the database
                         if (%DatabaseReconnect) then
                         begin
-                            ;;Re-connected, retry the previous operation
+                            ;Re-connected, retry the previous operation
                             nextloop
                         end
                         else
@@ -2007,10 +2273,10 @@ DoDeleteTable,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -2028,9 +2294,9 @@ DoDeleteTable,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Add alternate key indexes to a table (if they don't already exist)
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Add alternate key indexes to a table (if they don't already exist)
+    ;
 DoAddIndexes,
 
     using Settings.DatabaseConnectMode select
@@ -2064,10 +2330,10 @@ DoAddIndexes,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else
@@ -2090,9 +2356,9 @@ DoAddIndexes,
 
     return
 
-    ;;-----------------------------------------------------------------------------
-    ;; Delete alternate key indexes from a table
-    ;;
+    ;-----------------------------------------------------------------------------
+    ; Delete alternate key indexes from a table
+    ;
 DoDeleteIndexes,
 
     using Settings.DatabaseConnectMode select
@@ -2126,10 +2392,10 @@ DoDeleteIndexes,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;;Attempt to disconnect from and re-connect to the database
+            ;Attempt to disconnect from and re-connect to the database
             if (%DatabaseReconnect) then
             begin
-                ;;Re-connected, retry the previous operation
+                ;Re-connected, retry the previous operation
                 nextloop
             end
             else

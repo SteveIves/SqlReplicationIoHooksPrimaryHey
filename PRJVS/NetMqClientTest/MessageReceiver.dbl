@@ -18,7 +18,7 @@ proc
         ;& }
 
         data conf = new ConsumerConfig()
-        conf.GroupId = "ReplicationConsumers"
+        conf.GroupId = "REPLICATION_DEFAULT_GROUP"
         conf.BootstrapServers = "localhost:19092,localhost:29092,localhost:39092"
         conf.AutoOffsetReset = AutoOffsetReset.Earliest
         conf.EnableAutoCommit = false
@@ -29,8 +29,8 @@ proc
         ;automatically, so in this example, consumption will only start from the
         ;earliest message in the topic the first time you run the program.
 
-        disposable data consumer = new ConsumerBuilder<Ignore,string>(conf).Build()
-        consumer.Subscribe("ReplicatorQueue")
+        disposable data consumer = new ConsumerBuilder<string,string>(conf).Build()
+        consumer.Subscribe("REPLICATION_DEFAULT")
 
         disposable data cts = new CancellationTokenSource()
 
@@ -51,7 +51,7 @@ proc
                     ;Blocks until a consume result is available or the operation has been cancelled.
                     data result = consumer.Consume(cts.Token)
 
-                    Console.WriteLine("Received message '{0}' at '{1}'",result.Value,result.TopicPartitionOffset)
+                    Console.WriteLine("Received message key: {0} value: {1} at {2}",result.Key,result.Value,result.TopicPartitionOffset)
 
                     ;Process the message into SQL Server
                     data messageProcessed = false

@@ -13,14 +13,43 @@
 
 .ifdef DBLNET
 
+import Confluent.Kafka
 import ReplicationLibrary
 import Synergex.SynergyDE
 
 function OpenKafkaQueue, boolean
 proc
 
+    data conf = new ConsumerConfig()
+    conf.ClientId = Settings.KafkaClientId
+    conf.GroupId = Settings.KafkaConsumerGroupName
+    conf.BootstrapServers = Settings.KafkaServers
+    conf.AutoOffsetReset = AutoOffsetReset.Earliest
 
-    freturn false
+    ;Disable auto commit so that we can control when kafka messages are committed
+    conf.EnableAutoCommit = false
+
+    conf.AllowAutoCreateTopics = false
+
+    ;Note: The AutoOffsetReset property determines the start offset in the event
+    ;there are not yet any committed offsets for the consumer group for the
+    ;topic/partitions of interest. By default, offsets are committed
+    ;automatically, so in this example, consumption will only start from the
+    ;earliest message in the topic the first time you run the program.
+
+    Settings.KafkaConsumer = new ConsumerBuilder<string,string>(conf).Build()
+    Settings.KafkaConsumer.Subscribe(Settings.KafkaTopicName)
+
+    ;TODO: The subscribe still works when the server is not running!
+
+    ;IMPORTANT: Settings.KafkaConsumer needs to be cleaned up correctly on shutdown:
+    ;Settings.KafkaConsumer.Close()
+    ;Settings.KafkaConsumer.Dispose()
+    ;Settings.KafkaConsumer = ^null
+
+    freturn true
+
+
 endfunction
 
 .endc

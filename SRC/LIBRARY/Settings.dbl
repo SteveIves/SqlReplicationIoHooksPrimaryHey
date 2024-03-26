@@ -1,4 +1,7 @@
 
+.ifdef DBLNET
+import Confluent.Kafka
+.endc
 import System.Collections
 .ifdef DBLNET
 import Microsoft.Data.SqlClient
@@ -67,7 +70,11 @@ namespace ReplicationLibrary
                 mInstanceName = value.ToUpper()
                 QueueFileName = "REPLICATOR_DATA:REPLICATION_" + mInstanceName + ".ISM"
                 LogFileName = "REPLICATOR_LOGDIR:REPLICATION_" + mInstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
+.ifdef DBLNET
+                KafkaClientId = "REPLICATOR_" + mInstanceName
                 KafkaTopicName = "REPLICATION_" + mInstanceName
+                KafkaConsumerGroupName = "REPLICATION_" + mInstanceName + "_CONSUMERS"
+.endc
             endmethod
         endproperty
 
@@ -178,7 +185,13 @@ namespace ReplicationLibrary
         ;;; The IP port number that FileService is listening on
         ;;; </summary>
         public static readwrite property FileServicePort, int
-
+.ifdef DBLNET
+        ;;; <summary>
+        ;;; The name(s) or IP addresses and ports of the Kafka servers to use (Kafka queue mode only)?
+        ;;; Set automatically to REPLICATION_<InstanceName>
+        ;;; </summary>
+        public static readwrite property KafkaServers, string
+.endc
         ;;; <summary>
         ;;; Where should export files be created locally?
         ;;; </summary>
@@ -306,12 +319,32 @@ namespace ReplicationLibrary
         ;;; </summary>
         public static readwrite property InstructionChannel, i4
 
+.ifdef DBLNET
+
+        ;;; <summary>
+        ;;; A unique identifier for this consumer. (Kafka queue mode only)?
+        ;;; Set automatically to REPLICATOR_<InstanceName>
+        ;;; </summary>
+        public static readwrite property KafkaClientId, string
+
+        ;;; <summary>
+        ;;; In Kafka queue mode this is the "consumer" that essentially is the
+        ;;; connection to the Kafka queue (topic).
+        ;;; </summary>
+        public static readwrite property KafkaConsumer, @IConsumer<string,string>
+
+        ;;; <summary>
+        ;;; What is the name of the Kafka consumer group (Kafka queue mode only)?
+        ;;; Set automatically to REPLICATION_<InstanceName>_CONSUMERS
+        ;;; </summary>
+        public static readwrite property KafkaConsumerGroupName, string
+
         ;;; <summary>
         ;;; What is the name of the Kafka topic (Kafka queue mode only)?
         ;;; Set automatically to REPLICATION_<InstanceName>
         ;;; </summary>
         public static readwrite property KafkaTopicName, string
-
+.endc
         ;;; <summary>
         ;;; The file spec of the instances log file
         ;;; Set automatically to REPLICATOR_LOGDIR:REPLICATION_<InstanceName>_<yyyymmdd>_<hhmmss>.LOG"

@@ -159,13 +159,26 @@ proc
 
     xcall DatabaseDisconnect
 
-    ;;Close the instruction queue file
+    ;;Close the instruction queue
 
-    if (Settings.InstructionChannel)
+    using Settings.QueueType select
+    (MessageQueueType.IsamFile),
     begin
-        close Settings.InstructionChannel
-        Settings.InstructionChannel = 0
+        if (Settings.InstructionChannel)
+        begin
+            close Settings.InstructionChannel
+            Settings.InstructionChannel = 0
+        end
     end
+.ifdef DBLNET
+    (MessageQueueType.Kafka),
+    begin
+        Settings.KafkaConsumer.Close()
+        Settings.KafkaConsumer.Dispose()
+        Settings.KafkaConsumer = ^null
+    end
+.endc
+    endusing
 
     ;;Delete the PID file
 

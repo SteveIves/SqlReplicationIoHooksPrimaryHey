@@ -438,6 +438,24 @@ namespace ReplicationLibrary
                 end
             end
 
+            ;KafkaServers
+.ifdef DBLNET
+            if (ok)
+            begin
+                if (defaults.TryGetProperty("KafkaServers",setting))
+                begin
+                    if (setting.ValueKind!=JsonValueKind.String) then
+                    begin
+                        errorMessage = "InstanceDefaults.KafkaServers must have a string value (list of ip address or DNS names and ports)!"
+                        ok = false
+                    end
+                    else
+                    begin
+                        KafkaServers = setting.GetString()
+                    end
+                end
+            end
+.endc
             ;LocalExportPath
 
             if (ok)
@@ -826,6 +844,14 @@ namespace ReplicationLibrary
         ;;; The IP port number that FileService is listening on
         ;;; </summary>
         public readwrite property FileServicePort, int, 8080
+
+.ifdef DBLNET
+        ;;; <summary>
+        ;;; The name(s) or IP addresses and ports of the Kafka servers to use (Kafka queue mode only)?
+        ;;; Set automatically to REPLICATION_<InstanceName>
+        ;;; </summary>
+        public readwrite property KafkaServers, string
+.endc
 
         ;;; <summary>
         ;;; Where should export files be created locally?
