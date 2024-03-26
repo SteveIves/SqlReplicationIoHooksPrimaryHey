@@ -1,5 +1,7 @@
 # Ignore everything in this directory
 *
-# Except this file
+# Except these files
 !.gitignore
-!ReplicatorConfig.json
+!dbl_replicator_hooks.dll
+!dbl_replicator_hooks.pdb
+!libdbl_replicator_hooks.so
