@@ -48,6 +48,7 @@ namespace NetLoadTester
     ;;; </summary>
     public class LoadTestManager
 
+        private mQueueMode, string
         private mWorkerTypes, int
         private mTasksPerWorker, int
         private mTotalTasks, int
@@ -59,9 +60,11 @@ namespace NetLoadTester
         ;;; <param name="tasksPerWorker"></param>
         ;;; <param name="secondsToRun"></param>
         public method LoadTestManager
+            queueMode, string
             tasksPerWorker, int
             secondsToRun, int
         proc
+            mQueueMode = queueMode
             mWorkerTypes = 1
             mTasksPerWorker = tasksPerWorker
             mSecondsToRun = secondsToRun
@@ -98,7 +101,7 @@ namespace NetLoadTester
             Console.WriteLine("Starting {0} EMPLOYEE workers...", mTasksPerWorker)
             repeat
             begin
-                workers[taskNumber+=1] = new EmployeeLoadTester(taskNumber,cancellationSource.Token)
+                workers[taskNumber+=1] = new EmployeeLoadTester(taskNumber,mQueueMode,cancellationSource.Token)
                 tasks[taskNumber] = Task.Run(workers[taskNumber].DoWork, cancellationSource.Token)
                 if (taskNumber==mTotalTasks)
                     exitloop

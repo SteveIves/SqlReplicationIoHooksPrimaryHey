@@ -50,8 +50,21 @@ proc
     ;IOHooksIsam and likely others is not currently thread safe.
     data threadsPerWorker = 1
     data secondsToRun = 1
+    data queueMode = String.Empty
 
-    data testManager = new LoadTestManager(threadsPerWorker,secondsToRun)
+    repeat
+    begin
+        Console.Write("Queue mode (I)SAM or (K)afka [I]: ")
+        queueMode = Console.ReadKey().KeyChar.ToString().ToUpper()
+        using queueMode select
+        ("I","K"),
+            exitloop
+        (),
+            nextloop
+        endusing
+    end
+
+    data testManager = new LoadTestManager(queueMode,threadsPerWorker,secondsToRun)
     testManager.StartTests().Wait()
 
     Console.WriteLine("All threads have finished their work. Press a key.")

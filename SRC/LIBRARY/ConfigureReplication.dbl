@@ -39,7 +39,7 @@ import ReplicationLibrary
 
 subroutine ConfigureReplication
     required in channel, n
-    endparams
+    optional in kafkaMode, n
 
     stack record
         openMode, a3
@@ -48,8 +48,8 @@ subroutine ConfigureReplication
         fileExt,  a20
     endrecord
 
-    .define common global common
-    .include "REPLICATOR_INCLUDE:sqlgbl.def"
+.define common global common
+        .include "REPLICATOR_INCLUDE:sqlgbl.def"
     .undefine common
 
 proc
@@ -72,10 +72,21 @@ proc
     ;;The third parameter to the I/O Hooks constructor is the REPLICATOR INSTANCE name to replicate to.
     ;;This in turn determines the name of the queue file that instructions are written to.
     
-    using openMode select
-    ("U:I"),
+    if (^passed(kafkaMode) && kafkaMode) then
     begin
         using fileSpec select
+        ("DEPARTMENT.ISM"),
+            new IoHooksKAFKA(channel,"DEPARTMENT","DEFAULT",0)
+        ("EMPLOYEE.ISM"),
+            new IoHooksKAFKA(channel,"EMPLOYEE","DEFAULT",0)
+        endusing
+    end
+    else
+    begin
+        using openMode select
+        ("U:I"),
+        begin
+            using fileSpec select
 
 ;       ;;A single-record layout file that already had a unique key
 ;       ("FILE1.ISM"),
@@ -99,25 +110,26 @@ proc
 ;           repkey_required[channel] = 1
 ;       end
 
-        ("DEPARTMENT.ISM"),
-            new IoHooksISAM(channel,"DEPARTMENT","DEFAULT")
+            ("DEPARTMENT.ISM"),
+                new IoHooksISAM(channel,"DEPARTMENT","DEFAULT")
 
-        ("EMPLOYEE.ISM"),
-            new IoHooksISAM(channel,"EMPLOYEE","DEFAULT")
+            ("EMPLOYEE.ISM"),
+                new IoHooksISAM(channel,"EMPLOYEE","DEFAULT")
 
-        endusing
-    end
-    ("U:R"),
-    begin
-        using fileSpec select
+            endusing
+        end
+        ("U:R"),
+        begin
+            using fileSpec select
 
 ;       ;;A relative file
 ;       ("FILE1.DDF"),
 ;           new IoHooksRELATIVE(channel,"File1","DEFAULT")
 
+            endusing
+        end
         endusing
     end
-    endusing
 
     xreturn
 

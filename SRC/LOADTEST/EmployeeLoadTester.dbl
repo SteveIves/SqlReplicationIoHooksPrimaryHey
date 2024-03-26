@@ -49,6 +49,7 @@ namespace NetLoadTester
     public class EmployeeLoadTester implements IWorkerTask, IDisposable
 
         private mTaskNumber, int
+        private mQueueMode, string
         private mCancelToken, CancellationToken
         private mChn, i4
         private static mRecordCount, int
@@ -60,12 +61,14 @@ namespace NetLoadTester
 
         public method EmployeeLoadTester
             taskNumber, int
+            queueMode, string
             cancelToken, CancellationToken
 
             .include "REPLICATOR_INCLUDE:sqlgbl.def"
 
         proc
             mTaskNumber = taskNumber
+            mQueueMode = queueMode
             mCancelToken = cancelToken
 
             ;Open the employee file
@@ -94,7 +97,8 @@ namespace NetLoadTester
             Monitor.Exit(^typeof(EmployeeLoadTester))
 
             ;Add replication I/O hooks to the channel
-            xcall ConfigureReplication(mChn)
+            data queueModeNumber = mQueueMode.Equals("K") ? 1 : 0
+            xcall ConfigureReplication(mChn,queueModeNumber)
 
             Console.WriteLine("Task {0} has opened REPLICATOR_DATA:EMPLOYEE.ISM on channel {1}",mTaskNumber,mChn)
 
