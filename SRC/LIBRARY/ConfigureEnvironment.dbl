@@ -127,9 +127,7 @@ proc
         Logger.Log("Maximum cursors:    " + %string(Settings.MaxCursors))
         Logger.Log("Maximum columns:    " + %string(Settings.MaxColumns))
 
-        xcall GetReplicatedTables(Settings.InstanceName,tables)
-
-        foreach table in tables
+        foreach table in Settings.ValidTableNames
         begin
             columns=%xsubr(table+"Cols")
 

@@ -156,9 +156,6 @@
     <Compile Include="..\..\SRC\LIBRARY\GetDateTimeString.dbl">
       <Link>GetDateTimeString.dbl</Link>
     </Compile>
-    <Compile Include="..\..\SRC\LIBRARY\GetReplicatedTables.dbl">
-      <Link>GetReplicatedTables.dbl</Link>
-    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\GetSettings.dbl">
       <Link>GetSettings.dbl</Link>
     </Compile>

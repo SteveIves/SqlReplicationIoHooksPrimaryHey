@@ -60,7 +60,6 @@ main ReplicatorMenu
         windows,            boolean
         unix,               boolean
         option,             a2
-        validTables,        @ArrayList
         tableName,          a30
 .ifdef DBLNET
         kafkaProducer,      @IProducer<string,string>
@@ -135,9 +134,6 @@ proc
     endtry
 .endc
 
-    ;Get a collection of the valid table names
-    xcall GetReplicatedTables(Settings.InstanceName,validTables)
-
 .ifdef DBLNET
     ;Connect to the Kafka server
     if (Settings.QueueType == MessageQueueType.Kafka)
@@ -151,9 +147,10 @@ proc
     repeat
     begin
         xcall w_disp(mainwnd,WD_CLR,WDC_WND,
-        &    WD_POS,1,1,"SQL Replicator (",Settings.QueueType==MessageQueueType.Kafka?"KAFKA":"ISAM",")",
-        &    WD_POS,1,25,"Instance: " + Settings.InstanceName,
-        &    WD_POS,1,50,"Table: " + %atrim(tableName))
+        &    WD_POS,1,1,"SQL Replicator",
+        &    WD_POS,1,17,"Queue: ", Settings.QueueType==MessageQueueType.IsamFile ? "ISAM" : "KAFKA",
+        &    WD_POS,1,30,"Instance: ", Settings.InstanceName,
+        &    WD_POS,1,54,"Table: ", tableName ? %atrim(tableName) : "<none>")
 
 .ifdef DBLNET
         xcall w_disp(mainwnd,WD_POS,3,2,"SR. Start Replicator (Normal)")
@@ -188,9 +185,7 @@ proc
         xcall w_disp(mainwnd,WD_POS,14,2,"R.  Restart log file")
 
         xcall w_disp(mainwnd,WD_POS,16,2,"I.  Change Instance")
-
-        xcall w_disp(mainwnd,WD_POS,18,2,"TN. Table names")
-        xcall w_disp(mainwnd,WD_POS,19,2,"T.  Change table")
+        xcall w_disp(mainwnd,WD_POS,17,2,"T.  Change Table")
 
         if (tableName)
         begin
@@ -628,7 +623,7 @@ proc
 
             for ix from 1 thru Settings.ValidInstanceNames.Length
             begin
-                xcall w_disp(mainwnd,WD_POS,row+=1,col,%string(ix,"ZX") + " " + Settings.ValidInstanceNames[ix])
+                xcall w_disp(mainwnd,WD_POS,row+=1,col,%string(ix,"ZX")," ",Settings.ValidInstanceNames[ix])
                 if (row==21)
                 begin
                     row=4
@@ -643,7 +638,7 @@ proc
                 data status, i4
                 data errorMessage, string
 
-                xcall w_disp(mainwnd,WD_POS,23,1,WD_CLR,WDC_EOL,"New instance number (enter=no change): ",WD_READS,tmpvar)
+                xcall w_disp(mainwnd,WD_POS,23,1,WD_CLR,WDC_EOL,"Instance number (enter=no change): ",WD_READS,tmpvar)
 
                 ;Blank means do nothing
                 if (!tmpvar)
@@ -688,10 +683,6 @@ proc
                     Console.ReadLine()
                     stop
                 end
-
-                ;Get a collection of the valid table names
-                xcall GetReplicatedTables(Settings.InstanceName,validTables)
-
 .ifdef DBLNET
                 if (Settings.QueueType==MessageQueueType.Kafka)
                 begin
@@ -708,72 +699,64 @@ proc
             end
         end
 
-        ("TN"),
+        ("T "),
         begin
+            data ix = 0
             data row, i4, 4
             data col, i4, 2
             data name, string
 
             xcall w_disp(mainwnd,WD_POS,3,1,WD_CLR,WDC_EOW,"Table Names")
 
-            foreach name in validTables
+            for ix from 1 thru Settings.ValidTableNames.Length
             begin
-                xcall w_disp(mainwnd,WD_POS,row+=1,col,name)
+                xcall w_disp(mainwnd,WD_POS,row+=1,col,%string(ix,"ZX")," ",Settings.ValidTableNames[ix])
                 if (row==21)
                 begin
                     row=4
-                    col+=18
+                    col+=20
                 end
             end
 
-            xcall w_disp(mainwnd,WD_POS,23,1,"Press a key: ")
+            repeat
             begin
-                data tmpvar, a1
-                xcall w_disp(mainwnd,WD_ACCEPT,tmpvar)
-.ifdef DBLNET
-                while (%w_info(WIF_TTSTS))
-.else
-                while (%ttsts)
-.endc
-                xcall w_disp(mainwnd,WD_ACCEPT,tmpvar)
-            end
-        end
+                data tmpvar, a2
+                data newIndex, d2
+                data status, i4
+                data errorMessage, string
 
-        ("T "),
-        begin
-            xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOW,"Table name: ")
-            xcall w_disp(mainwnd,WD_READS,tableName)
+                xcall w_disp(mainwnd,WD_POS,23,1,WD_CLR,WDC_EOL,"Table number (enter=none): ",WD_READS,tmpvar)
 
-            if (tableName) then
-            begin
-                ;Make sure it's a valid table
-                data found = false
-                data name, string
-
-                ;Look for it in the collection of valid tables
-                foreach name in validTables
+                ;Blank no table selected
+                if (!tmpvar)
                 begin
-                    if ((a)(name.ToUpper()).eqs.tableName)
-                    begin
-                        tableName = (a)(name.ToUpper())
-                        xcall w_disp(mainwnd,WD_POS,1,57,WD_CLR,WDC_EOL,%atrim(tableName))
-                        found = true
-                        exitloop
-                    end
-                end
-
-                ;Report if not found
-                if (!found)
-                begin
-                    xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Table not found!")
-                    xcall w_disp(mainwnd,WD_POS,1,57,WD_CLR,WDC_EOL,"<none>")
                     clear tableName
+                    exitloop
                 end
-            end
-            else
-            begin
-                xcall w_disp(mainwnd,WD_POS,1,57,WD_CLR,WDC_EOL,"<none>")
-                nextloop
+
+                ;Make sure it's a number
+                try
+                begin
+                    newIndex = tmpvar
+                end
+                catch (e, @BadDigitException)
+                begin
+                    nextloop
+                end
+                endtry
+
+                ;Make sure it's in range
+                if (newIndex < 1 || newIndex > Settings.ValidTableNames.Length)
+                    nextloop
+
+                ;Make sure it's not the current table
+                if (Settings.ValidTableNames[newIndex].Equals(%atrimtostring(tableName)))
+                    exitloop
+
+                ;Change the instance
+                tableName = Settings.ValidTableNames[newIndex]
+
+                exitloop
             end
         end
 

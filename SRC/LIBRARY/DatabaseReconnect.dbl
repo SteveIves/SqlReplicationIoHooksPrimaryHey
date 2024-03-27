@@ -22,7 +22,6 @@ function DatabaseReconnect, boolean
 
     stack record
         reconnected,        boolean
-        replicatedTables,   @ArrayList
         tableName,          string
         dberrtxt,           a512
         length,             int
@@ -37,15 +36,11 @@ proc
 
     if (Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlConnection)
     begin
-        ;;Get a list of all replicated tables
-
-        xcall GetReplicatedTables(Settings.InstanceName,replicatedTables)
-
         ;;Attempt to close any open cursors - no errors will be generated regardless of what happens
 
         Logger.Log(" - Attempting to close cursors")
 
-        foreach tableName in replicatedTables
+        foreach tableName in Settings.ValidTableNames
         begin
             xcall xsubr(tableName + "Close",Settings.DatabaseChannel)
         end

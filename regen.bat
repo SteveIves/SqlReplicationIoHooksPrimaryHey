@@ -25,7 +25,4 @@ rem Generate code
 rem Generate SQL I/O routines for the structures being replicated
 codegen -s %STRUCTURES% -t SqlIO SqlClientIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
 
-rem Generate the GetReplicatedTables routine
-codegen -s %STRUCTURES% -ms -t GetReplicatedTables -o "%ROOT%SRC\LIBRARY" %STDOPTS%
-
 endlocal

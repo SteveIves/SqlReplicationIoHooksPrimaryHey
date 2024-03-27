@@ -71,7 +71,6 @@
     <Compile Include="..\..\SRC\LIBRARY\GenerateDepartmentData.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\GenerateEmployeeData.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\GetDateTimeString.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\GetReplicatedTables.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\GetSettings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IndexExists.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Index_Exists.dbl" />

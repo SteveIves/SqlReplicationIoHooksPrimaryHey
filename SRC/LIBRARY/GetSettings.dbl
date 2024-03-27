@@ -35,6 +35,8 @@ function GetSettings,   boolean
         setting,            JsonElement
         emailsetting,       JsonElement
         emailAddress,       JsonElement
+        tablemaps,          JsonElement
+        tablemap,           JsonElement
 .else
         dbConnections,      @JsonElement
         dbConnection,       @JsonElement
@@ -44,6 +46,8 @@ function GetSettings,   boolean
         setting,            @JsonElement
         emailsetting,       @JsonElement
         emailAddress,       @JsonElement
+        tablemaps,          @JsonElement
+        tablemap,           @JsonElement
 .endc
     endrecord
     external function
@@ -1190,6 +1194,129 @@ proc
             end
         end
         if (!ok) exit
+    end
+
+    ;--------------------------------------------------------------------------------------------------------
+    ;TableMaps
+
+    if (ok)
+    begin
+        if (ok)
+        begin
+            if (!doc.RootElement.TryGetProperty("TableMaps",tablemaps)) then
+            begin
+                errorMessage = "Configuration must have a Instances TableMaps!"
+                ok = false
+            end
+            else if (tablemaps.ValueKind != JsonValueKind.Array) then
+            begin
+                errorMessage = "TableMaps must be an array!"
+                ok = false
+            end
+            else if (tablemaps.GetArrayLength() == 0)
+            begin
+                errorMessage = "TableMaps must contain at least one object!"
+                ok = false
+            end
+        end
+
+        ;Find all table maps for our instance name
+
+        if (ok)
+        begin
+            data tableMapsCount = tablemaps.GetArrayLength()
+            data tableMapNumber = 0
+            data ourTableNames = new ArrayList()
+
+            for tableMapNumber from 0 thru tableMapsCount - 1
+            begin
+                tablemap = tablemaps[tableMapNumber]
+
+                ;Check there is an Instance property
+                if (!tablemap.TryGetProperty("Instance",setting))
+                begin
+                    errorMessage = "TableMap[" + %string(tableMapNumber+1) + "] has no Instance property!"
+                    ok = false
+                    exitloop
+                end
+
+                ;Check the Instance property is a string
+                if (setting.ValueKind != JsonValueKind.String)
+                begin
+                    errorMessage = "TableMap[" + %string(tableMapNumber+1) + "].Instance is not a string!"
+                    ok = false
+                    exitloop
+                end
+
+                ;Check if the table mapping is for our instance
+                if (!setting.GetString().ToUpper().Equals(Settings.InstanceName))
+                begin
+                    ;This mapping is not for our instance
+                    nextloop
+                end
+
+                ;Check there is an Enabled property
+                if (!tablemap.TryGetProperty("Enabled",setting))
+                begin
+                    errorMessage = "TableMap[" + %string(tableMapNumber+1) + "] has no Enabled property!"
+                    ok = false
+                    exitloop
+                end
+
+                ;Check the Enabled property is a boolean
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                begin
+                    errorMessage = "TableMap[" + %string(tableMapNumber+1) + "].Enabled is not boolean!"
+                    ok = false
+                    exitloop
+                end
+
+                ;Check whether the mapping is enabled?
+                if (setting.GetBoolean() == false)
+                begin
+                    ;The current mapping is disabled
+                    nextloop
+                end
+
+                ;Check that there is a FileName property, and it's a non-blank string
+                if (!tablemap.TryGetProperty("FileName",setting)) then
+                begin
+                    errorMessage = "TableMap[" + %string(tableMapNumber+1) + "] has no FileName property!"
+                    ok = false
+                end
+                else if (setting.ValueKind != JsonValueKind.String) then
+                begin
+                    errorMessage = "TableMap[" + %string(tableMapNumber+1) + "].FileName is not a string!"
+                    ok = false
+                end
+                else if (String.IsNullOrWhitespace(setting.GetString())) then
+                begin
+                    errorMessage = "TableMap[" + %string(tableMapNumber+1) + "].FileName has no value!"
+                    ok = false
+                end
+                else
+                begin
+                    ;Found one!
+                    ourTableNames.Add(setting.GetString().ToUpper())
+                end
+            end
+
+            ;Did we find our instance settings?
+            if (ok && (ourTableNames.Count>0)) then
+            begin
+                data ix, int
+                Settings.ValidTableNames = new String[ourTableNames.Count]
+                for ix from 0 thru ourTableNames.Count - 1
+                begin
+                    Settings.ValidTableNames[ix+1] = (string)ourTableNames[ix]
+                end
+            end
+            else
+            begin
+                errorMessage = "No table mappings were found for instance " + Settings.InstanceName
+                ok = false
+            end
+        end
     end
 
     ;--------------------------------------------------------------------------------------------------------

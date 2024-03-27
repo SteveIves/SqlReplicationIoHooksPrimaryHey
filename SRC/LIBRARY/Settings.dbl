@@ -380,6 +380,11 @@ namespace ReplicationLibrary
         ;;; </summary>
         public static readwrite property ValidInstanceNames, [#]string
 
+        ;;; <summary>
+        ;;; An array of valid table names based on the TableMaps defined for the instance in the JSON configuration file
+        ;;; </summary>
+        public static readwrite property ValidTableNames, [#]string
+
 .endregion
 
 .region "Methods"
