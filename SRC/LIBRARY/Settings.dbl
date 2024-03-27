@@ -375,6 +375,11 @@ namespace ReplicationLibrary
         ;;; </summary>
         public static readwrite property TerminalChannel, i4
 
+        ;;; <summary>
+        ;;; An array of valid instance names based on the instances defined in the JSON configuration file
+        ;;; </summary>
+        public static readwrite property ValidInstanceNames, [#]string
+
 .endregion
 
 .region "Methods"

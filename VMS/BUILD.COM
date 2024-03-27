@@ -38,7 +38,6 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:GenerateDepartmentData.dbl -
  + LIBSRC:GenerateEmployeeData.dbl -
  + LIBSRC:GetDateTimeString.dbl -
- + LIBSRC:GetInstanceNames.dbl -
  + LIBSRC:GetReplicatedTables.dbl -
  + LIBSRC:GetSettings.dbl -
  + LIBSRC:IndexExists.dbl -

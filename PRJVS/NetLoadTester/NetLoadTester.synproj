@@ -11,6 +11,26 @@
     <EnableCommonProperties>True</EnableCommonProperties>
     <CommonPropertiesFileLocation>$(SolutionDir)Common.props</CommonPropertiesFileLocation>
   </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
+    <OutputPath>$(SolutionDir)EXE</OutputPath>
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
+    <OutputPath>$(SolutionDir)EXE</OutputPath>
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
+    <OutputPath>$(SolutionDir)EXE</OutputPath>
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
+    <OutputPath>$(SolutionDir)EXE</OutputPath>
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Synergex.SynergyDE.Build" Version="23.*" />
     <PackageReference Include="Synergex.SynergyDE.synrnt" Version="12.*" />

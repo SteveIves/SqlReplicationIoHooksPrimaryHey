@@ -4,6 +4,11 @@
     {
       "InstanceName": "DEFAULT",
       "Enabled": true,
+      "QueueType": "IsamFile"
+    },
+    {
+      "InstanceName": "KAFKATEST",
+      "Enabled": true,
       "QueueType": "Kafka",
       "KafkaServers": "localhost:19092,localhost:29092,localhost:39092"
     }

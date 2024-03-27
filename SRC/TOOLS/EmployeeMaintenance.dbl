@@ -83,7 +83,7 @@ proc
         try
         begin
             open(ech=0,u:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
-            xcall ConfigureReplication(ech)
+            xcall ConfigureReplication(ech,1)
         end
         catch (e, @Exception)
         begin
@@ -122,7 +122,7 @@ proc
                 init employee
 
                 display(tt,$scr_pos(4,27),$scr_clr(eol))
-                reads(tt,tmpvar(1:6))
+                reads(tt,tmpvar(1:8))
 
                 using tmpvar select
                 (" "),
@@ -138,9 +138,9 @@ proc
                 (),
                 begin
                     ;;We have a potential employee number
-                    if (%IsDecimalNoNegatives(^d(tmpvar(1:6)))) then
+                    if (%IsDecimalNoNegatives(^d(tmpvar(1:8)))) then
                     begin
-                        employee.emp_id = tmpvar(1:6)
+                        employee.emp_id = tmpvar(1:8)
                         exitloop
                     end
                     else

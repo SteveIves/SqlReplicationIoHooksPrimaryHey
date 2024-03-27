@@ -59,7 +59,7 @@ namespace ReplicationLibrary
         protected mSyncKeyNumber,   int,        0
         protected mFillTimeStamp,   boolean,    false
         protected mTimeStampPos,    int,        0
-        protected mFileHandle,      i4
+        protected mFileHandle,      int
         protected mExceptionLog,    string
         protected mExceptionCount,  int,        0
         protected mExceptionMax,    int,        1
@@ -234,7 +234,7 @@ namespace ReplicationLibrary
                         end
                     end
 
-                    ;Connect to a broker
+                    ;Connect to the kafka broker
                     MaybeVerboseLog("Connecting to broker")
                     if (IsError(%rep_startup((a)mBrokers)))
                     begin
@@ -246,7 +246,7 @@ namespace ReplicationLibrary
 
             if (mActive)
             begin
-                ;Tell the ZMQ broker we're opening a file
+                ;Tell the kafka broker that we're opening a file
                 MaybeVerboseLog("Opening file " + mTableName)
                 if (IsError(%rep_start_file((a)mTableName,mFileHandle))) then
                 begin

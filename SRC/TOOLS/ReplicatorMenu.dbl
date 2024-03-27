@@ -1,39 +1,39 @@
-;;*****************************************************************************
-;;
-;; File:        ReplicatorMenu.dbl
-;;
-;; Type:        Application
-;;
-;; Description: Controls the replicator process.
-;;
-;;*****************************************************************************
-;;
-;; Copyright (c) 2008, Synergex International, Inc.
-;; All rights reserved.
-;;
-;; Redistribution and use in source and binary forms, with or without
-;; modification, are permitted provided that the following conditions are met:
-;;
-;; * Redistributions of source code must retain the above copyright notice,
-;;   this list of conditions and the following disclaimer.
-;;
-;; * Redistributions in binary form must reproduce the above copyright notice,
-;;   this list of conditions and the following disclaimer in the documentation
-;;   and/or other materials provided with the distribution.
-;;
-;; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-;; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-;; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-;; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-;; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-;; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-;; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-;; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-;; POSSIBILITY OF SUCH DAMAGE.
-;;
-;;*****************************************************************************
+;*****************************************************************************
+;
+; File:         ReplicatorMenu.dbl
+;
+; Type:         Application
+;
+; Description:  Controls the replicator process.
+;
+;*****************************************************************************
+;
+; Copyright (c) 2008, Synergex International, Inc.
+; All rights reserved.
+;
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions are met:
+;
+; * Redistributions of source code must retain the above copyright notice,
+;   this list of conditions and the following disclaimer.
+;
+; * Redistributions in binary form must reproduce the above copyright notice,
+;   this list of conditions and the following disclaimer in the documentation
+;   and/or other materials provided with the distribution.
+;
+; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+; POSSIBILITY OF SUCH DAMAGE.
+;
+;*****************************************************************************
 
 import System.Collections
 import ReplicationLibrary
@@ -47,33 +47,25 @@ import System.Diagnostics
 main ReplicatorMenu
 
     .include "WND:windows.def"
-
-    record
-        tt,                 i4
-        mainwnd,            i4
-        system,             d4
-        runtime,            d4
-        windows,            boolean
-        unix,               boolean
-        instanceOk,         boolean
-        kafkaMode,          boolean
-        pid,                int
-        option,             a2
-        validTables,        @ArrayList
-        validInstances,     @ArrayList
-        tableName,          a30
-        tmpName,            string
-        instanceName,       string
-        queueFileName,      string
-        tmpInstanceName,    a15
-        status,             i4
-    endrecord
-
 .ifdef D_VMS
     .include "REPLICATION_VMS" repository, record="instruction", end
 .else
     .include "REPLICATION" repository, record="instruction", end
 .endc
+
+    record
+        mainwnd,            i4
+        system,             d4
+        runtime,            d4
+        windows,            boolean
+        unix,               boolean
+        option,             a2
+        validTables,        @ArrayList
+        tableName,          a30
+.ifdef DBLNET
+        kafkaProducer,      @IProducer<string,string>
+.endc
+    endrecord
 
     record outbuf
         operation,  a20
@@ -83,28 +75,38 @@ main ReplicatorMenu
         keyval,     a24
     endrecord
 
-.ifdef DBLNET
-    stack record
-        kafkaProducer,  @IProducer<string,string>
-        kafkaTopic,     string
-    endrecord
-.endc
-
 proc
-.ifdef DBLNET
-    kafkaMode = true
-.else
-    kafkaMode = false
-.endc
+    xcall flags(7004000,1)
+
+    ;Check that we have the basic environment that we need
+    begin
+        data errorMessage, string
+        if (!%ValidateBasicEnvironment(errorMessage))
+        begin
+            Console.WriteLine("ERROR: Basic environment not established. Error was: " + errorMessage)
+            Console.Write("Press ENTER: ")
+            Console.ReadLine()
+            stop
+        end
+    end
+
+    ;Load the replication environment settings
+    begin
+        data errorMessage, string
+        if (!%GetSettings(errorMessage))
+        begin
+            Console.WriteLine("ERROR: Failed to load replication environment settings. Error was: " + errorMessage)
+            Console.Write("Press ENTER: ")
+            Console.ReadLine()
+            stop
+        end
+    end
 
     xcall envrn(system,runtime)
     windows = ((runtime==101)||(runtime==104))
     unix = (system==8)
 
-    xcall flags(7004000,1)
-    open(tt=0,i,"tt:")
-
-    xcall w_init(0,tt,5)
+    xcall w_init(0,Settings.TerminalChannel,5)
     xcall w_proc(WP_CREATE,mainwnd,"MAINWND",24,80)
     xcall w_proc(WP_PLACE,mainwnd,1,1)
 
@@ -132,73 +134,26 @@ proc
     end
     endtry
 .endc
-    ;;Clear screen and display title and instance name
 
-    xcall w_disp(mainwnd,WD_POS,1,1,WD_CLR,WDC_WND,"Replicator Menu")
+    ;Get a collection of the valid table names
+    xcall GetReplicatedTables(Settings.InstanceName,validTables)
 
-    ;;Get valid instance names
-
-    xcall GetInstanceNames(validInstances)
-
-    ;;Get the instance name, default to "DEFAULT"
-    xcall getlog("REPLICATOR_INSTANCE",tmpInstanceName,status)
-
-    if (tmpInstanceName) then
-    begin
-        upcase tmpInstanceName
-        instanceName = %atrimtostring(tmpInstanceName)
-    end
-    else
-    begin
-        instanceName = "DEFAULT"
-    end
-
-    ;;Validate the instance name
-
-    instanceOk = false
-    foreach tmpName in validInstances
-    begin
-        if (instanceName .eqs. tmpName)
-        begin
-            instanceOk = true
-            exitloop
-        end
-    end
-
-    if (instanceOk) then
-    begin
-.ifdef D_GUI
-        xcall w_caption(WC_SET,"SQL Replicator: Instance " + instanceName)
-.endc
-    end
-    else
-    begin
-        xcall w_disp(mainwnd,WD_POS,3,1,"Invalid instance name: ",instanceName)
-        xcall w_updt
-        sleep 1
-        stop
-    end
-
-    ;;Get a collection of the valid table names
-
-    xcall GetReplicatedTables(instanceName,validTables)
-
-    if (kafkaMode)
-    begin
 .ifdef DBLNET
+    ;Connect to the Kafka server
+    if (Settings.QueueType == MessageQueueType.Kafka)
+    begin
+        ;Connect to the Kafka server
         data conf = new ProducerConfig()
-        conf.BootstrapServers = "localhost:19092,localhost:29092,localhost:39092"
+        conf.BootstrapServers = Settings.KafkaServers
         kafkaProducer = new ProducerBuilder<string,string>(conf).Build()
-        kafkaTopic = "REPLICATION_" + instanceName
-.endc
     end
-
-    ;;Set the queue file name for the instance
-    queueFileName = "REPLICATOR_DATA:REPLICATION_" + instanceName + ".ISM"
-
+.endc
     repeat
     begin
-        xcall w_disp(mainwnd,WD_CLR,WDC_WND,WD_POS,1,1,"SQL Replicator Menu",WD_POS,1,25,"Instance: "+instanceName,WD_POS,1,50,"Table: " + tableName)
+        xcall w_disp(mainwnd,WD_CLR,WDC_WND,
+        &    WD_POS,1,1,"SQL Replicator (",Settings.QueueType==MessageQueueType.Kafka?"KAFKA":"ISAM",")",
+        &    WD_POS,1,25,"Instance: " + Settings.InstanceName,
+        &    WD_POS,1,50,"Table: " + %atrim(tableName))
 
 .ifdef DBLNET
         xcall w_disp(mainwnd,WD_POS,3,2,"SR. Start Replicator (Normal)")
@@ -217,52 +172,47 @@ proc
 .endc
         xcall w_disp(mainwnd,WD_POS,5,2, "SQ. Stop Replicator  (Queued)")
 
-        if (!kafkaMode)
+        if (Settings.QueueType==MessageQueueType.IsamFile)
         begin
             xcall w_disp(mainwnd,WD_POS,6,2, "SN. Stop Replicator  (Now)")
 
-            xcall w_disp(mainwnd,WD_POS,8,2, "V.  View instructions")
-            xcall w_disp(mainwnd,WD_POS,9,2, "P.  Purge instructions")
+            xcall w_disp(mainwnd,WD_POS,8,2, "V.  View queue")
+            xcall w_disp(mainwnd,WD_POS,9,2, "P.  Purge queue")
             xcall w_disp(mainwnd,WD_POS,10,2,"PF. Purge first instruction")
-            xcall w_disp(mainwnd,WD_POS,11,2,"EI. Export instructions")
+            xcall w_disp(mainwnd,WD_POS,11,2,"EQ. Export queue")
 .ifndef D_VMS
             xcall w_disp(mainwnd,WD_POS,12,2,"Q.  Queue length")
 .endc
-.ifdef D_GUI
-            xcall w_disp(mainwnd,WD_POS,12,2,"QM. Start Queue Monitor")
-.endc
         end
-        xcall w_disp(mainwnd,WD_POS,13,2,"S.  Change sleep interval")
+        xcall w_disp(mainwnd,WD_POS,13,2,"S.  Change processing interval")
         xcall w_disp(mainwnd,WD_POS,14,2,"R.  Restart log file")
 
-        xcall w_disp(mainwnd,WD_POS,16,2,"IN. Instance Names")
-        xcall w_disp(mainwnd,WD_POS,17,2,"I.  Select Instance")
-        xcall w_disp(mainwnd,WD_POS,18,2,"TN. Table names")
-        xcall w_disp(mainwnd,WD_POS,19,2,"T.  Select table")
+        xcall w_disp(mainwnd,WD_POS,16,2,"I.  Change Instance")
 
-        xcall w_disp(mainwnd,WD_POS,21,2,"E.  Exit")
+        xcall w_disp(mainwnd,WD_POS,18,2,"TN. Table names")
+        xcall w_disp(mainwnd,WD_POS,19,2,"T.  Change table")
 
         if (tableName)
         begin
-            xcall w_disp(mainwnd,WD_POS, 3,40,"C.  Create table")
-            xcall w_disp(mainwnd,WD_POS, 4,40,"L.  Load table")
-            xcall w_disp(mainwnd,WD_POS, 5,40,"CL. Create and load table")
-            xcall w_disp(mainwnd,WD_POS, 6,40,"BL. Bulk load table")
-            xcall w_disp(mainwnd,WD_POS, 7,40,"BR. Bulk load first 1000")
-            xcall w_disp(mainwnd,WD_POS, 8,40,"BC. Bulk copy table")
-            xcall w_disp(mainwnd,WD_POS, 9,40,"AI. Add indexes")
-            xcall w_disp(mainwnd,WD_POS,10,40,"DI. Delete indexes")
-            xcall w_disp(mainwnd,WD_POS,11,40,"TR. Truncate table")
-            xcall w_disp(mainwnd,WD_POS,12,40,"D.  Delete table")
-            xcall w_disp(mainwnd,WD_POS,13,40,"X.  Export to CSV")
-.ifdef DBLNET
-            xcall w_disp(mainwnd,WD_POS,16,40,"TT. Transform TEST")
-.endc
+            xcall w_disp(mainwnd,WD_POS, 3,50,"C.  Create table")
+            xcall w_disp(mainwnd,WD_POS, 4,50,"L.  Load table")
+            xcall w_disp(mainwnd,WD_POS, 5,50,"CL. Create and load table")
+            xcall w_disp(mainwnd,WD_POS, 6,50,"BL. Bulk load table")
+            xcall w_disp(mainwnd,WD_POS, 7,50,"BR. Bulk load first 1000")
+            xcall w_disp(mainwnd,WD_POS, 8,50,"BC. Bulk copy table")
+            xcall w_disp(mainwnd,WD_POS, 9,50,"AI. Add indexes")
+            xcall w_disp(mainwnd,WD_POS,10,50,"DI. Delete indexes")
+            xcall w_disp(mainwnd,WD_POS,11,50,"TR. Truncate table")
+            xcall w_disp(mainwnd,WD_POS,12,50,"D.  Delete table")
+            xcall w_disp(mainwnd,WD_POS,13,50,"X.  Export to CSV")
             if (windows && (tableName=="Employee" || tableName=="Department"))
-                xcall w_disp(mainwnd,WD_POS,13,40,"M.  Maintainance")
+                xcall w_disp(mainwnd,WD_POS,15,50,"M.  Maintainance")
+.ifdef DBLNET
+            xcall w_disp(mainwnd,WD_POS,17,50,"TT. Transform TEST")
+.endc
         end
 
-        xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOW,"Select an option: ")
+        xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOW,"Select an option (or E to exit): ")
         xcall w_disp(mainwnd,WD_READS,option)
 
         using option select
@@ -363,54 +313,54 @@ proc
 
         ("SN"),
         begin
-            if (kafkaMode) then
+            if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
 .ifdef DBLNET
                 data kafkaMessage = new Message<string,string>() { Key="SHUTDOWN", Value="" }
-                data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
             end
             else
             begin
-                ;;Stop now. To do this we need to flip the action field of the first record to a negative value.
-                ;;If there is no first record then queue a shutdown
+                ;Stop now. To do this we need to flip the action field of the first record to a negative value.
+                ;If there is no first record then queue a shutdown
                 data chn, i4
-                open(chn=0,"U:I",queueFileName)
+                open(chn=0,"U:I",Settings.QueueFileName)
             again,
                 sleep 0.01
                 read(chn,instruction,^FIRST) [$ERR_LOCKED=again,$ERR_EOF=norec]
-                ;;The queue is not empty, schedule a shutdown via the first item in the queue
+                ;The queue is not empty, schedule a shutdown via the first item in the queue
                 instruction.action = -instruction.action
                 write(chn,instruction)
                 close chn
                 exit
-                ;;The queue is empty, schedule a shutdown via a specific instruction
+                ;The queue is empty, schedule a shutdown via a specific instruction
             norec,
                 close chn
-                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.SHUTDOWN)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.SHUTDOWN)
             end
             xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
         end
 
         ("SQ"),
         begin
-            if (kafkaMode) then
+            if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
 .ifdef DBLNET
                 data kafkaMessage = new Message<string,string>() { Key="SHUTDOWN", Value="" }
-                data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
             end
             else
             begin
-                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.SHUTDOWN)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.SHUTDOWN)
             end
             xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
         end
 
         ("V "),
         begin
-            if (kafkaMode) then
+            if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
             end
@@ -420,7 +370,7 @@ proc
                 data row, i4
                 data tmpvar, a1, " "
                 data stopping, boolean
-                open(chn=0,"I:I",queueFileName)
+                open(chn=0,"I:I",Settings.QueueFileName)
 
                 xcall w_disp(mainwnd,WD_POS,3,1,WD_CLR,WDC_EOW,
                 &    WD_POS,3,1,"Instruction           Table                           Affected Record",
@@ -537,33 +487,33 @@ proc
 
         ("P "),
         begin
-            if (kafkaMode) then
+            if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
             end
             else
             begin
-                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.DELETE_ALL_INSTRUCTIONS)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_ALL_INSTRUCTIONS)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command executed")
             end
         end
 
         ("PF"),
         begin
-            if (kafkaMode) then
+            if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
             end
             else
             begin
-                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.DELETE_FIRST_INSTRUCTION)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_FIRST_INSTRUCTION)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command executed")
             end
         end
 
-        ("EI"), ;Export instructions
+        ("EQ"), ;Export queue
         begin
-            if (kafkaMode) then
+            if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
             end
@@ -571,7 +521,7 @@ proc
             begin
                 data inch = 0
                 data outch = 0
-                data exportFile = queueFileName.Replace(".ISM",".TXT")
+                data exportFile = Settings.QueueFileName.Replace(".ISM",".TXT")
 
                 if (File.Exists(exportFile))
                 begin
@@ -580,7 +530,7 @@ proc
 
                 try
                 begin
-                    open(inch,i:i,queueFileName,SHARE:Q_EXCL_RW)
+                    open(inch,i:i,Settings.QueueFileName,SHARE:Q_EXCL_RW)
                     open(outch,o:s,exportFile)
                     repeat
                     begin
@@ -598,9 +548,9 @@ proc
                 end
                 finally
                 begin
-                    if (inch && %chopen(inch))
+                    if (inch)
                         close inch
-                    if (outch && %chopen(outch))
+                    if (outch)
                         close outch
                 end
                 endtry
@@ -610,7 +560,7 @@ proc
 .ifndef D_VMS
         ("Q "),
         begin
-            if (kafkaMode) then
+            if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
             end
@@ -618,7 +568,7 @@ proc
             begin
                 data tmpvar, a1
                 data chn, i4
-                open(chn=0,"I:I",queueFileName)
+                open(chn=0,"I:I",Settings.QueueFileName)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Queue length: " + %string(%isinfo(chn,"NUMRECS")))
                 close chn
                 xcall w_disp(mainwnd,WD_ACCEPT,tmpvar)
@@ -633,20 +583,6 @@ proc
         end
 .endc
 
-.ifdef D_GUI
-        ("QM"),
-        begin
-            if (kafkaMode) then
-            begin
-                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
-            end
-            else
-            begin
-                xcall spawn("dbr REPLICATOR_EXE:QueueMonitor.dbr",D_NOWINDOW|D_NOWAIT)
-            end
-        end
-.endc
-
         ("S "),
         begin
             data interval, a5
@@ -657,16 +593,16 @@ proc
             begin
                 if (%IsDecimalNoNegatives(^d(interval))) then
                 begin
-                    if (kafkaMode) then
+                    if (Settings.QueueType==MessageQueueType.Kafka) then
                     begin
 .ifdef DBLNET
                         data kafkaMessage = new Message<string,string>() { Key="CHANGE_INTERVAL", Value=%atrimtostring(interval) }
-                        data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                        data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                     end
                     else
                     begin
-                        xcall Replicate(instanceName,REPLICATION_INSTRUCTION.CHANGE_INTERVAL,,%atrim(interval))
+                        xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CHANGE_INTERVAL,,%atrim(interval))
                     end
                     xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
                 end
@@ -681,34 +617,94 @@ proc
             end
         end
 
-        ("IN"),
+        ("I "),
         begin
+            data ix = 0
             data row, i4, 4
             data col, i4, 2
             data name, string
 
             xcall w_disp(mainwnd,WD_POS,3,1,WD_CLR,WDC_EOW,"Instance Names")
 
-            foreach name in validInstances
+            for ix from 1 thru Settings.ValidInstanceNames.Length
             begin
-                xcall w_disp(mainwnd,WD_POS,row+=1,col,name)
+                xcall w_disp(mainwnd,WD_POS,row+=1,col,%string(ix,"ZX") + " " + Settings.ValidInstanceNames[ix])
                 if (row==21)
                 begin
                     row=4
-                    col+=18
+                    col+=20
                 end
             end
 
-            xcall w_disp(mainwnd,WD_POS,23,1,"Press a key: ")
+            repeat
             begin
-                data tmpvar, a1
-                xcall w_disp(mainwnd,WD_ACCEPT,tmpvar)
+                data tmpvar, a2
+                data newIndex, d2
+                data status, i4
+                data errorMessage, string
+
+                xcall w_disp(mainwnd,WD_POS,23,1,WD_CLR,WDC_EOL,"New instance number (enter=no change): ",WD_READS,tmpvar)
+
+                ;Blank means do nothing
+                if (!tmpvar)
+                    exitloop
+
+                ;Make sure it's a number
+                try
+                begin
+                    newIndex = tmpvar
+                end
+                catch (e, @BadDigitException)
+                begin
+                    nextloop
+                end
+                endtry
+
+                ;Make sure it's in range
+                if (newIndex < 1 || newIndex > Settings.ValidInstanceNames.Length)
+                    nextloop
+
+                ;Make sure it's not the current instance
+                if (Settings.ValidInstanceNames[newIndex] .eqs. Settings.InstanceName)
+                    exitloop
+
 .ifdef DBLNET
-                while (%w_info(WIF_TTSTS))
-.else
-                while (%ttsts)
+                if (Settings.QueueType==MessageQueueType.Kafka)
+                begin
+                    ;Disconnect from the Kafka server
+                    kafkaProducer.Dispose()
+                    kafkaProducer = ^null
+                end
 .endc
-                xcall w_disp(mainwnd,WD_ACCEPT,tmpvar)
+                ;Change the instance
+                Settings.InstanceName = Settings.ValidInstanceNames[newIndex]
+                xcall setlog("REPLICATOR_INSTANCE",Settings.InstanceName,status)
+
+                ;Load the new instances settings
+                if (!%GetSettings(errorMessage))
+                begin
+                    Console.WriteLine("ERROR: Failed to load replication environment settings. Error was: " + errorMessage)
+                    Console.Write("Press ENTER: ")
+                    Console.ReadLine()
+                    stop
+                end
+
+                ;Get a collection of the valid table names
+                xcall GetReplicatedTables(Settings.InstanceName,validTables)
+
+.ifdef DBLNET
+                if (Settings.QueueType==MessageQueueType.Kafka)
+                begin
+                    ;Connect to the Kafka server
+                    data conf = new ProducerConfig()
+                    conf.BootstrapServers = Settings.KafkaServers
+                    kafkaProducer = new ProducerBuilder<string,string>(conf).Build()
+                end
+.endc
+.ifdef D_GUI
+                xcall w_caption(WC_SET,"SQL Replicator: Instance " + Settings.InstanceName)
+.endc
+                exitloop
             end
         end
 
@@ -750,11 +746,11 @@ proc
 
             if (tableName) then
             begin
-                ;;Make sure it's a valid table
+                ;Make sure it's a valid table
                 data found = false
                 data name, string
 
-                ;;Look for it in the collection of valid tables
+                ;Look for it in the collection of valid tables
                 foreach name in validTables
                 begin
                     if ((a)(name.ToUpper()).eqs.tableName)
@@ -766,7 +762,7 @@ proc
                     end
                 end
 
-                ;;Report if not found
+                ;Report if not found
                 if (!found)
                 begin
                     xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Table not found!")
@@ -781,78 +777,18 @@ proc
             end
         end
 
-        ("I "),
-        begin
-            ;;Record the current instance name
-            data oldInstanceName, string, instanceName
-
-            ;;Gte a new instance name
-            clear tmpInstanceName
-            xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOW,"Instance name: ")
-            xcall w_disp(mainwnd,WD_READS,tmpInstanceName)
-            upcase tmpInstanceName
-
-            ;;Did it change?
-            if (tmpInstanceName != oldInstanceName)
-            begin
-                if (tmpInstanceName) then
-                begin
-                    instanceName = %atrimtostring(tmpInstanceName)
-                end
-                else
-                begin
-                    instanceName = "DEFAULT"
-                end
-
-                ;;Validate the instance name
-
-                instanceOk = false
-                foreach tmpName in validInstances
-                begin
-                    if (instanceName .eqs. tmpName)
-                    begin
-                        instanceOk = true
-                        exitloop
-                    end
-                end
-
-                if (instanceOk) then
-                begin
-                    xcall setlog("REPLICATOR_INSTANCE",instanceName,status)
-
-                    ;;Get a collection of the valid table names
-
-                    xcall GetReplicatedTables(instanceName,validTables)
-
-                    clear tmpInstanceName
-                    xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOW,WD_POS,1,35,tmpInstanceName,WD_POS,1,35,instanceName)
-
-                    ;;Set the queue file name for the instance
-                    queueFileName = "REPLICATOR_DATA:REPLICATION_" + instanceName + ".ISM"
-.ifdef D_GUI
-                    xcall w_caption(WC_SET,"SQL Replicator: Instance " + instanceName)
-.endc
-                end
-                else
-                begin
-                    instanceName = oldInstanceName
-                    xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid instance name!")
-                end
-            end
-        end
-
         ("R "),
         begin
-            if (kafkaMode) then
+            if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
 .ifdef DBLNET
                 data kafkaMessage = new Message<string,string>() { Key="CYCLE_LOG", Value=%atrimtostring(tableName) }
-                data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
             end
             else
             begin
-                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.CYCLE_LOG)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CYCLE_LOG)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command executed")
             end
         end
@@ -861,16 +797,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="CREATE_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.CREATE_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_TABLE,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command executed")
             end
@@ -882,16 +818,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="LOAD_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.LOAD_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.LOAD_TABLE,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -903,16 +839,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="CREATE_AND_LOAD_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -924,16 +860,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="BULK_LOAD_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.BULK_LOAD_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_LOAD_TABLE,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -945,16 +881,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="BULK_LOAD_FIRST_1000", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -966,16 +902,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="BULK_COPY_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.BULK_COPY_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_COPY_TABLE,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -987,16 +923,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="ADD_INDEXES", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.ADD_INDEXES,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.ADD_INDEXES,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -1008,16 +944,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="DELETE_INDEXES", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.DELETE_INDEXES,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_INDEXES,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -1029,16 +965,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="DELETE_ALL_ROWS", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.DELETE_ALL_ROWS,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_ALL_ROWS,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -1054,13 +990,13 @@ proc
             ("DEPARTMENT"),
             begin
                 data transformData, string, %string(REPLICATION_TRANSFORM.EXTEND_ALPHA) + "|DeptName|60"
-                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,tableName,transformData)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,tableName,transformData)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
             ("EMPLOYEE"),
             begin
                 data transformData, string, %string(REPLICATION_TRANSFORM.EXTEND_ALPHA) + "|EmpFirstName|25"
-                xcall Replicate(instanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,tableName,transformData)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,tableName,transformData)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
             (),
@@ -1074,16 +1010,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="DELETE_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.DELETE_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_TABLE,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -1095,16 +1031,16 @@ proc
         begin
             if (tableName) then
             begin
-                if (kafkaMode) then
+                if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
                     data kafkaMessage = new Message<string,string>() { Key="CREATE_CSV", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(kafkaTopic,kafkaMessage).Result
+                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(instanceName,REPLICATION_INSTRUCTION.CREATE_CSV,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_CSV,tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -1123,17 +1059,20 @@ proc
         sleep 0.5
     end
 
-    xcall w_disp(mainwnd,WD_POS,1,1,WD_CLR,WDC_WND)
-    xcall w_exit
-    close tt
-
 .ifdef DBLNET
-    if (kafkaMode)
+    if (Settings.QueueType==MessageQueueType.Kafka)
     begin
         kafkaProducer.Dispose()
         kafkaProducer = ^null
     end
 .endc
+
+    ;Shutdown Synergy Windows
+    xcall w_disp(mainwnd,WD_POS,1,1,WD_CLR,WDC_WND)
+    xcall w_exit
+
+    ;Close the terminal
+    close Settings.TerminalChannel
 
     stop
 

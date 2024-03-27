@@ -94,9 +94,10 @@ proc
         end
         finally
         begin
-            if (tmpch && %chopen(tmpch))
+            if (tmpch)
             begin
                 close tmpch
+                tmpch = 0
             end
         end
         endtry
@@ -152,9 +153,10 @@ proc
         end
         finally
         begin
-            if (tmpch && %chopen(tmpch))
+            if (tmpch)
             begin
                 close tmpch
+                tmpch = 0
             end
         end
         endtry
@@ -162,15 +164,8 @@ proc
 
         ; Delete the temp file we just created
 
-        try
-        begin
-            xcall delet("REPLICATOR_LOGDIR:tmp.tmp")
-        end
-        catch (e, @Exception)
-        begin
-            nop
-        end
-        endtry
+        File.Delete("REPLICATOR_LOGDIR:tmp.tmp")
+
 
         ; Check we have an instance name on the command line
 

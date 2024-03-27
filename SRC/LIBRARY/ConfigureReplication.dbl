@@ -76,9 +76,9 @@ proc
     begin
         using fileSpec select
         ("DEPARTMENT.ISM"),
-            new IoHooksKAFKA(channel,"DEPARTMENT","DEFAULT",0)
+            new IoHooksKAFKA(channel,"DEPARTMENT","DEFAULT",1)
         ("EMPLOYEE.ISM"),
-            new IoHooksKAFKA(channel,"EMPLOYEE","DEFAULT",0)
+            new IoHooksKAFKA(channel,"EMPLOYEE","DEFAULT",1)
         endusing
     end
     else

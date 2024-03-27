@@ -48,34 +48,61 @@ namespace NetLoadTester
     ;;; </summary>
     public class DepartmentLoadTester implements IWorkerTask, IDisposable
 
-        private mThreadNumber, int
-        private mCompletionSource, @TaskCompletionSource<boolean>
+        private mTaskNumber, int
+        private mQueueMode, string
+        private mCancelToken, CancellationToken
         private mChn, i4
+        private static mRecordCount, int
+
+        public static inserts, int
+        public static updates, int
+        public static deletes, int
 
         public method DepartmentLoadTester
-            threadNumber, int
-            completionSource, @TaskCompletionSource<boolean>
+            taskNumber, int
+            queueMode, string
+            cancelToken, CancellationToken
+
+            .include "REPLICATOR_INCLUDE:sqlgbl.def"
+
         proc
-            mThreadNumber = threadNumber
-            mCompletionSource = completionSource
+            mTaskNumber = taskNumber
+            mQueueMode = queueMode
+            mCancelToken = cancelToken
+
+            ;Open the department file
             open(mChn=0,U:I,"REPLICATOR_DATA:DEPARTMENT.ISM")
-            Console.WriteLine("Task {0} has opened REPLICATOR_DATA:DEPARTMENT.ISM onchannel {1}", mThreadNumber, mChn)
+
+            ;Get the record count
+            Monitor.Enter(^typeof(DepartmentLoadTester))
+            if (mRecordCount == 0)
+            begin
+                mRecordCount = %isinfo(mChn,"NUMRECS")
+            end
+            Monitor.Exit(^typeof(DepartmentLoadTester))
+
+            ;Add replication I/O hooks to the channel
+            data queueModeNumber = mQueueMode.Equals("K") ? 1 : 0
+            xcall ConfigureReplication(mChn,queueModeNumber)
+
+            Console.WriteLine("Task {0} has opened REPLICATOR_DATA:DEPARTMENT.ISM onchannel {1}", mTaskNumber, mChn)
         endmethod
 
         public virtual method IDisposable.Dispose, void
             endparams
         proc
-            Console.WriteLine("Task {0} is closing channel {1}", mThreadNumber, mChn)
-            if (mChn && %chopen(mChn))
+            Console.WriteLine("Task {0} is closing channel {1}", mTaskNumber, mChn)
+            if (mChn)
             begin
                 close mChn
+                mChn = 0
             end
         endmethod
 
         public method DoWork, void
         proc
-            Console.WriteLine("Task {0} is starting processing", mThreadNumber)
-            while (!mCompletionSource.Task.IsCompleted)
+            Console.WriteLine("Task {0} is starting processing", mTaskNumber)
+            while (!mCancelToken.IsCancellationRequested)
             begin
                 Thread.Sleep(50)
             end

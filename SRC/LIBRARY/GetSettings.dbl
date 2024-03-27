@@ -255,7 +255,9 @@ proc
     begin
         data instanceCount = instances.GetArrayLength()
         data instanceNumber = 0
-        data foundOurSettings = false
+        data ourInstanceNumber = -1
+
+        Settings.ValidInstanceNames = new string[instanceCount]
 
         for instanceNumber from 0 thru instanceCount - 1
         begin
@@ -277,15 +279,23 @@ proc
                 exitloop
             end
 
+            ;Add this instance to the array of valid instance names
+            Settings.ValidInstanceNames[instanceNumber+1] = setting.GetString().ToUpper()
+
+            ;Is this the instance we're looking for?
             if (setting.GetString().ToUpper() == Settings.InstanceName) 
             begin
-                ;Found it
-                foundOurSettings = true
-                exitloop
+                ;Yes
+                ourInstanceNumber = instanceNumber
             end
         end
 
-        if (!foundOurSettings)
+        ;Did we find our instance settings?
+        if (ok && (ourInstanceNumber!=-1)) then
+        begin
+            instance = instances[ourInstanceNumber]
+        end
+        else
         begin
             errorMessage = "No settings found for instance " + Settings.InstanceName
             ok = false
@@ -1185,21 +1195,23 @@ proc
     ;--------------------------------------------------------------------------------------------------------
     ;Validations
 
-.ifndef DBLNET
+.ifdef DBLNET
+    if (ok && Settings.QueueType==MessageQueueType.Kafka && String.IsNullOrWhitespace(Settings.KafkaServers))
+    begin
+        errorMessage = "Can't use Kafka queue mode because KafkaServers has not been set!"
+        ok = false
+    end
+.else
     if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlClient)
     begin
         errorMessage = "SqlClient mode is only supported in .NET!"
         ok = false
     end
 .endc
-
-    if (ok)
+    if (ok && String.IsNullOrWhitespace(Settings.DatabaseConnectString))
     begin
-        if (String.IsNullOrWhitespace(Settings.DatabaseConnectString))
-        begin
-            errorMessage = "No database connection string is defined!"
-            ok = false
-        end
+        errorMessage = "No database connection string is defined!"
+        ok = false
     end
 
     freturn ok
