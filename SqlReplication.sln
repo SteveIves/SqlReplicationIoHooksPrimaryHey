@@ -102,6 +102,16 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "XDL", "XDL", "{432DB05E-764
 EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetLoadTester", "PRJVS\NetLoadTester\NetLoadTester.synproj", "{87248708-6294-43D9-9BAD-A33FF7693DEA}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "WINDOWS", "WINDOWS", "{355B4005-250C-48B9-9399-F5D4EA9A4AA4}"
+	ProjectSection(SolutionItems) = preProject
+		WINDOWS\.gitignore = WINDOWS\.gitignore
+		WINDOWS\CheckBroker.bat = WINDOWS\CheckBroker.bat
+		WINDOWS\CheckKafka.bat = WINDOWS\CheckKafka.bat
+		WINDOWS\README.TXT = WINDOWS\README.TXT
+		WINDOWS\StartBroker.bat = WINDOWS\StartBroker.bat
+		WINDOWS\StopBroker.bat = WINDOWS\StopBroker.bat
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -309,6 +319,7 @@ Global
 		{9C0C9260-545E-4B29-B8EE-F471D1FE83C3} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
 		{7F265779-4E2A-4A5E-BE13-328B3180AC9F} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
 		{432DB05E-7646-4F34-B8C3-BE682D60992D} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
+		{355B4005-250C-48B9-9399-F5D4EA9A4AA4} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {09DE7623-A783-489C-842F-C7D857603C5F}
