@@ -49,8 +49,9 @@ proc
     ;NOTE: Do not set this to higher than 1 right now because code in xcall replicate,
     ;IOHooksIsam and likely others is not currently thread safe.
     data threadsPerWorker = 1
-    data secondsToRun = 1
+    data secondsToRun = 10
     data queueMode = String.Empty
+    data secondsToRunString = String.Empty
 
     repeat
     begin
@@ -64,12 +65,29 @@ proc
         endusing
     end
 
+    Console.WriteLine("")
+
+    repeat
+    begin
+        Console.Write("Seconds to run [10]: ")
+        secondsToRunString = Console.ReadLine()
+        if (String.IsNullOrWhiteSpace(secondsToRunString))
+            secondsToRunString = "10"
+        if (Int32.TryParse(secondsToRunString,secondsToRun))
+            exitloop
+        Console.WriteLine("")
+    end
+
+    Console.WriteLine("")
+
     data testManager = new LoadTestManager(queueMode,threadsPerWorker,secondsToRun)
     testManager.StartTests().Wait()
 
-    Console.WriteLine("All threads have finished their work. Press a key.")
-    Console.ReadKey()
-    Console.WriteLine()
+    Console.WriteLine("All threads have finished their work.")
+
+    sleep 1
+
+    stop
 
 endmain
 

@@ -238,7 +238,7 @@ namespace ReplicationLibrary
                     MaybeVerboseLog("Connecting to broker")
                     if (IsError(%rep_startup((a)mBrokers)))
                     begin
-                        MaybeErrorLog("rep_startup_zmq returned an error status!")
+                        MaybeErrorLog("rep_startup returned an error status!")
                         mActive = false
                     end
                 end
@@ -293,7 +293,7 @@ namespace ReplicationLibrary
                 MaybeVerboseLog("Disconnecting from broker")
                 if (shutdownStatus = %rep_shutdown)
                 begin
-                    MaybeErrorLog("rep_shutdown_zmq returned error status: " + %string(shutdownStatus))
+                    MaybeErrorLog("rep_shutdown returned error status: " + %string(shutdownStatus))
                 end
             end
         endmethod
@@ -569,7 +569,7 @@ namespace ReplicationLibrary
                     data oldrecord, string, LastRecordCache.Retrieve(mChannel)
                     data keyvalue, string, %keyval(mChannel,(a)oldrecord,mSyncKeyNumber)
                     MaybeVerboseLog("Delete " + keyvalue +  " in " + mTableName)
-                    if (IsError(%rep_write_op(mFileHandle,OP_TYPE_DELETE_AC,(a)keyvalue,,,))) ;Do not remove the additional commas!!!
+                    if (IsError(%rep_write_op(mFileHandle,OP_TYPE_DELETE_AC,(a)keyvalue,(a)oldrecord,,))) ;Do not remove the additional commas!!!
                     begin
                         data exceptionLog, i4
                         MaybeErrorLog("rep_write_op returned an error status!")

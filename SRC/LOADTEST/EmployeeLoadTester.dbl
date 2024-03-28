@@ -55,9 +55,11 @@ namespace NetLoadTester
         private static mRecordCount, int
         private static mHighestEmployeeNumber, int
 
-        public static inserts, int
-        public static updates, int
-        public static deletes, int
+        private total, int
+        private inserts, int
+        private updates, int
+        private deletes, int
+        private errors, int
 
         public method EmployeeLoadTester
             taskNumber, int
@@ -70,7 +72,21 @@ namespace NetLoadTester
             mTaskNumber = taskNumber
             mQueueMode = queueMode
             mCancelToken = cancelToken
+        endmethod
 
+        public virtual method IDisposable.Dispose, void
+            endparams
+        proc
+            Console.WriteLine("Task {0} is closing channel {1}", mTaskNumber, mChn)
+            if (mChn)
+            begin
+                close mChn
+                mChn = 0
+            end
+        endmethod
+
+        public method DoWork, void
+        proc
             ;Open the employee file
             open(mChn=0,U:I,"REPLICATOR_DATA:EMPLOYEE.ISM")
 
@@ -102,21 +118,6 @@ namespace NetLoadTester
 
             Console.WriteLine("Task {0} has opened REPLICATOR_DATA:EMPLOYEE.ISM on channel {1}",mTaskNumber,mChn)
 
-        endmethod
-
-        public virtual method IDisposable.Dispose, void
-            endparams
-        proc
-            Console.WriteLine("Task {0} is closing channel {1}", mTaskNumber, mChn)
-            if (mChn)
-            begin
-                close mChn
-                mChn = 0
-            end
-        endmethod
-
-        public method DoWork, void
-        proc
             Console.WriteLine("Task {0} is starting processing", mTaskNumber)
             
             data operation = 0
@@ -137,10 +138,12 @@ namespace NetLoadTester
                 rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
                 Monitor.Exit(^typeof(EmployeeLoadTester))
 
+                total += 1
+
                 using operation select
                 (1), ;CREATE
                 begin
-                    Console.WriteLine("Task {0} is creating employee {1}",mTaskNumber,rec.emp_id)
+                    ;Console.WriteLine("Task {0} is creating employee {1}",mTaskNumber,rec.emp_id)
 
                     ;Pick the next available employee number
                     Monitor.Enter(^typeof(EmployeeLoadTester))
@@ -176,13 +179,14 @@ namespace NetLoadTester
                     end
                     catch (e, @Exception)
                     begin
-                        Console.WriteLine("Task {0} failed to create employee {1}",mTaskNumber,rec.emp_id)
+                        ;Console.WriteLine("Task {0} failed to create employee {1}",mTaskNumber,rec.emp_id)
+                        errors += 1
                     end
                     endtry
                 end
                 (2), ;UPDATE
                 begin
-                    Console.WriteLine("Task {0} is updating employee {1}",mTaskNumber,rec.emp_id)
+                    ;Console.WriteLine("Task {0} is updating employee {1}",mTaskNumber,rec.emp_id)
 
                     repeat
                     begin
@@ -220,7 +224,8 @@ namespace NetLoadTester
                         end
                         catch (ex, @Exception)
                         begin
-                            Console.WriteLine("Task {0} failed to update employee {1}. Error was {2}",mTaskNumber,rec.emp_id,ex.Message)
+                            ;Console.WriteLine("Task {0} failed to update employee {1}. Error was {2}",mTaskNumber,rec.emp_id,ex.Message)
+                            errors += 1
                             exitloop
                         end
                         endtry
@@ -228,7 +233,7 @@ namespace NetLoadTester
                 end
                 (3), ;DELETE
                 begin
-                    Console.WriteLine("Task {0} is deleting employee {1}",mTaskNumber,rec.emp_id)
+                    ;Console.WriteLine("Task {0} is deleting employee {1}",mTaskNumber,rec.emp_id)
 
                     repeat
                     begin
@@ -265,7 +270,8 @@ namespace NetLoadTester
                         end
                         catch (ex, @Exception)
                         begin
-                            Console.WriteLine("Task {0} failed to delete employee {1}. Error was {2}",mTaskNumber,rec.emp_id,ex.Message)
+                            ;Console.WriteLine("Task {0} failed to delete employee {1}. Error was {2}",mTaskNumber,rec.emp_id,ex.Message)
+                            errors += 1
                             exitloop
                         end
                         endtry
@@ -273,6 +279,9 @@ namespace NetLoadTester
                 end
                 endusing
             end
+
+            Console.WriteLine("Processed {0} records ({1} inserts, {2} updates, {3} deletes, {4} errors)",total,inserts,updates,deletes,errors)
+
         endmethod
 
     endclass

@@ -1,30 +1,41 @@
 @echo off
 
-rem Edit the username and password in the FTP script below, point it at a Linux
-rem account with an empty default directory and the script will create the necessary
-rem directory structure and then upload all required files.
-rem 
-rem After the script completes:
-rem 
-rem 1. Log in to the Linux account
-rem 2. Go to the LINUX directory
-rem 3. Execute the build script (. ./build)
-rem 
-rem This script procedure should build the entire environment.
+rem To specify server and login details for the target Linux system, create a
+rem file named SendToLinux.Settings.bat in the same directory as this script and
+rem use it to specify connection settings, like this:
+rem
+rem    @echo off
+rem    set LINUX_IP_ADDRESS=1.2.3.4
+rem    set LINUX_FTP_PORT=21
+rem    set LINUX_USERNAME=myusername
+rem    set LINUX_PASSWORD=mypassword
+rem
+rem After this script completes:
+rem
+rem    1. Log in to the Linux account
+rem    2. Go to the LINUX directory
+rem    3. Execute the build script (. ./build)
 rem 
 
-setlocal
 pushd %~dp0
+setlocal enabledelayedexpansion
 
-call "%SYNERGYDE32%dbl\dblvars32.bat"
+if exist SendToLinux.Settings.bat (
+  call SendToLinux.Settings.bat
+) else (
+  echo ERROR: SendToLinux.Settings.bat not found!
+  goto done
+)
 
 rem Create an FTP command script to transfer the files
 echo Creating FTP script...
-echo open 192.168.93.11 21> ftp.tmp
-echo replication>> ftp.tmp
-echo replication>> ftp.tmp
-echo ascii>> ftp.tmp
-echo prompt>> ftp.tmp
+rem echo open %LINUX_IP_ADDRESS% %LINUX_FTP_PORT%> ftp.tmp
+rem echo %LINUX_USERNAME%>> ftp.tmp
+rem echo %LINUX_PASSWORD%>> ftp.tmp
+echo ascii> ftp.tmp
+rem echo prompt>> ftp.tmp
+echo mkdir replication>> ftp.tmp
+echo cd replication>> ftp.tmp
 echo mkdir DAT>> ftp.tmp
 echo mkdir EXE>> ftp.tmp
 echo mkdir XDL>> ftp.tmp
@@ -65,11 +76,13 @@ echo bye>> ftp.tmp
 
 rem Transfer the files
 echo Transferring files...
-ftp -s:ftp.tmp 1>nul
+rem ftp -s:ftp.tmp 1>nul
+
+sftp -a -B ftp.tmp -P %LINUX_FTP_PORT% -q -Q %LINUX_USERNAME%@%LINUX_IP_ADDRESS%
 
 rem Delete the command script
 echo Cleaning up...
-del /q ftp.tmp
+rem del /q ftp.tmp
 
 echo Done!
 popd
