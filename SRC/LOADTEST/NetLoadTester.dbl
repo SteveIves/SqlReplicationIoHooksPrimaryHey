@@ -84,8 +84,8 @@ proc
     testManager.StartTests().Wait()
 
     Console.WriteLine("All threads have finished their work.")
-
-    sleep 1
+    Console.Write("Press ENTER to close: ")
+    Console.ReadKey()
 
     stop
 

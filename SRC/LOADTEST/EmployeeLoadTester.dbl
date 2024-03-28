@@ -57,9 +57,11 @@ namespace NetLoadTester
 
         private total, int
         private inserts, int
+        private insertErrors, int
         private updates, int
+        private updateErrors, int
         private deletes, int
-        private errors, int
+        private deleteErrors, int
 
         public method EmployeeLoadTester
             taskNumber, int
@@ -120,8 +122,17 @@ namespace NetLoadTester
 
             Console.WriteLine("Task {0} is starting processing", mTaskNumber)
             
+            total = 0
+            inserts = 0
+            insertErrors = 0
+            updates = 0
+            updateErrors = 0
+            deletes = 0
+            deleteErrors = 0
+
             data operation = 0
             data rec, strEmployee
+            data now, a20, %datetime
 
             while (!mCancelToken.IsCancellationRequested)
             begin
@@ -138,19 +149,13 @@ namespace NetLoadTester
                 rec.emp_id = Random.Shared.Next(1,mHighestEmployeeNumber+1)
                 Monitor.Exit(^typeof(EmployeeLoadTester))
 
-                total += 1
-
                 using operation select
                 (1), ;CREATE
                 begin
-                    ;Console.WriteLine("Task {0} is creating employee {1}",mTaskNumber,rec.emp_id)
-
                     ;Pick the next available employee number
                     Monitor.Enter(^typeof(EmployeeLoadTester))
                     rec.emp_id = (mHighestEmployeeNumber+=1)
                     Monitor.Exit(^typeof(EmployeeLoadTester))
-
-                    data now, a20, %datetime
 
                     rec.emp_first_name      = "New"
                     rec.emp_last_name       = "Employee"
@@ -179,15 +184,12 @@ namespace NetLoadTester
                     end
                     catch (e, @Exception)
                     begin
-                        ;Console.WriteLine("Task {0} failed to create employee {1}",mTaskNumber,rec.emp_id)
-                        errors += 1
+                        insertErrors += 1
                     end
                     endtry
                 end
                 (2), ;UPDATE
                 begin
-                    ;Console.WriteLine("Task {0} is updating employee {1}",mTaskNumber,rec.emp_id)
-
                     repeat
                     begin
                         if (mCancelToken.IsCancellationRequested)
@@ -224,8 +226,7 @@ namespace NetLoadTester
                         end
                         catch (ex, @Exception)
                         begin
-                            ;Console.WriteLine("Task {0} failed to update employee {1}. Error was {2}",mTaskNumber,rec.emp_id,ex.Message)
-                            errors += 1
+                            updateErrors += 1
                             exitloop
                         end
                         endtry
@@ -233,8 +234,6 @@ namespace NetLoadTester
                 end
                 (3), ;DELETE
                 begin
-                    ;Console.WriteLine("Task {0} is deleting employee {1}",mTaskNumber,rec.emp_id)
-
                     repeat
                     begin
                         if (mCancelToken.IsCancellationRequested)
@@ -270,17 +269,23 @@ namespace NetLoadTester
                         end
                         catch (ex, @Exception)
                         begin
-                            ;Console.WriteLine("Task {0} failed to delete employee {1}. Error was {2}",mTaskNumber,rec.emp_id,ex.Message)
-                            errors += 1
+                            deleteErrors += 1
                             exitloop
                         end
                         endtry
                     end
                 end
                 endusing
+
+                ;Increment the total records processed
+                total += 1
+
             end
 
-            Console.WriteLine("Processed {0} records ({1} inserts, {2} updates, {3} deletes, {4} errors)",total,inserts,updates,deletes,errors)
+            Console.WriteLine("Processed {0} ({1} failed)",total,insertErrors+updateErrors+deleteErrors)
+            Console.WriteLine("- Inserts {0} ({1} failed)",inserts,insertErrors)
+            Console.WriteLine("- Updates {0} ({1} failed)",updates,updateErrors)
+            Console.WriteLine("- Deletes {0} ({1} failed)",deletes,deleteErrors)
 
         endmethod
 
