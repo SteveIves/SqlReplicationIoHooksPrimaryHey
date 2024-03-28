@@ -220,7 +220,7 @@ proc
         begin
             try
             begin
-                instanceDefaults = new InstanceDefaultSettings(defaults,errorMessage)
+                instanceDefaults = new InstanceDefaultSettings(defaults)
             end
             catch (ex, @Exception)
             begin

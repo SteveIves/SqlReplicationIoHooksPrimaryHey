@@ -1,3 +1,39 @@
+;*****************************************************************************
+;
+; File:         KafkaMessage.dbl
+;
+; Description:  Represents the default settings for replicator instances
+;
+; Author:       Steve Ives, Synergex Professional Services Group
+;
+;*****************************************************************************
+;
+; Copyright (c) 2024, Synergex International, Inc.
+; All rights reserved.
+;
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions are met:
+;
+; * Redistributions of source code must retain the above copyright notice,
+;   this list of conditions and the following disclaimer.
+;
+; * Redistributions in binary form must reproduce the above copyright notice,
+;   this list of conditions and the following disclaimer in the documentation
+;   and/or other materials provided with the distribution.
+;
+; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+; POSSIBILITY OF SUCH DAMAGE.
+;
+;******************************************************************************
 
 import System.Text
 import System.Text.Json
@@ -12,18 +48,14 @@ namespace ReplicationLibrary
 .else
             required in defaults, @JsonElement
 .endc
-            required out errorMessage, string
             stack record
-                ok, boolean
 .ifdef DBLNET
-                setting,            JsonElement
+                setting, JsonElement
 .else
-                setting,            @JsonElement
+                setting, @JsonElement
 .endc
             endrecord 
         proc
-            ok = true
-            errorMessage = ""
 
             ;TODO: Compiler bug? Can't set these two as initial values!
             this.DatabaseConnectionName = "DEFAULT"
@@ -35,713 +67,358 @@ namespace ReplicationLibrary
             this.FileServiceHost = "localhost"
 
             ;BulkLoadBatchSize
-
-            if (ok)
+            if (defaults.TryGetProperty("BulkLoadBatchSize",setting))
             begin
-                if (defaults.TryGetProperty("BulkLoadBatchSize",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1000) then
-                    begin
-                        errorMessage = "InstanceDefaults.BulkLoadBatchSize must have an integer value >= 1000!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        BulkLoadBatchSize = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1000)
+                    throw new ApplicationException("InstanceDefaults.BulkLoadBatchSize must have an integer value >= 1000!")
+                BulkLoadBatchSize = setting.GetInt32()
             end
 
             ;BulkLoadTimeout
-
-            if (ok)
+            if (defaults.TryGetProperty("BulkLoadTimeout",setting))
             begin
-                if (defaults.TryGetProperty("BulkLoadTimeout",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<60) then
-                    begin
-                        errorMessage = "InstanceDefaults.BulkLoadTimeout must have an integer value >= 60!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        BulkLoadTimeout = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<60)
+                    throw new ApplicationException("InstanceDefaults.BulkLoadTimeout must have an integer value >= 60!")
+                BulkLoadTimeout = setting.GetInt32()
             end
 
             ;CommitBatchSize
-
-            if (ok)
+            if (defaults.TryGetProperty("CommitBatchSize",setting))
             begin
-                if (defaults.TryGetProperty("CommitBatchSize",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100) then
-                    begin
-                        errorMessage = "InstanceDefaults.CommitBatchSize must have an integer value >= 100!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        CommitBatchSize = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100)
+                    throw new ApplicationException("InstanceDefaults.CommitBatchSize must have an integer value >= 100!")
+                CommitBatchSize = setting.GetInt32()
             end
 
             ;DatabaseBcpBatchSize
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseBcpBatchSize",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseBcpBatchSize",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100  || setting.GetInt32()>50000) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseBcpBatchSize must have an integer value between 100 and 50000!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseBcpBatchSize = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<100  || setting.GetInt32()>50000)
+                    throw new ApplicationException("InstanceDefaults.DatabaseBcpBatchSize must have an integer value between 100 and 50000!")
+                DatabaseBcpBatchSize = setting.GetInt32()
             end
 
             ;DatabaseBcpPacketSize
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseBcpPacketSize",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseBcpPacketSize",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<4096 || setting.GetInt32()>65535) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseBcpPacketSize must have an integer value between 4096 and 65535!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseBcpPacketSize = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<4096 || setting.GetInt32()>65535)
+                    throw new ApplicationException("InstanceDefaults.DatabaseBcpPacketSize must have an integer value between 4096 and 65535!")
+                DatabaseBcpPacketSize = setting.GetInt32()
             end
 
             ;DatabaseCommitMode
 
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseCommitMode",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseCommitMode",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                    begin
-                        ok = false
-                    end
-                    else
-                    begin
-                        using setting.GetString().ToUpper() select
-                        ("AUTOMATIC"),
-                            DatabaseCommitMode = DatabaseCommitMode.Automatic
-                        ("BATCH"),
-                            DatabaseCommitMode = DatabaseCommitMode.Batch
-                        ("MANUAL"),
-                            DatabaseCommitMode = DatabaseCommitMode.Manual
-                        (),
-                            ok = false
-                        endusing
-                    end
-                    if (!ok)
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseCommitMode must be Automatic, Batch or Manual!"
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                    throw new ApplicationException("InstanceDefaults.DatabaseCommitMode must be Automatic, Batch or Manual!")
+                using setting.GetString().ToUpper() select
+                ("AUTOMATIC"),
+                    DatabaseCommitMode = DatabaseCommitMode.Automatic
+                ("BATCH"),
+                    DatabaseCommitMode = DatabaseCommitMode.Batch
+                ("MANUAL"),
+                    DatabaseCommitMode = DatabaseCommitMode.Manual
+                (),
+                    throw new ApplicationException("InstanceDefaults.DatabaseCommitMode must be Automatic, Batch or Manual!")
+                endusing
             end
 
             ;DatabaseConnectionName
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseConnectionName",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseConnectionName",setting))
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                    throw new ApplicationException("InstanceDefaults.DatabaseConnectionName must have a non-blank string value!")
+                else
                 begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                    data dbc, @DatabaseConnection
+                    data connectionNameIsValid = false
+
+                    foreach dbc in Settings.DatabaseConnections
                     begin
-                        errorMessage = "InstanceDefaults.DatabaseConnectionName must have a non-blank string value!"
-                        ok = false
+                        if (dbc.Name.ToUpper().Equals(setting.GetString().ToUpper()))
+                        begin
+                            connectionNameIsValid = true
+                            exitloop
+                        end
+                    end
+
+                    if (connectionNameIsValid) then
+                    begin
+                        DatabaseConnectionName = setting.GetString()
                     end
                     else
                     begin
-                        data dbc, @DatabaseConnection
-                        data connectionNameIsValid = false
-
-                        foreach dbc in Settings.DatabaseConnections
-                        begin
-                            if (dbc.Name.ToUpper().Equals(setting.GetString().ToUpper()))
-                                begin
-                                connectionNameIsValid = true
-                                exitloop
-                            end
-                        end
-
-                        if (connectionNameIsValid) then
-                        begin
-                            DatabaseConnectionName = setting.GetString()
-                        end
-                        else
-                        begin
-                            errorMessage = "InstanceDefaults.DatabaseConnectionName does not match an entry in DatabaseConnections!"
-                            ok = false
-                        end
+                        throw new ApplicationException("InstanceDefaults.DatabaseConnectionName does not match an entry in DatabaseConnections!")
                     end
                 end
             end
 
             ;DatabaseName
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseName",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseName",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseName must have a non-blank string value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseName = setting.GetString()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                    throw new ApplicationException("InstanceDefaults.DatabaseName must have a non-blank string value!")
+                DatabaseName = setting.GetString()
             end
 
             ;DatabasePassword
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabasePassword",setting))
             begin
-                if (defaults.TryGetProperty("DatabasePassword",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabasePassword must have a non-blank string value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabasePassword = setting.GetString()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                    throw new ApplicationException("InstanceDefaults.DatabasePassword must have a non-blank string value!")
+                DatabasePassword = setting.GetString()
             end
 
             ;DatabaseRetryDelay
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseRetryDelay",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseRetryDelay",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseRetryDelay have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseRetryDelay = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1)
+                    throw new ApplicationException("InstanceDefaults.DatabaseRetryDelay have a positive integer value!")
+                DatabaseRetryDelay = setting.GetInt32()
             end
 
             ;DatabaseRetryMax
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseRetryMax",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseRetryMax",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseRetryMax have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseRetryMax = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1)
+                    throw new ApplicationException("InstanceDefaults.DatabaseRetryMax have a positive integer value!")
+                DatabaseRetryMax = setting.GetInt32()
             end
 
             ;DatabaseSchema
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseSchema",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseSchema",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseSchema must have a non-blank string value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseSchema = setting.GetString()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                    throw new ApplicationException("InstanceDefaults.DatabaseSchema must have a non-blank string value!")
+                DatabaseSchema = setting.GetString()
             end
 
             ;DatabaseServer
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseServer",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseServer",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseServer must have a non-blank string value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseServer = setting.GetString()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                    throw new ApplicationException("InstanceDefaults.DatabaseServer must have a non-blank string value!")
+                DatabaseServer = setting.GetString()
             end
 
             ;DatabaseTimeout
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseTimeout",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseTimeout",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseTimeout must have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseTimeout = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1)
+                    throw new ApplicationException("InstanceDefaults.DatabaseTimeout must have a positive integer value!")
+                DatabaseTimeout = setting.GetInt32()
             end
 
             ;DatabaseUser
-
-            if (ok)
+            if (defaults.TryGetProperty("DatabaseUser",setting))
             begin
-                if (defaults.TryGetProperty("DatabaseUser",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                    begin
-                        errorMessage = "InstanceDefaults.DatabaseUser must have a non-blank string value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        DatabaseUser = setting.GetString()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                    throw new ApplicationException("InstanceDefaults.DatabaseUser must have a non-blank string value!")
+                DatabaseUser = setting.GetString()
             end
 
             ;DataCompressionMode
-
-            if (ok)
+            if (defaults.TryGetProperty("DataCompressionMode",setting))
             begin
-                if (defaults.TryGetProperty("DataCompressionMode",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                    begin
-                        ok = false
-                    end
-                    else
-                    begin
-                        using setting.GetString().ToUpper() select
-                        ("NONE"),
-                            DataCompressionMode = DatabaseDataCompression.None
-                        ("PAGE"),
-                            DataCompressionMode = DatabaseDataCompression.Page
-                        ("ROW"),
-                            DataCompressionMode = DatabaseDataCompression.Row
-                        (),
-                            ok = false
-                        endusing
-                    end
-                end
-                if (!ok)
-                begin
-                    errorMessage = "InstanceDefaults.DataCompressionMode must be None, Page or Row!"
-                end
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                    throw new ApplicationException("InstanceDefaults.DataCompressionMode must be None, Page or Row!")
+                using setting.GetString().ToUpper() select
+                ("NONE"),
+                    DataCompressionMode = DatabaseDataCompression.None
+                ("PAGE"),
+                    DataCompressionMode = DatabaseDataCompression.Page
+                ("ROW"),
+                    DataCompressionMode = DatabaseDataCompression.Row
+                (),
+                    throw new ApplicationException("InstanceDefaults.DataCompressionMode must be None, Page or Row!")
+                endusing
             end
 
             ;ErrorSleepTime
-
-            if (ok)
+            if (defaults.TryGetProperty("ErrorSleepTime",setting))
             begin
-                if (defaults.TryGetProperty("ErrorSleepTime",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetDecimal()<=0) then
-                    begin
-                        errorMessage = "ErrorSleepTime must have a positive decimal value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        ErrorSleepTime = setting.GetDecimal()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetDecimal()<=0)
+                    throw new ApplicationException("ErrorSleepTime must have a positive decimal value!")
+                ErrorSleepTime = setting.GetDecimal()
             end
 
             ;FileServiceEnabled
-
-            if (ok)
+            if (defaults.TryGetProperty("FileServiceEnabled",setting))
             begin
-                if (defaults.TryGetProperty("FileServiceEnabled",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-                    begin
-                        errorMessage = "InstanceDefaults.FileServiceEnabled must be true or false!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        FileServiceEnabled = setting.GetBoolean()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                    throw new ApplicationException("InstanceDefaults.FileServiceEnabled must be true or false!")
+                FileServiceEnabled = setting.GetBoolean()
             end
 
             ;FileServiceHost
-
-            if (ok)
+            if (defaults.TryGetProperty("FileServiceHost",setting))
             begin
-                if (defaults.TryGetProperty("FileServiceHost",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String) then
-                    begin
-                        errorMessage = "InstanceDefaults.FileServiceHost must have a string value (ip address or DNS name)!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        FileServiceHost = setting.GetString()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.String)
+                    throw new ApplicationException("InstanceDefaults.FileServiceHost must have a string value (ip address or DNS name)!")
+                FileServiceHost = setting.GetString()
             end
 
             ;FileServicePort
-
-            if (ok)
+            if (defaults.TryGetProperty("FileServicePort",setting))
             begin
-                if (defaults.TryGetProperty("FileServicePort",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<=0) then
-                    begin
-                        errorMessage = "InstanceDefaults.FileServicePort must have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        FileServicePort = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<=0)
+                    throw new ApplicationException("InstanceDefaults.FileServicePort must have a positive integer value!")
+                FileServicePort = setting.GetInt32()
             end
 
             ;KafkaServers
-.ifdef DBLNET
-            if (ok)
+            if (defaults.TryGetProperty("KafkaServers",setting))
             begin
-                if (defaults.TryGetProperty("KafkaServers",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String) then
-                    begin
-                        errorMessage = "InstanceDefaults.KafkaServers must have a string value (list of ip address or DNS names and ports)!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        KafkaServers = setting.GetString()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.String)
+                    throw new ApplicationException("InstanceDefaults.KafkaServers must have a string value (list of ip address or DNS names and ports)!")
+                KafkaServers = setting.GetString()
             end
-.endc
-            ;LocalExportPath
 
-            if (ok)
+            ;LocalExportPath
+            if (defaults.TryGetProperty("LocalExportPath",setting))
             begin
-                if (defaults.TryGetProperty("LocalExportPath",setting))
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                    throw new ApplicationException("InstanceDefaults.LocalExportPath must have a string value and be a valid path!")
+                else
                 begin
-                    if (setting.ValueKind != JsonValueKind.String) then
+                    ;Check that we can create a file in the directory
+                    data tmpch = 0
+                    data tmpFile = setting.GetString() + %datetime + ".tmp"
+                    try
                     begin
-                        ok = false
+                        open(tmpch,o,tmpfile)
+                        LocalExportPath = setting.GetString()
                     end
-                    else if (!String.IsNullOrWhitespace(setting.GetString()))
+                    catch (e, @Exception)
                     begin
-                        ;Check that we can create a file in the directory
-                        data tmpch, i4
-                        try
-                        begin
-                            data tmpfile = setting.GetString() + %datetime + ".tmp"
-                            open(tmpch=0,o,tmpfile)
-                            LocalExportPath = setting.GetString()
-                        end
-                        catch (e, @Exception)
-                        begin
-                            ok = false
-                        end
-                        finally
-                        begin
-                            if (tmpch && %chopen(tmpch))
-                                close tmpch
-                        end
-                        endtry
+                        throw new ApplicationException("InstanceDefaults.LocalExportPath must be a valid path!")
                     end
-                end
-                if (!ok)
-                begin
-                    errorMessage = "InstanceDefaults.LocalExportPath must have a string value and be a valid path!"
+                    finally
+                    begin
+                        if (tmpch)
+                        begin
+                            close tmpch
+                        end
+                        if (File.Exists(tmpFile))
+                        begin
+                            File.Delete(tmpFile)
+                        end
+                    end
+                    endtry
                 end
             end
 
             ;LogBulkLoadExceptions
-
-            if (ok)
+            if (defaults.TryGetProperty("LogBulkLoadExceptions",setting))
             begin
-                if (defaults.TryGetProperty("LogBulkLoadExceptions",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-                    begin
-                        errorMessage = "LogBulkLoadExceptions must be true or false!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        LogBulkLoadExceptions = setting.GetBoolean()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                    throw new ApplicationException("LogBulkLoadExceptions must be true or false!")
+                LogBulkLoadExceptions = setting.GetBoolean()
             end
 
             ;LogKeyValues
-
-            if (ok)
+            if (defaults.TryGetProperty("LogKeyValues",setting))
             begin
-                if (defaults.TryGetProperty("LogKeyValues",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-                    begin
-                        errorMessage = "InstanceDefaults.LogKeyValues must be true or false!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        LogKeyValues = setting.GetBoolean()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                    throw new ApplicationException("InstanceDefaults.LogKeyValues must be true or false!")
+                LogKeyValues = setting.GetBoolean()
             end
 
             ;LogLoadProgress
-
-            if (ok)
+            if (defaults.TryGetProperty("LogLoadProgress",setting))
             begin
-                if (defaults.TryGetProperty("LogLoadProgress",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-                    begin
-                        errorMessage = "InstanceDefaults.LogLoadProgress must be true or false!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        LogLoadProgress = setting.GetBoolean()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                    throw new ApplicationException("InstanceDefaults.LogLoadProgress must be true or false!")
+                LogLoadProgress = setting.GetBoolean()
             end
 
             ;MaxColumns
-
-            if (ok)
+            if (defaults.TryGetProperty("MaxColumns",setting))
             begin
-                if (defaults.TryGetProperty("MaxColumns",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
-                    begin
-                        errorMessage = "InstanceDefaults.MaxColumns must have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        MaxColumns = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1)
+                    throw new ApplicationException("InstanceDefaults.MaxColumns must have a positive integer value!")
+                MaxColumns = setting.GetInt32()
             end
 
             ;MaxCursors
-
-            if (ok)
+            if (defaults.TryGetProperty("MaxCursors",setting))
             begin
-                if (defaults.TryGetProperty("MaxCursors",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
-                    begin
-                        errorMessage = "InstanceDefaults.MaxCursors must have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        MaxCursors = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1)
+                    throw new ApplicationException("InstanceDefaults.MaxCursors must have a positive integer value!")
+                MaxCursors = setting.GetInt32()
             end
 
             ;QueueReconnectAttempts
-
-            if (ok)
+            if (defaults.TryGetProperty("QueueReconnectAttempts",setting))
             begin
-                if (defaults.TryGetProperty("QueueReconnectAttempts",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
-                    begin
-                        errorMessage = "InstanceDefaults.QueueReconnectAttempts must have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        QueueReconnectAttempts = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1)
+                    throw new ApplicationException("InstanceDefaults.QueueReconnectAttempts must have a positive integer value!")
+                QueueReconnectAttempts = setting.GetInt32()
             end
 
             ;QueueReconnectDelay
-
-            if (ok)
+            if (defaults.TryGetProperty("QueueReconnectDelay",setting))
             begin
-                if (defaults.TryGetProperty("QueueReconnectDelay",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
-                    begin
-                        errorMessage = "InstanceDefaults.QueueReconnectDelay must have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        QueueReconnectDelay = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1)
+                    throw new ApplicationException("InstanceDefaults.QueueReconnectDelay must have a positive integer value!")
+                QueueReconnectDelay = setting.GetInt32()
             end
 
             ;QueueType
-
-            if (ok)
+            if (defaults.TryGetProperty("QueueType",setting))
             begin
-                if (defaults.TryGetProperty("QueueType",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                    begin
-                        ok = false
-                    end
-                    else
-                    begin
-                        using setting.GetString().ToUpper() select
-                        ("ISAMFILE"),
-                            QueueType = MessageQueueType.IsamFile
-                        ("KAFKA"),
-.ifdef DBLNET
-                            Settings.QueueType = MessageQueueType.Kafka
-.else
-                            ok = false
-.endc
-                        (),
-                            ok = false
-                        endusing
-                    end
-                end
-                if (!ok)
-                begin
-                    errorMessage = "InstanceDefaults.QueueType must be IsamFile or Kafka (.NET only)!"
-                end
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                    throw new ApplicationException("InstanceDefaults.QueueType must be IsamFile or Kafka!")
+                using setting.GetString().ToUpper() select
+                ("ISAMFILE"),
+                    QueueType = MessageQueueType.IsamFile
+                ("KAFKA"),
+                    QueueType = MessageQueueType.Kafka
+                (),
+                    throw new ApplicationException("InstanceDefaults.QueueType must be IsamFile or Kafka")
+                endusing
             end
 
             ;SleepTime
-
-            if (ok)
+            if (defaults.TryGetProperty("SleepTime",setting))
             begin
-                if (defaults.TryGetProperty("SleepTime",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1) then
-                    begin
-                        errorMessage = "InstanceDefaults.SleepTime must have a positive integer value!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        SleepTime = setting.GetInt32()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32()<1)
+                    throw new ApplicationException("InstanceDefaults.SleepTime must have a positive integer value!")
+                SleepTime = setting.GetInt32()
             end
 
             ;SqlCommandReuse
-
-            if (ok)
+            if (defaults.TryGetProperty("SqlCommandReuse",setting))
             begin
-                if (defaults.TryGetProperty("SqlCommandReuse",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-                    begin
-                        errorMessage = "InstanceDefaults.SqlCommandReuse must be true or false!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        SqlCommandReuse = setting.GetBoolean()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                    throw new ApplicationException("InstanceDefaults.SqlCommandReuse must be true or false!")
+                SqlCommandReuse = setting.GetBoolean()
             end
 
             ;StopOnError
-
-            if (ok)
+            if (defaults.TryGetProperty("StopOnError",setting))
             begin
-                if (defaults.TryGetProperty("StopOnError",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-                    begin
-                        errorMessage = "InstanceDefaults.StopOnError must be true or false!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        StopOnError = setting.GetBoolean()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                    throw new ApplicationException("InstanceDefaults.StopOnError must be true or false!")
+                StopOnError = setting.GetBoolean()
             end
 
             ;SystemLogging
-
-            if (ok)
+            if (defaults.TryGetProperty("SystemLogging",setting))
             begin
-                if (defaults.TryGetProperty("SystemLogging",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-                    begin
-                        errorMessage = "InstanceDefaults.SystemLogging must be true or false!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        SystemLogging = setting.GetBoolean()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                    throw new ApplicationException("InstanceDefaults.SystemLogging must be true or false!")
+                SystemLogging = setting.GetBoolean()
             end
 
             ;VerboseLogging
-
-            if (ok)
+            if (defaults.TryGetProperty("VerboseLogging",setting))
             begin
-                if (defaults.TryGetProperty("VerboseLogging",setting))
-                begin
-                    if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False) then
-                    begin
-                        errorMessage = "InstanceDefaults.VerboseLogging must be true or false!"
-                        ok = false
-                    end
-                    else
-                    begin
-                        VerboseLogging = setting.GetBoolean()
-                    end
-                end
+                if (setting.ValueKind!=JsonValueKind.True && setting.ValueKind!=JsonValueKind.False)
+                    throw new ApplicationException("InstanceDefaults.VerboseLogging must be true or false!")
+                VerboseLogging = setting.GetBoolean()
             end
-
 
         endmethod
 
@@ -845,13 +522,11 @@ namespace ReplicationLibrary
         ;;; </summary>
         public readwrite property FileServicePort, int, 8080
 
-.ifdef DBLNET
         ;;; <summary>
         ;;; The name(s) or IP addresses and ports of the Kafka servers to use (Kafka queue mode only)?
         ;;; Set automatically to REPLICATION_<InstanceName>
         ;;; </summary>
         public readwrite property KafkaServers, string
-.endc
 
         ;;; <summary>
         ;;; Where should export files be created locally?
