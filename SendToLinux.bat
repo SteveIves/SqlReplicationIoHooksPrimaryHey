@@ -14,7 +14,9 @@ rem After this script completes:
 rem
 rem    1. Log in to the Linux account
 rem    2. Go to the LINUX directory
-rem    3. Execute the build script (. ./build)
+rem    3. Set Linux line endings on all files (dos2unix *)
+rem    4. Make all scripts executable (chmod +x *)
+rem    4. Execute the build script (. ./build)
 rem 
 
 pushd %~dp0
@@ -29,11 +31,11 @@ if exist SendToLinux.Settings.bat (
 
 rem Create an FTP command script to transfer the files
 echo Creating FTP script...
-rem echo open %LINUX_IP_ADDRESS% %LINUX_FTP_PORT%> ftp.tmp
-rem echo %LINUX_USERNAME%>> ftp.tmp
-rem echo %LINUX_PASSWORD%>> ftp.tmp
-echo ascii> ftp.tmp
-rem echo prompt>> ftp.tmp
+echo open %LINUX_IP_ADDRESS% %LINUX_FTP_PORT%> ftp.tmp
+echo %LINUX_USERNAME%>> ftp.tmp
+echo %LINUX_PASSWORD%>> ftp.tmp
+echo ascii>> ftp.tmp
+echo prompt>> ftp.tmp
 echo mkdir replication>> ftp.tmp
 echo cd replication>> ftp.tmp
 echo mkdir DAT>> ftp.tmp
@@ -50,10 +52,23 @@ echo mkdir SRC/TOOLS>> ftp.tmp
 echo mkdir LINUX>> ftp.tmp
 echo cd DAT>> ftp.tmp
 echo mput DAT\*.SEQ>> ftp.tmp
+echo put DAT\ReplicatorConfig.json>> ftp.tmp
+echo bin>> ftp.tmp
+echo put DAT\DEPARTMENT.ISM>> ftp.tmp
+echo put DAT\DEPARTMENT.IS1>> ftp.tmp
+echo put DAT\EMPLOYEE.ISM>> ftp.tmp
+echo put DAT\EMPLOYEE.IS1>> ftp.tmp
+echo ascii>> ftp.tmp
 echo cd ../XDL>> ftp.tmp
 echo mput XDL\*.XDL>> ftp.tmp
 echo cd ../RPS>> ftp.tmp
 echo put RPS\REPLICATION.SCH>> ftp.tmp
+echo bin>> ftp.tmp
+echo put RPS\rpsmain.ism>> ftp.tmp
+echo put RPS\rpsmain.is1>> ftp.tmp
+echo put RPS\rpstext.ism>> ftp.tmp
+echo put RPS\rpstext.is1>> ftp.tmp
+echo ascii>> ftp.tmp
 echo cd ../SRC/LIBRARY>> ftp.tmp
 echo mput SRC\LIBRARY\*.dbl>> ftp.tmp
 echo mput SRC\LIBRARY\*.def>> ftp.tmp
@@ -76,13 +91,11 @@ echo bye>> ftp.tmp
 
 rem Transfer the files
 echo Transferring files...
-rem ftp -s:ftp.tmp 1>nul
-
-sftp -a -B ftp.tmp -P %LINUX_FTP_PORT% -q -Q %LINUX_USERNAME%@%LINUX_IP_ADDRESS%
+ftp -s:ftp.tmp 1>nul
 
 rem Delete the command script
 echo Cleaning up...
-rem del /q ftp.tmp
+del /q ftp.tmp
 
 echo Done!
 popd

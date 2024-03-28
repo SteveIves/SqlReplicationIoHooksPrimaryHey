@@ -1120,7 +1120,7 @@ CheckTable,
 
     repeat
     begin
-        data doReturn, boolean, false
+        doReturn = false
         try
         begin
             status = %xsubr(functionName,dberrtxt)
@@ -1187,7 +1187,7 @@ CreateTable,
 
     repeat
     begin
-        data doReturn, boolean, false
+        doReturn = false
         try
         begin
             status = %xsubr(functionName,dberrtxt)
@@ -1495,8 +1495,7 @@ DoInsert,
 
     repeat
     begin
-        data doReturn, boolean, false
-
+        doReturn = false
         try
         begin
             status = %xsubr(functionName,instruction.record(1,structure_data.structure_size),dberrtxt)
@@ -1584,8 +1583,7 @@ DoInsertRelative,
 
     repeat
     begin
-        data doReturn, boolean, false
-
+        doReturn = false
         try
         begin
             status = %xsubr(functionName,recordNumber,instruction.record(1,structure_data.structure_size),dberrtxt)
@@ -1672,8 +1670,7 @@ DoUpdate,
 
     repeat
     begin
-        data doReturn, boolean, false
-
+        doReturn = false
         try
         begin
             status = %xsubr(functionName,instruction.record(1,structure_data.structure_size),rows,dberrtxt)
@@ -1762,8 +1759,7 @@ DoUpdateRelative,
 
     repeat
     begin
-        data doReturn, boolean, false
-
+        doReturn = false
         try
         begin
             status = %xsubr(functionName,recordNumber,instruction.record(1,structure_data.structure_size),rows,dberrtxt)
@@ -2012,7 +2008,7 @@ DoLoadTable,
 
     repeat
     begin
-        data doReturn, boolean, false
+        doReturn = false
         try
         begin
             status = %xsubr(functionName,dberrtxt)
@@ -2099,7 +2095,6 @@ DoCreateCsv,
     try
     begin
         data csvFileSpec, string, Settings.LocalExportPath + %atrim(instruction.structure_name) + ".Csv"
-        data recordCount, i4, 0
 
         status = %xsubr(functionName,(a)csvFileSpec,0,recordCount,dberrtxt)
 

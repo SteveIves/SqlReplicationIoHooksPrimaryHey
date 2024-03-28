@@ -79,7 +79,7 @@ namespace ReplicationLibrary
             required in aLoggingLevel, int
             parent(aChannel)
 
-            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+            .include "REPLICATOR_INCLUDE:IOHooksKAFKA.def"
 
             record
                 thisKey, i4
@@ -282,7 +282,7 @@ namespace ReplicationLibrary
         endmethod
 
         private method deactivate, void
-            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+            .include "REPLICATOR_INCLUDE:IOHooksKAFKA.def"
         proc
             mActive = false
             close_file()
@@ -299,7 +299,7 @@ namespace ReplicationLibrary
         endmethod
 
         private method close_file, void
-            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+            .include "REPLICATOR_INCLUDE:IOHooksKAFKA.def"
         proc
             if (mKafkaFileOpen)
             begin
@@ -352,7 +352,7 @@ namespace ReplicationLibrary
             required in          aFlags,  IOFlags
             required inout       aError,  int
 
-            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+            .include "REPLICATOR_INCLUDE:IOHooksKAFKA.def"
         proc
             ;;A record was just updated. If it changed then replicate the change.
             if (mActive && !aError)
@@ -472,7 +472,7 @@ namespace ReplicationLibrary
             required in          aFlags,  IOFlags
             required inout       aError,  int
 
-            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+            .include "REPLICATOR_INCLUDE:IOHooksKAFKA.def"
         proc
             ;;A new record was just created. Replicate the change.
             if (mActive && !aError)
@@ -558,7 +558,7 @@ namespace ReplicationLibrary
         public override method delete_post_operation_hook, void
             required inout aError, int
 
-            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+            .include "REPLICATOR_INCLUDE:IOHooksKAFKA.def"
         proc
             ;;A record was just deleted. Replicate the change.
             if (mActive && !aError)
@@ -644,7 +644,7 @@ namespace ReplicationLibrary
         public override method close_pre_operation_hook, void
             required in aFlags, IOFlags
 
-            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+            .include "REPLICATOR_INCLUDE:IOHooksKAFKA.def"
         proc
             if (mActive)
             begin
@@ -709,7 +709,7 @@ namespace ReplicationLibrary
 
         private method IsError, boolean
             required in aStatus, i4
-            .include "REPLICATOR_INCLUDE:IoHooksKAFKA.def"
+            .include "REPLICATOR_INCLUDE:IOHooksKAFKA.def"
         proc
             if (aStatus != 0)
             begin

@@ -43,18 +43,7 @@
 BASEDIR=$(dirname "$0")
 cd $BASEDIR
 
-case $1 in
-    "LIVE1"|"LIVE2"|"LIVE3"|"LIVE4")
-        echo Starting replicator $1
-        export REPLICATOR_INSTANCE=$1
-        ;;
-    *)
-        echo Invalid instance name $1. Instance name must be LIVE1, LIVE2, LIVE3 or LIVE4
-        exit 1
-        ;;
-esac
-
-. ./replicator_setup
+source replicator_setup
 
 # Run the replicator menu
 

@@ -40,6 +40,7 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:GetDateTimeString.dbl -
  + LIBSRC:GetSettings.dbl -
  + LIBSRC:IndexExists.dbl -
+ + LIBSRC:InstanceDefaultSettings.dbl -
  + LIBSRC:InstanceInfo.dbl -
  + LIBSRC:IOHooksISAM.dbl -
  + LIBSRC:IOHooksKAFKA.dbl -

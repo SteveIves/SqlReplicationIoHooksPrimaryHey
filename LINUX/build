@@ -31,6 +31,7 @@ dbl -do REPLICATOR_OBJ:library.dbo \
   LIBSRC:GetDateTimeString.dbl \
   LIBSRC:GetSettings.dbl \
   LIBSRC:IndexExists.dbl \
+  LIBSRC:InstanceDefaultSettings.dbl \
   LIBSRC:InstanceInfo.dbl \
   LIBSRC:IOHooksISAM.dbl \
   LIBSRC:IOHooksKAFKA.dbl \
