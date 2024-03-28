@@ -86,6 +86,7 @@
     <Compile Include="..\..\SRC\LIBRARY\Json.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\KafkaAPI.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\KafkaClient.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\KafkaMessage.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\LastRecordCache.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Logger.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\MakeDateForCsv.dbl" />

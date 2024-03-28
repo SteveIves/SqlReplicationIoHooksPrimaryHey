@@ -195,6 +195,9 @@
     <Compile Include="..\..\SRC\LIBRARY\KafkaAPI.dbl">
       <Link>KafkaAPI.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\KafkaMessage.dbl">
+      <Link>KafkaMessage.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\LastRecordCache.dbl">
       <Link>LastRecordCache.dbl</Link>
     </Compile>
