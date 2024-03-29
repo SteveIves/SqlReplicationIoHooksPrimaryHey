@@ -252,31 +252,6 @@ proc
                                     ;Get the next message
                                     nextloop
                                 end
-                                (KafkaMessageType.Leader,KafkaMessageType.LeaderResponse,KafkaMessageType.ReplicationAck,KafkaMessageType.Error),
-                                begin
-                                    ;Don't think we need to do anything with these
-                                    Logger.ErrorLog("Replicator has no support for Kafka  messages of type Leader, LeaderResponse, ReplicationAck or Error!")
-
-                                    ;Commit the Kafka message to prevent receiving it again!
-                                    try
-                                    begin
-                                        Settings.KafkaConsumer.Commit(msg)
-                                    end
-                                    catch (ex, @KafkaException)
-                                    begin
-                                        Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
-                                        ;TODO: Thrown if the request failed. Now what?
-                                    end
-                                    catch (ex, @TopicPartitionOffsetException)
-                                    begin
-                                        Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
-                                        ;TODO: Thrown if the result is in error. Now what?
-                                    end
-                                    endtry
-
-                                    ;Get the next message
-                                    nextloop
-                                end
                                 (),
                                 begin
                                     Logger.ErrorLog("Replicator has no support for Kafka messages of type " + %string(%integer(inst.op_type)))
