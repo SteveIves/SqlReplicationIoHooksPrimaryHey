@@ -198,7 +198,7 @@ namespace NetLoadTester
                         try
                         begin
                             read(mChn,rec,rec.emp_id,WAIT:1)
-                            rec.emp_first_name = "Newname"
+                            rec.emp_first_name = "Newname" + Random.Shared.Next(1,10000).ToString()
                             write(mChn,rec)
                             updates+=1
                             exitloop

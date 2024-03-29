@@ -174,7 +174,7 @@ proc
             using clValues.Count select
             (1),
             begin
-                xcall setlog("REPLICATOR_INSTANCE",(string)clValues[0],envlen)
+                xcall setlog("REPLICATOR_INSTANCE",((string)clValues[0]).ToUpper(),envlen)
             end
             (0),
             begin

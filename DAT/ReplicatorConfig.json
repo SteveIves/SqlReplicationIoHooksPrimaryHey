@@ -3,18 +3,12 @@
   "Instances": [
     {
       "InstanceName": "DEFAULT",
-      "Enabled": true,
-      "QueueType": "IsamFile"
-    },
-    {
-      "InstanceName": "KAFKATEST",
-      "Enabled": true,
-      "QueueType": "Kafka",
-      "KafkaServers": "localhost:19092,localhost:29092,localhost:39092"
+      "Enabled": true
     }
   ],
   "InstanceDefaults": {
-    "DatabaseConnectionName": "SqlConnection_LOCAL",
+    "QueueType": "Kafka",
+    "DatabaseConnectionName": "SqlClient_LOCAL",
     "DatabaseServer": "localhost",
     "DatabaseName": "SqlReplication",
     "DatabaseSchema": "dbo",
@@ -34,7 +28,7 @@
     "FileServiceEnabled": false,
     "FileServiceHost": "localhost",
     "FileServicePort": 8080,
-    "KafkaServers": "",
+    "KafkaServers": "localhost:19092,localhost:29092,localhost:39092",
     "LocalExportPath": "C:\\DEV_SYNERGEX\\SqlReplication\\CSV\\",
     "LogBulkLoadExceptions": false,
     "LogKeyValues": false,
@@ -43,12 +37,11 @@
     "MaxCursors": 128,
     "QueueReconnectAttempts": 10,
     "QueueReconnectDelay": 30,
-    "QueueType": "IsamFile",
     "SleepTime": 2,
     "SqlCommandReuse": false,
     "StopOnError": false,
     "SystemLogging": false,
-    "VerboseLogging": true
+    "VerboseLogging": false
   },
   "DatabaseConnections": [
     {

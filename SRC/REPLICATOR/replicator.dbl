@@ -84,7 +84,8 @@ main replicator
         unboxedRfa,                 a6                  ;RFA of instruction record
         boxedRfa,                   @a                  ;A boxed RFA value
 .ifdef DBLNET
-        kafkaMessage,               @ConsumeResult<string,string>
+        msg,                        @ConsumeResult<string,string>
+        inst,                       @KafkaMessage
 .endc
     endrecord
 
@@ -137,11 +138,11 @@ proc
         repeat
         begin
             ;Get the next instruction from the queue
-            repeat
+            using Settings.QueueType select
+            ;-------------------------------------------------------------------------------
+            (MessageQueueType.IsamFile),
             begin
-                using Settings.QueueType select
-                ;-------------------------------------------------------------------------------
-                (MessageQueueType.IsamFile),
+                repeat
                 begin
                     ;Next ISAM message
                     try
@@ -176,181 +177,286 @@ proc
                         if (%ReOpenQueueFile) nextloop
                     end
                     endtry
-                end
+                end ;of inner repeat (get next instruction)
+            end
 .ifdef DBLNET
-                ;-------------------------------------------------------------------------------
-                (MessageQueueType.Kafka),
+            ;-------------------------------------------------------------------------------
+            (MessageQueueType.Kafka),
+            begin
+                repeat
                 begin
                     ;Next Kafka message
                     try
                     begin
-                        kafkaMessage = Settings.KafkaConsumer.Consume(TimeSpan.FromSeconds(Settings.SleepTime))
+                        msg = Settings.KafkaConsumer.Consume(TimeSpan.FromSeconds(Settings.SleepTime))
 
                         ;Did our sleep timer fire?
-                        if (kafkaMessage == ^null)
+                        if (msg == ^null)
                         begin
                             noMoreInstructions = true
                             exitloop
                         end
 
-                        ;We received a message. Populate the instruction record
+                        ;If there is no key then it should be a record change operation from an IO hook.
+                        ;If there is a key it should be one of our "special" operations
 
-                        using kafkaMessage.Key select
-                        ("CREATE_ROW"),
+                        if (msg.Key == ^null) then
                         begin
-                            ;TODO: Needs implementing
-                            instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_ROW
-                            instruction.structure_name = ""
-                            instruction.record = ""
+                            try
+                            begin
+                                inst = new KafkaMessage(msg.Value)
+
+                                using inst.op_type select
+                                (KafkaMessageType.InsertAc),
+                                begin
+                                    ;TODO: Need to add support for INSERT_RELATIVE
+                                    instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_ROW
+                                    instruction.structure_name = inst.file_id
+                                    instruction.record = inst.record_data
+                                end
+                                (KafkaMessageType.UpdateAc),
+                                begin
+                                    ;TODO: Need to add support for UPDATE_RELATIVE
+                                    instruction.action = (i)REPLICATION_INSTRUCTION.UPDATE_ROW
+                                    instruction.structure_name = inst.file_id
+                                    instruction.record = inst.record_data
+                                end
+                                (KafkaMessageType.DeleteAc),
+                                begin
+                                    instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ROW
+                                    instruction.structure_name = inst.file_id
+                                    instruction.record = inst.record_data
+                                end
+                                (KafkaMessageType.StartTxn,KafkaMessageType.Insert,KafkaMessageType.Update,KafkaMessageType.Delete,KafkaMessageType.Commit),
+                                begin
+                                    ;TODO: Transactions based on Kafka messages are not implemented yet
+                                    Logger.ErrorLog("Support for applicaion controlled transactions is not implemented!")
+
+                                    ;Commit the Kafka message to prevent receiving it again!
+                                    try
+                                    begin
+                                        Settings.KafkaConsumer.Commit(msg)
+                                    end
+                                    catch (ex, @KafkaException)
+                                    begin
+                                        Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                        ;TODO: Thrown if the request failed. Now what?
+                                    end
+                                    catch (ex, @TopicPartitionOffsetException)
+                                    begin
+                                        Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                        ;TODO: Thrown if the result is in error. Now what?
+                                    end
+                                    endtry
+
+                                    ;Get the next message
+                                    nextloop
+                                end
+                                (KafkaMessageType.Leader,KafkaMessageType.LeaderResponse,KafkaMessageType.ReplicationAck,KafkaMessageType.Error),
+                                begin
+                                    ;Don't think we need to do anything with these
+                                    Logger.ErrorLog("Replicator has no support for Kafka  messages of type Leader, LeaderResponse, ReplicationAck or Error!")
+
+                                    ;Commit the Kafka message to prevent receiving it again!
+                                    try
+                                    begin
+                                        Settings.KafkaConsumer.Commit(msg)
+                                    end
+                                    catch (ex, @KafkaException)
+                                    begin
+                                        Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                        ;TODO: Thrown if the request failed. Now what?
+                                    end
+                                    catch (ex, @TopicPartitionOffsetException)
+                                    begin
+                                        Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                        ;TODO: Thrown if the result is in error. Now what?
+                                    end
+                                    endtry
+
+                                    ;Get the next message
+                                    nextloop
+                                end
+                                (),
+                                begin
+                                    Logger.ErrorLog("Replicator has no support for Kafka messages of type " + %string(%integer(inst.op_type)))
+ 
+                                    ;Commit the Kafka message to prevent receiving it again!
+                                    try
+                                    begin
+                                        Settings.KafkaConsumer.Commit(msg)
+                                    end
+                                    catch (ex, @KafkaException)
+                                    begin
+                                        Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                        ;TODO: Thrown if the request failed. Now what?
+                                    end
+                                    catch (ex, @TopicPartitionOffsetException)
+                                    begin
+                                        Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                        ;TODO: Thrown if the result is in error. Now what?
+                                    end
+                                    endtry
+
+                                    ;Get the next message
+                                    nextloop
+                                end
+                                endusing
+
+                            end
+                            catch (ex, @Exception)
+                            begin
+                                Logger.ErrorLog("Invalid message received from Kafka. Error was " + ex.Message)
+ 
+                                ;Commit the Kafka message to prevent receiving it again!
+                                try
+                                begin
+                                    Settings.KafkaConsumer.Commit(msg)
+                                end
+                                catch (ex, @KafkaException)
+                                begin
+                                    Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                    ;TODO: Thrown if the request failed. Now what?
+                                end
+                                catch (ex, @TopicPartitionOffsetException)
+                                begin
+                                    Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                    ;TODO: Thrown if the result is in error. Now what?
+                                end
+                                endtry
+
+                                ;Get the next message
+                                nextloop
+                            end
+                            endtry
                         end
-                        ("UPDATE_ROW"),
+                        else
                         begin
-                            ;TODO: Needs implementing
-                            instruction.action = (i)REPLICATION_INSTRUCTION.UPDATE_ROW
-                            instruction.structure_name = ""
-                            instruction.record = ""
+                            using msg.Key select
+                            ("CREATE_TABLE"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_TABLE
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("LOAD_TABLE"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.LOAD_TABLE
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("CREATE_AND_LOAD_TABLE"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("DELETE_ALL_ROWS"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ALL_ROWS
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("DELETE_TABLE"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_TABLE
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("SHUTDOWN"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.SHUTDOWN
+                                instruction.structure_name = ""
+                                instruction.record = ""
+                            end
+                            ("ADD_INDEXES"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.ADD_INDEXES
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("DELETE_INDEXES"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_INDEXES
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("BULK_LOAD_TABLE"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.BULK_LOAD_TABLE
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("BULK_LOAD_FIRST_1000"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("BULK_COPY_TABLE"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.BULK_COPY_TABLE
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("CHANGE_INTERVAL"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.CHANGE_INTERVAL
+                                instruction.structure_name = ""
+                                instruction.record = msg.Value
+                            end
+                            ("CREATE_CSV"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_CSV
+                                instruction.structure_name = msg.Value
+                                instruction.record = ""
+                            end
+                            ("CYCLE_LOG"),
+                            begin
+                                instruction.action = (i)REPLICATION_INSTRUCTION.CYCLE_LOG
+                                instruction.structure_name = ""
+                                instruction.record = ""
+                            end
+                            ("TRANSFORM_COLUMN"),
+                            begin
+                                ;TODO: Needs implementing
+                                instruction.action = (i)REPLICATION_INSTRUCTION.TRANSFORM_COLUMN
+                                instruction.structure_name = ""
+                                instruction.record = ""
+                            end
+                            (),
+                            begin
+                                ;If we receive any other instruction (something we don't recognize) then we
+                                ;need to commit the Kakfa message to suppress receiving it again!
+                                ;This includes several "special" messages that are generally processed outside
+                                ;of this replicator process, such as OPEN_FILE, CLOSE_FILE,DELETE_ALL_INSTRUCTIONS
+                                ;and DELETE_FIRST_INSTRUCTION.
+                                Logger.ErrorLog("Invalid message with key " + msg.Key + " received from Kafka.")
+ 
+                                ;Commit the Kafka message to prevent receiving it again!
+                                try
+                                begin
+                                    Settings.KafkaConsumer.Commit(msg)
+                                end
+                                catch (ex, @KafkaException)
+                                begin
+                                    Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                    ;TODO: Thrown if the request failed. Now what?
+                                end
+                                catch (ex, @TopicPartitionOffsetException)
+                                begin
+                                    Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                    ;TODO: Thrown if the result is in error. Now what?
+                                end
+                                endtry
+
+                                ;Get the next message
+                                nextloop
+                            end
+                            endusing
                         end
-                        ("DELETE_ROW"),
-                        begin
-                            ;TODO: Needs implementing
-                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ROW
-                            instruction.structure_name = ""
-                            instruction.record = ""
-                        end
-                        ("CREATE_TABLE"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_TABLE
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("LOAD_TABLE"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.LOAD_TABLE
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("CREATE_AND_LOAD_TABLE"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("DELETE_ALL_ROWS"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ALL_ROWS
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("DELETE_TABLE"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_TABLE
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("SHUTDOWN"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.SHUTDOWN
-                            instruction.structure_name = ""
-                            instruction.record = ""
-                        end
-                        ("INSERT_RELATIVE"),
-                        begin
-                            ;TODO: Needs implementing
-                            instruction.action = (i)REPLICATION_INSTRUCTION.INSERT_RELATIVE
-                            instruction.structure_name = ""
-                            instruction.record = ""
-                        end
-                        ("UPDATE_RELATIVE"),
-                        begin
-                            ;TODO: Needs implementing
-                            instruction.action = (i)REPLICATION_INSTRUCTION.UPDATE_RELATIVE
-                            instruction.structure_name = ""
-                            instruction.record = ""
-                        end
-                        ("ADD_INDEXES"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.ADD_INDEXES
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("DELETE_INDEXES"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_INDEXES
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("BULK_LOAD_TABLE"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.BULK_LOAD_TABLE
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("BULK_LOAD_FIRST_1000"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("BULK_COPY_TABLE"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.BULK_COPY_TABLE
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-;TODO: Not supported in Kafka mode. Need to commit the message to prevent getting it again then nextloop!
-;                        ("DELETE_ALL_INSTRUCTIONS"),
-;                        begin
-;                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ALL_INSTRUCTIONS
-;                            instruction.structure_name = ""
-;                            instruction.record = ""
-;                        end
-;TODO: Not supported in Kafka mode. Need to commit the message to prevent getting it again then nextloop!
-;                        ("CLOSE_FILE"),
-;                        begin
-;                            instruction.action = (i)REPLICATION_INSTRUCTION.CLOSE_FILE
-;                            instruction.structure_name = ""
-;                            instruction.record = ""
-;                        end
-                        ("CHANGE_INTERVAL"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.CHANGE_INTERVAL
-                            instruction.structure_name = ""
-                            instruction.record = kafkaMessage.Value
-                        end
-                        ("CREATE_CSV"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_CSV
-                            instruction.structure_name = kafkaMessage.Value
-                            instruction.record = ""
-                        end
-                        ("CYCLE_LOG"),
-                        begin
-                            instruction.action = (i)REPLICATION_INSTRUCTION.CYCLE_LOG
-                            instruction.structure_name = ""
-                            instruction.record = ""
-                        end
-;TODO: Not supported in Kafka mode. Need to commit the message to prevent getting it again then nextloop!
-;                        ("OPEN_FILE"),
-;                        begin
-;                            instruction.action = (i)REPLICATION_INSTRUCTION.OPEN_FILE
-;                            instruction.structure_name = ""
-;                            instruction.record = ""
-;                        end
-;TODO: Not supported in Kafka mode. Need to commit the message to prevent getting it again then nextloop!
-;                        ("DELETE_FIRST_INSTRUCTION"),
-;                        begin
-;                            instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_FIRST_INSTRUCTION
-;                            instruction.structure_name = ""
-;                            instruction.record = ""
-;                        end
-                        ("TRANSFORM_COLUMN"),
-                        begin
-                            ;TODO: Needs implementing
-                            instruction.action = (i)REPLICATION_INSTRUCTION.TRANSFORM_COLUMN
-                            instruction.structure_name = ""
-                            instruction.record = ""
-                        end
-                        endusing
+
+                        ;If we get here, the instruction record has been populated based on the Kafka message
 
                         noMoreInstructions = false
 
@@ -372,11 +478,11 @@ proc
 
                     end
                     endtry
-                end
+                end ;of inner repeat (get next instruction)
+            end
 .endc
-                endusing
-                ;-------------------------------------------------------------------------------
-            end ;of inner repeat (get next instruction)
+            endusing
+            ;-------------------------------------------------------------------------------
 
             if (noMoreInstructions) then
             begin
@@ -757,21 +863,17 @@ proc
                     begin
                         try
                         begin
-                            Settings.KafkaConsumer.Commit(kafkaMessage)
+                            Settings.KafkaConsumer.Commit(msg)
                         end
                         catch (ex, @KafkaException)
                         begin
                             ;Thrown if the request failed
                             ;TODO: Now what?
-
-
                         end
                         catch (ex, @TopicPartitionOffsetException)
                         begin
                             ;Thrown if the result is in error
                             ;TODO: Now what?
-
-
                         end
                         endtry
                     end
@@ -863,7 +965,7 @@ proc
                     begin
                         try
                         begin
-                            Settings.KafkaConsumer.Commit(kafkaMessage)
+                            Settings.KafkaConsumer.Commit(msg)
                         end
                         catch (ex, @KafkaException)
                         begin

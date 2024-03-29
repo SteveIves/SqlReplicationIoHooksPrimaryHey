@@ -360,7 +360,7 @@ namespace ReplicationLibrary
                 using mOpenMode select
                 ("U:I"),
                 begin
-                    if (LastRecordCache.HasChanged(mChannel,aRecord))
+                    if (LastRecordCache.HasChanged(mChannel,aRecord)) then
                     begin
                         data tableName, string, getTableName(aRecord)
                         if (tableName(1:1)!="*")
@@ -436,6 +436,10 @@ namespace ReplicationLibrary
                                 endtry
                             end
                         end
+                    end
+                    else
+                    begin
+                        nop
                     end
                 end
                 ("U:R"),

@@ -96,14 +96,14 @@ namespace ReplicationLibrary
             end
             catch (ex, @Exception)
             begin
-                throw new ApplicationException("KafkaMessage string does not contain valid JSON data. Error was: " + ex.Message)
+                throw new ApplicationException("String does not contain valid JSON data. Error was: " + ex.Message)
             end
             endtry
 
             ;Check that message is a JSON object
             
             if (message.ValueKind!=JsonValueKind.Object)
-                throw new ApplicationException("KafkaMessage string is not a JSON object!")
+                throw new ApplicationException("String does not contain a JSON object!")
 
             ;Process properties
 
@@ -111,7 +111,7 @@ namespace ReplicationLibrary
             if (message.TryGetProperty("process_id",prop))
             begin
                 if (prop.ValueKind!=JsonValueKind.Number || prop.GetInt32()<0)
-                    throw new ApplicationException("KafkaMessage.process_id must be a positive integer!")
+                    throw new ApplicationException("process_id must be a positive integer!")
                 this.process_id = prop.GetInt32()
             end
 
@@ -119,7 +119,7 @@ namespace ReplicationLibrary
             if (message.TryGetProperty("req_id",prop))
             begin
                 if (prop.ValueKind!=JsonValueKind.Number || prop.GetInt32()<0)
-                    throw new ApplicationException("KafkaMessage.req_id must be a positive integer!")
+                    throw new ApplicationException("req_id must be a positive integer!")
                 this.req_id = prop.GetInt32()
             end
 
@@ -127,8 +127,8 @@ namespace ReplicationLibrary
             if (message.TryGetProperty("op_type",prop))
             begin
                 if (prop.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(prop.GetString()))
-                    throw new ApplicationException("KafkaMessage.op_type is invalid!")
-                using prop.GetString().ToUpper() select
+                    throw new ApplicationException("op_type is invalid!")
+                using prop.GetString() select
                 ("Insert"),
                     this.op_type = KafkaMessageType.Insert
                 ("InsertAc"),
@@ -154,7 +154,7 @@ namespace ReplicationLibrary
                 ("Error"),
                     this.op_type = KafkaMessageType.Error
                 (),
-                    throw new ApplicationException("KafkaMessage.op_type is invalid!")
+                    throw new ApplicationException("op_type is invalid!")
                 endusing
             end
 
@@ -162,7 +162,7 @@ namespace ReplicationLibrary
             if (message.TryGetProperty("file_id",prop))
             begin
                 if (prop.ValueKind!=JsonValueKind.String)
-                    throw new ApplicationException("KafkaMessage.file_id must be a string!")
+                    throw new ApplicationException("file_id must be a string!")
                 this.file_id = prop.GetString()
             end
 
@@ -170,7 +170,7 @@ namespace ReplicationLibrary
             if (message.TryGetProperty("txn_id",prop))
             begin
                 if (prop.ValueKind!=JsonValueKind.Number || prop.GetInt32()<0)
-                    throw new ApplicationException("KafkaMessage.txn_id must be a positive integer!")
+                    throw new ApplicationException("txn_id must be a positive integer!")
                 this.txn_id = prop.GetInt32()
             end
 
@@ -179,7 +179,7 @@ namespace ReplicationLibrary
             if (message.TryGetProperty("key_data",prop))
             begin
                 if (prop.ValueKind!=JsonValueKind.String)
-                    throw new ApplicationException("KafkaMessage.key_data must be a base-64 encoded string!")
+                    throw new ApplicationException("key_data must be a base-64 encoded string!")
                 this.key_data = DataEncoding.FromBase64(prop.GetString())
             end
 
@@ -187,7 +187,7 @@ namespace ReplicationLibrary
             if (message.TryGetProperty("record_data",prop))
             begin
                 if (prop.ValueKind!=JsonValueKind.String)
-                    throw new ApplicationException("KafkaMessage.record_data must be a base-64 encoded string!")
+                    throw new ApplicationException("record_data must be a base-64 encoded string!")
                 this.record_data = DataEncoding.FromBase64(prop.GetString())
             end
 
@@ -195,7 +195,7 @@ namespace ReplicationLibrary
             if (message.TryGetProperty("original_data",prop))
             begin
                 if (prop.ValueKind!=JsonValueKind.String)
-                    throw new ApplicationException("KafkaMessage.original_data must be a base-64 encoded string!")
+                    throw new ApplicationException("original_data must be a base-64 encoded string!")
                 this.original_data = DataEncoding.FromBase64(prop.GetString())
             end
 
@@ -222,49 +222,59 @@ namespace ReplicationLibrary
                 ok, boolean
             endrecord
         proc
+            ok = true
             errorMessage = ^null
+
             using this.op_type select
             (KafkaMessageType.Insert),
             begin
-                ;We need req_id, txn_id, file_id, key_data and record_data
-                mreturn (this.req_id && this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data))
+                ;We need txn_id, file_id, key_data and record_data
+                ok = this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data)
+                errorMessage = "Insert operations must inlcude req_id, txn_id, file_id, key_data and record_data."
             end
             (KafkaMessageType.InsertAc),
             begin
-                ;We need req_id, file_id, key_data and record_data
-                mreturn (this.req_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data))
+                ;We need file_id, key_data and record_data
+                ok = !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data)
+                errorMessage = "InsertAc operations must inlcude req_id, file_id, key_data and record_data."
             end
             (KafkaMessageType.Update),
             begin
-                ;We need req_id, txn_id, file_id, key_data, record_data and original_data
-                mreturn (this.req_id && this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data) && !String.IsNullOrWhiteSpace(this.original_data))
+                ;We need txn_id, file_id, key_data, record_data and original_data
+                ok = this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data) && !String.IsNullOrWhiteSpace(this.original_data)
+                errorMessage = "Update operations must inlcude req_id, txn_id, file_id, key_data, record_data and original_data."
             end
             (KafkaMessageType.UpdateAc),
             begin
-                ;We need req_id, file_id, key_data, record_data and original_data
-                mreturn (this.req_id  && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data) && !String.IsNullOrWhiteSpace(this.original_data))
+                ;We need file_id, key_data, record_data and original_data
+                ok = !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data) && !String.IsNullOrWhiteSpace(this.original_data)
+                errorMessage = "UpdateAc operations must inlcude req_id, file_id, key_data, record_data and original_data."
             end
             (KafkaMessageType.Delete),
             begin
-                ;We need req_id, txn_id, file_id, key_data, and record_data
+                ;We need txn_id, file_id, key_data, and record_data
                 ;Arguable we should get original_data not record_data but I think that would screw up Jeff's code because of required vs optional
-                mreturn (this.req_id && this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data))
+                ok = this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data)
+                errorMessage = "Delete operations must inlcude req_id, txn_id, file_id, key_data and record_data."
             end
             (KafkaMessageType.DeleteAc),
             begin
-                ;We need req_id, file_id, key_data, and record_data
+                ;We need file_id, key_data, and record_data
                 ;Arguable we should get original_data not record_data but I think that would screw up Jeff's code because of required vs optional
-                mreturn (this.req_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data))
+                ok = !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data)
+                errorMessage = "DeleteAc operations must inlcude req_id, file_id, key_data and record_data."
             end
             (KafkaMessageType.StartTxn),
             begin
-                ;We need req_id, txn_id
-                mreturn (this.req_id && this.txn_id)
+                ;We need txn_id
+                ok = this.txn_id
+                errorMessage = "StartTxn operations must inlcude req_id and txn_id."
             end
             (KafkaMessageType.Commit),
             begin
-                ;We need req_id, txn_id
-                mreturn (this.req_id && this.txn_id)
+                ;We need txn_id
+                ok = this.txn_id
+                errorMessage = "Commit operations must inlcude req_id and txn_id."
             end
             (KafkaMessageType.Leader),
             begin
@@ -287,7 +297,9 @@ namespace ReplicationLibrary
                 nop
             end
             endusing
-            mreturn true
+
+            mreturn ok
+
         endmethod
 
         ;-------------------------------------------------------------------------------------------

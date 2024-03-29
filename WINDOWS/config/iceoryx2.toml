@@ -15,10 +15,10 @@ creation_timeout.nanos                      = 500000000
 [defaults.publish_subscribe]
 max_subscribers                             = 2
 max_publishers                              = 5000
-publisher_history_size                      = 1
-subscriber_max_buffer_size                  = 1
-subscriber_max_borrowed_samples             = 2
-publisher_max_loaned_samples                = 2
+publisher_history_size                      = 8
+subscriber_max_buffer_size                  = 8
+subscriber_max_borrowed_samples             = 8
+publisher_max_loaned_samples                = 8
 enable_safe_overflow                        = false
 unable_to_deliver_strategy                  = 'block' # or 'discard_sample'
 

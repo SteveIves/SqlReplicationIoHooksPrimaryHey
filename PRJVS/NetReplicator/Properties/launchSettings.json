@@ -1,8 +1,7 @@
 {
   "profiles": {
     "NetReplicator": {
-      "commandName": "Project",
-      "commandLineArgs": "-connectionmode SQLCLIENT -queuetype ISAM -database \"Data Source=.;Initial Catalog=SqlReplication;Integrated Security=True;\""
+      "commandName": "Project"
     }
   }
 }
