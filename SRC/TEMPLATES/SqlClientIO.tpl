@@ -732,7 +732,7 @@ proc
     <IF CUSTOM_DBL_TYPE>
         command.Parameters.Add("@<FieldSqlName>")
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-        command.Parameters.Add(new SqlParameter("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)))
+        command.Parameters.Add(new SqlParameter("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)))
     <ELSE USER AND USERTIMESTAMP>
         command.Parameters.Add("@<FieldSqlName>")
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -758,7 +758,7 @@ proc
     <IF CUSTOM_DBL_TYPE>
         command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-        command.Parameters["@<FieldSqlName>"].Value = <FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)
+        command.Parameters["@<FieldSqlName>"].Value = <FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)
     <ELSE USER AND USERTIMESTAMP>
         command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -781,7 +781,7 @@ proc
     <IF CUSTOM_DBL_TYPE>
         command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-        command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
+        command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
     <ELSE USER AND USERTIMESTAMP>
         command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -980,7 +980,7 @@ proc
     <IF CUSTOM_DBL_TYPE>
         command.Parameters.Add("@<FieldSqlName>")
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-        command.Parameters.Add(new SqlParameter("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)))
+        command.Parameters.Add(new SqlParameter("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)))
     <ELSE USER AND USERTIMESTAMP>
         command.Parameters.Add("@<FieldSqlName>")
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -1094,7 +1094,7 @@ proc
     <IF CUSTOM_DBL_TYPE>
                 command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-                command.Parameters["@<FieldSqlName>"].Value = <FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)
+                command.Parameters["@<FieldSqlName>"].Value = <FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)
     <ELSE USER AND USERTIMESTAMP>
                 command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -1117,7 +1117,7 @@ proc
     <IF CUSTOM_DBL_TYPE>
                 command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-                command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
+                command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
     <ELSE USER AND USERTIMESTAMP>
                 command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
@@ -1401,7 +1401,7 @@ proc
     <IF CUSTOM_DBL_TYPE>
             command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
     <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
-            command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_TO_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
+            command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
     <ELSE USER AND USERTIMESTAMP>
             command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>
     <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>

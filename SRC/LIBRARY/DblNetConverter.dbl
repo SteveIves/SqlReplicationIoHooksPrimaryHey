@@ -1,6 +1,6 @@
 ;;*****************************************************************************
 ;;
-;; File:        DblToNetConverter.dbl
+;; File:        DblNetConverter.dbl
 ;;
 ;; Description: Converts DBL native types to their Synergy .NET equivalent
 ;;
@@ -39,7 +39,7 @@
 
 namespace ReplicationLibrary
 
-    public static class DblToNetConverter
+    public static class DblNetConverter
 
         ;AlphaToString
         public static method AlphaToString, string
@@ -52,7 +52,7 @@ namespace ReplicationLibrary
         public static method NotImplemented, void
             required in aValue, a
         proc
-            throw new NotImplementedException("SynToCsConvert does not yet implement support for fields of this type!")
+            throw new NotImplementedException("DblNetConverter does not yet implement support for fields of this type!")
         endmethod
 
         ;YYMMDDToDateTime
@@ -92,7 +92,7 @@ namespace ReplicationLibrary
             using ^size(dateValue) select
             (8),    mreturn dateValue == 0 ? new Nullable<DateTime>() : new DateTime((int)dateValue(1,4),(int)dateValue(5,6),(int)dateValue(7,8))
             (6),    mreturn dateValue == 0 ? new Nullable<DateTime>() : new DateTime((int)(2000+dateValue(1,2)),(int)dateValue(3,4),(int)dateValue(5,6))
-            (),     throw new NotImplementedException("SynToCsConvert does not yet implement support for date fields of this type!")
+            (),     throw new NotImplementedException("DblNetConverter does not yet implement support for date fields of this type!")
             endusing
         endmethod
 

@@ -41,6 +41,8 @@ import ReplicationLibrary
 .ifdef DBLNET
 import Confluent.Kafka
 import System.Diagnostics
+import System.IO
+import System.Reflection
 .include "REPLICATION_TRANSFORM" repository, enum, end
 .endc
 
@@ -54,15 +56,15 @@ main ReplicatorMenu
 .endc
 
     record
-        mainwnd,            i4
-        system,             d4
-        runtime,            d4
-        windows,            boolean
-        unix,               boolean
-        option,             a2
-        tableName,          a30
+        mainwnd,    i4
+        system,     d4
+        runtime,    d4
+        windows,    boolean
+        unix,       boolean
+        option,     a2
+        tableName,  string
 .ifdef DBLNET
-        kafkaProducer,      @IProducer<string,string>
+        producer,   @IProducer<string,string>
 .endc
     endrecord
 
@@ -135,22 +137,27 @@ proc
 .endc
 
 .ifdef DBLNET
-    ;Connect to the Kafka server
+    ;In Kafka mode, connect to the Kafka server
     if (Settings.QueueType == MessageQueueType.Kafka)
     begin
         ;Connect to the Kafka server
         data conf = new ProducerConfig()
         conf.BootstrapServers = Settings.KafkaServers
-        kafkaProducer = new ProducerBuilder<string,string>(conf).Build()
+        conf.EnableIdempotence = true ;ensure delivery of messages in the order specified
+        producer = new ProducerBuilder<string,string>(conf).Build()
+
+
+
     end
 .endc
+
     repeat
     begin
         xcall w_disp(mainwnd,WD_CLR,WDC_WND,
         &    WD_POS,1,1,"SQL Replicator",
         &    WD_POS,1,17,"Queue: ", Settings.QueueType==MessageQueueType.IsamFile ? "ISAM" : "KAFKA",
         &    WD_POS,1,30,"Instance: ", Settings.InstanceName,
-        &    WD_POS,1,54,"Table: ", tableName ? %atrim(tableName) : "<none>")
+        &    WD_POS,1,54,"Table: ", String.IsNullOrWhiteSpace(tableName) ? "<none>" : tableName )
 
 .ifdef DBLNET
         xcall w_disp(mainwnd,WD_POS,3,2,"SR. Start Replicator (Normal)")
@@ -187,7 +194,7 @@ proc
         xcall w_disp(mainwnd,WD_POS,16,2,"I.  Change Instance")
         xcall w_disp(mainwnd,WD_POS,17,2,"T.  Change Table")
 
-        if (tableName)
+        if (!String.IsNullOrWhiteSpace(tableName))
         begin
             xcall w_disp(mainwnd,WD_POS, 3,50,"C.  Create table")
             xcall w_disp(mainwnd,WD_POS, 4,50,"L.  Load table")
@@ -200,10 +207,18 @@ proc
             xcall w_disp(mainwnd,WD_POS,11,50,"TR. Truncate table")
             xcall w_disp(mainwnd,WD_POS,12,50,"D.  Delete table")
             xcall w_disp(mainwnd,WD_POS,13,50,"X.  Export to CSV")
-            if (windows && (tableName=="Employee" || tableName=="Department"))
+
+            if (windows && (tableName=="EMPLOYEE" || tableName=="DEPARTMENT"))
                 xcall w_disp(mainwnd,WD_POS,15,50,"M.  Maintainance")
 .ifdef DBLNET
-            xcall w_disp(mainwnd,WD_POS,17,50,"TT. Transform TEST")
+            if (tableName=="EMPLOYEE" || tableName=="DEPARTMENT")
+            begin
+                xcall w_disp(mainwnd,WD_POS,16,50,"TT. Transform TEST")
+            end
+            if (tableName=="EMPLOYEE")
+            begin
+                xcall w_disp(mainwnd,WD_POS,17,50,"LT. Load Test")
+            end
 .endc
         end
 
@@ -217,11 +232,11 @@ proc
             if (windows)
             begin
                 using tableName select
-                ("Department"),
+                ("DEPARTMENT"),
                 begin
                     xcall spawn("dbr REPLICATOR_EXE:DepartmentMaintenance.dbr",D_NOWINDOW|D_NOWAIT)
                 end
-                ("Employee"),
+                ("EMPLOYEE"),
                 begin
                     xcall spawn("dbr REPLICATOR_EXE:EmployeeMaintenance.dbr",D_NOWINDOW|D_NOWAIT)
                 end
@@ -232,9 +247,10 @@ proc
         ("SR"),
         begin
 .ifdef DBLNET
-            ;TODO: Need to improve this before .NET release!!!
+            data assemblyToLaunch = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),"NetReplicator.exe")
+
             data startInfo = new ProcessStartInfo() {
-            &    FileName = "C:\DEV_SYNERGEX\SqlReplication\EXE\net6.0\NetReplicator.exe",
+            &    FileName = assemblyToLaunch,
             &    UseShellExecute = true,
             &    WindowStyle = ProcessWindowStyle.Normal
             &    }
@@ -312,7 +328,7 @@ proc
             begin
 .ifdef DBLNET
                 data kafkaMessage = new Message<string,string>() { Key="SHUTDOWN", Value="" }
-                data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
             end
             else
@@ -343,7 +359,7 @@ proc
             begin
 .ifdef DBLNET
                 data kafkaMessage = new Message<string,string>() { Key="SHUTDOWN", Value="" }
-                data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
             end
             else
@@ -518,9 +534,9 @@ proc
                 data outch = 0
                 data exportFile = Settings.QueueFileName.Replace(".ISM",".TXT")
 
-                if (File.Exists(exportFile))
+                if (ReplicationLibrary.File.Exists(exportFile))
                 begin
-                    File.Delete(exportFile)
+                    ReplicationLibrary.File.Delete(exportFile)
                 end
 
                 try
@@ -592,7 +608,7 @@ proc
                     begin
 .ifdef DBLNET
                         data kafkaMessage = new Message<string,string>() { Key="CHANGE_INTERVAL", Value=%atrimtostring(interval) }
-                        data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                        data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                     end
                     else
@@ -667,8 +683,8 @@ proc
                 if (Settings.QueueType==MessageQueueType.Kafka)
                 begin
                     ;Disconnect from the Kafka server
-                    kafkaProducer.Dispose()
-                    kafkaProducer = ^null
+                    producer.Dispose()
+                    producer = ^null
                 end
 .endc
                 ;Change the instance
@@ -689,7 +705,7 @@ proc
                     ;Connect to the Kafka server
                     data conf = new ProducerConfig()
                     conf.BootstrapServers = Settings.KafkaServers
-                    kafkaProducer = new ProducerBuilder<string,string>(conf).Build()
+                    producer = new ProducerBuilder<string,string>(conf).Build()
                 end
 .endc
 .ifdef D_GUI
@@ -730,7 +746,7 @@ proc
                 ;Blank no table selected
                 if (!tmpvar)
                 begin
-                    clear tableName
+                    tableName = ""
                     exitloop
                 end
 
@@ -750,7 +766,7 @@ proc
                     nextloop
 
                 ;Make sure it's not the current table
-                if (Settings.ValidTableNames[newIndex].Equals(%atrimtostring(tableName)))
+                if (Settings.ValidTableNames[newIndex] == tableName)
                     exitloop
 
                 ;Change the instance
@@ -765,8 +781,8 @@ proc
             if (Settings.QueueType==MessageQueueType.Kafka) then
             begin
 .ifdef DBLNET
-                data kafkaMessage = new Message<string,string>() { Key="CYCLE_LOG", Value=%atrimtostring(tableName) }
-                data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                data kafkaMessage = new Message<string,string>() { Key="CYCLE_LOG", Value=tableName }
+                data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
             end
             else
@@ -778,18 +794,18 @@ proc
 
         ("C "),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="CREATE_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="CREATE_TABLE", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_TABLE,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command executed")
             end
@@ -799,18 +815,18 @@ proc
 
         ("L "),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="LOAD_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="LOAD_TABLE", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.LOAD_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.LOAD_TABLE,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -820,18 +836,18 @@ proc
 
         ("CL"),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="CREATE_AND_LOAD_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="CREATE_AND_LOAD_TABLE", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -841,18 +857,18 @@ proc
 
         ("BL"),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="BULK_LOAD_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="BULK_LOAD_TABLE", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_LOAD_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_LOAD_TABLE,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -862,18 +878,18 @@ proc
 
         ("BR"),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="BULK_LOAD_FIRST_1000", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="BULK_LOAD_FIRST_1000", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_LOAD_FIRST_1000,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -883,18 +899,18 @@ proc
 
         ("BC"),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="BULK_COPY_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="BULK_COPY_TABLE", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_COPY_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_COPY_TABLE,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -904,18 +920,18 @@ proc
 
         ("AI"),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="ADD_INDEXES", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="ADD_INDEXES", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.ADD_INDEXES,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.ADD_INDEXES,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -925,18 +941,18 @@ proc
 
         ("DI"),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="DELETE_INDEXES", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="DELETE_INDEXES", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_INDEXES,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_INDEXES,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -946,18 +962,18 @@ proc
 
         ("TR"),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="DELETE_ALL_ROWS", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="DELETE_ALL_ROWS", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_ALL_ROWS,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_ALL_ROWS,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -973,13 +989,13 @@ proc
             ("DEPARTMENT"),
             begin
                 data transformData, string, %string(REPLICATION_TRANSFORM.EXTEND_ALPHA) + "|DeptName|60"
-                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,tableName,transformData)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,(a)tableName,transformData)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
             ("EMPLOYEE"),
             begin
                 data transformData, string, %string(REPLICATION_TRANSFORM.EXTEND_ALPHA) + "|EmpFirstName|25"
-                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,tableName,transformData)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.TRANSFORM_COLUMN,(a)tableName,transformData)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
             (),
@@ -989,20 +1005,30 @@ proc
             endusing
         end
 .endc
+.ifdef DBLNET
+        ("LT"),
+        begin
+            ;Load test
+            data threadsPerWorker = 1 ;Do not set this to higher than 1 right now because code in xcall replicate,
+            data secondsToRun = 10
+            data testManager = new LoadTestManager(tableName,Settings.QueueType,threadsPerWorker,secondsToRun)
+            testManager.RunTests().Wait()
+        end
+.endc
         ("D "),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="DELETE_TABLE", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="DELETE_TABLE", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_TABLE,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_TABLE,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -1012,18 +1038,18 @@ proc
 
         ("X "),
         begin
-            if (tableName) then
+            if (!String.IsNullOrWhiteSpace(tableName)) then
             begin
                 if (Settings.QueueType==MessageQueueType.Kafka) then
                 begin
 .ifdef DBLNET
-                    data kafkaMessage = new Message<string,string>() { Key="CREATE_CSV", Value=%atrimtostring(tableName) }
-                    data deliveryResult = kafkaProducer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
+                    data kafkaMessage = new Message<string,string>() { Key="CREATE_CSV", Value=tableName }
+                    data deliveryResult = producer.ProduceAsync(Settings.KafkaTopicName,kafkaMessage).Result
 .endc
                 end
                 else
                 begin
-                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_CSV,tableName)
+                    xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.CREATE_CSV,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
@@ -1045,8 +1071,8 @@ proc
 .ifdef DBLNET
     if (Settings.QueueType==MessageQueueType.Kafka)
     begin
-        kafkaProducer.Dispose()
-        kafkaProducer = ^null
+        producer.Dispose()
+        producer = ^null
     end
 .endc
 

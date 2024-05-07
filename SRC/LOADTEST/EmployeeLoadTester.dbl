@@ -1,10 +1,10 @@
 ;*****************************************************************************
 ;
-; File:         NetLoadTester.dbl
+; File:         EmployeeLoadTester.dbl
 ;
 ; Type:         Class
 ;
-; Description:  Random read/write I/O to the EMPLOYEE file
+; Description:  Load tester for the EMPLOYEE file/table.
 ;
 ;*****************************************************************************
 ;
@@ -35,21 +35,24 @@
 ;
 ;*****************************************************************************
 
+.ifdef DBLNET
+
+import ReplicationLibrary
 import System
 import System.Threading
 import System.Threading.Tasks
 
-namespace NetLoadTester
+namespace ReplicationLibrary
 
     .include "EMPLOYEE" repository, structure="strEmployee", end
 
     ;;; <summary>
     ;;; Random read/write I/O to REPLICATOR_DATA:EMPLOYEE.ISM
     ;;; </summary>
-    public class EmployeeLoadTester implements IWorkerTask, IDisposable
+    public class EmployeeLoadTester implements ILoadTestWorker, IDisposable
 
         private mTaskNumber, int
-        private mQueueMode, string
+        private mQueueMode, MessageQueueType
         private mCancelToken, CancellationToken
         private mChn, i4
         private static mRecordCount, int
@@ -65,7 +68,7 @@ namespace NetLoadTester
 
         public method EmployeeLoadTester
             taskNumber, int
-            queueMode, string
+            queueMode, MessageQueueType
             cancelToken, CancellationToken
 
             .include "REPLICATOR_INCLUDE:sqlgbl.def"
@@ -115,7 +118,7 @@ namespace NetLoadTester
             Monitor.Exit(^typeof(EmployeeLoadTester))
 
             ;Add replication I/O hooks to the channel
-            data queueModeNumber = mQueueMode.Equals("K") ? 1 : 0
+            data queueModeNumber = mQueueMode == MessageQueueType.Kafka ? 1 : 0
             xcall ConfigureReplication(mChn,queueModeNumber)
 
             Console.WriteLine("Task {0} has opened REPLICATOR_DATA:EMPLOYEE.ISM on channel {1}",mTaskNumber,mChn)
@@ -292,3 +295,5 @@ namespace NetLoadTester
     endclass
 
 endnamespace
+
+.endc

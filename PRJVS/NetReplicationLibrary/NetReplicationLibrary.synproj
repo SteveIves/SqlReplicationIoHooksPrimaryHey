@@ -59,7 +59,7 @@
     <Compile Include="..\..\SRC\LIBRARY\DatabaseReconnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseTransform.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\DblToNetConverter.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\DblNetConverter.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Department_SqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmailSettings.dbl" />
@@ -85,7 +85,6 @@
     <Compile Include="..\..\SRC\LIBRARY\IsTime.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Json.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\KafkaAPI.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\KafkaClient.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\KafkaMessage.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\LastRecordCache.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Logger.dbl" />

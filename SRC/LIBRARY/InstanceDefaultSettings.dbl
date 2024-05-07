@@ -1,6 +1,6 @@
 ;*****************************************************************************
 ;
-; File:         KafkaMessage.dbl
+; File:         InstanceDefaultSettings.dbl
 ;
 ; Description:  Represents the default settings for replicator instances
 ;

@@ -35,23 +35,25 @@
 ;
 ;*****************************************************************************
 
-import NetLoadTester
+.ifdef DBLNET
+
+import ReplicationLibrary
 import System
 import System.Linq
 import System.Threading.Tasks
 import System.Threading
 
-namespace NetLoadTester
+namespace ReplicationLibrary
 
     ;;; <summary>
     ;;; Manages SQL replication load tests
     ;;; </summary>
     public class LoadTestManager
 
-        private mQueueMode, string
+        private mTableName, string
+        private mQueueMode, MessageQueueType
         private mWorkerTypes, int
-        private mTasksPerWorker, int
-        private mTotalTasks, int
+        private mTaskCount, int
         private mSecondsToRun, int
 
         ;;; <summary>
@@ -60,52 +62,44 @@ namespace NetLoadTester
         ;;; <param name="tasksPerWorker"></param>
         ;;; <param name="secondsToRun"></param>
         public method LoadTestManager
-            queueMode, string
-            tasksPerWorker, int
+            tableName, string
+            queueMode, MessageQueueType
+            taskCount, int
             secondsToRun, int
         proc
+            mTableName = tableName
             mQueueMode = queueMode
-            mWorkerTypes = 1
-            mTasksPerWorker = tasksPerWorker
+            mTaskCount = taskCount
             mSecondsToRun = secondsToRun
-            mTotalTasks = mWorkerTypes * mTasksPerWorker
         endmethod
 
         ;;; <summary>
         ;;; Start running tests
         ;;; </summary>
-        public async method StartTests, @Task
+        public async method RunTests, @Task
         proc
             ;Create a CancellationTokenSource to control termination
             data cancellationSource = new CancellationTokenSource()
 
             ;Create arrays to hold references to the worker objects and associated tasks
-            data workers = new @IWorkerTask[mTotalTasks]
-            data tasks = new @Task[mTotalTasks]
+            data workers = new @ILoadTestWorker[mTaskCount]
+            data tasks = new @Task[mTaskCount]
 
+            ;Start the load test tasks
             data taskNumber = 0
-            
-            ;Start the DEPARTMENT tasks
-            ;Console.WriteLine("Starting {0} DEPARTMENT workers...", mTasksPerWorker)
-            ;repeat
-            ;begin
-            ;    workers[taskNumber+=1] = new DepartmentLoadTester(taskNumber,completionSource)
-            ;    tasks[taskNumber] = Task.Run(doWork)
-            ;    if (taskNumber==mTasksPerWorker)
-            ;        exitloop
-            ;end
-            ;
-            ;sleep 0.5
-
-            ;Start the EMPLOYEE tasks
-            Console.WriteLine("Starting {0} EMPLOYEE workers...", mTasksPerWorker)
-            repeat
+            using mTableName select
+            ("EMPLOYEE"),
             begin
-                workers[taskNumber+=1] = new EmployeeLoadTester(taskNumber,mQueueMode,cancellationSource.Token)
-                tasks[taskNumber] = Task.Run(workers[taskNumber].DoWork, cancellationSource.Token)
-                if (taskNumber==mTotalTasks)
-                    exitloop
+                Console.WriteLine("Starting {0} EMPLOYEE workers...", mTaskCount)
+                repeat
+                begin
+                    workers[taskNumber+=1] = new EmployeeLoadTester(taskNumber,mQueueMode,cancellationSource.Token)
+                    tasks[taskNumber] = Task.Run(workers[taskNumber].DoWork, cancellationSource.Token)
+                    if (taskNumber==mTaskCount)
+                        exitloop
+                end
             end
+            endusing
 
             ;Tell the CancellationTokenSource to cancel the tasks after the specified period
             cancellationSource.CancelAfter(mSecondsToRun*1000)
@@ -113,7 +107,7 @@ namespace NetLoadTester
             ;Wait for all tasks to finish
             await Task.WhenAll(tasks)
 
-            ;Dispose the tasks to ensure the channels are closed now
+            ;Dispose the tasks to ensure data file channels are closed immediately
             foreach data worker in workers.OfType<IDisposable>()
             begin
                 worker?.Dispose()
@@ -122,4 +116,7 @@ namespace NetLoadTester
         endmethod
 
     endclass
+
 endnamespace
+
+.endc

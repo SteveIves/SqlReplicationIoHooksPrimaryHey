@@ -36,7 +36,7 @@
 ;
 ;*****************************************************************************
 
-import NetLoadTester
+import ReplicationLibrary
 import System
 import System.Threading
 import System.Threading.Tasks
@@ -46,45 +46,26 @@ main NetLoadTester
 proc
     ;Number of threads to create per worker type
 
-    ;NOTE: Do not set this to higher than 1 right now because code in xcall replicate,
-    ;IOHooksIsam and likely others is not currently thread safe.
-    data threadsPerWorker = 1
+    data tableName = "EMPLOYEE"
+    data queueMode = MessageQueueType.Kafka
+    data threadsPerWorker = 1 ;Do not set this to higher than 1 right now because code in xcall replicate,
     data secondsToRun = 10
-    data queueMode = String.Empty
-    data secondsToRunString = String.Empty
 
-    repeat
-    begin
-        Console.Write("Queue mode (I)SAM or (K)afka [I]: ")
-        queueMode = Console.ReadKey().KeyChar.ToString().ToUpper()
-        using queueMode select
-        ("I","K"),
-            exitloop
-        (),
-            nextloop
-        endusing
-    end
-
+    Console.WriteLine("Table name     : {0}", tableName)
+    Console.WriteLine("Queue mode     : {0}", queueMode == MessageQueueType.IsamFile ? "IsamFile" : "Kafka")
+    Console.WriteLine("Queue threads  : {0}", threadsPerWorker)
+    Console.WriteLine("Run time (sec) : {0}", secondsToRun)
     Console.WriteLine("")
 
-    repeat
-    begin
-        Console.Write("Seconds to run [10]: ")
-        secondsToRunString = Console.ReadLine()
-        if (String.IsNullOrWhiteSpace(secondsToRunString))
-            secondsToRunString = "10"
-        if (Int32.TryParse(secondsToRunString,secondsToRun))
-            exitloop
-        Console.WriteLine("")
-    end
-
+    Console.Write("Press a key to start: ")
+    Console.ReadKey()
     Console.WriteLine("")
 
-    data testManager = new LoadTestManager(queueMode,threadsPerWorker,secondsToRun)
-    testManager.StartTests().Wait()
+    data testManager = new LoadTestManager(tableName,queueMode,threadsPerWorker,secondsToRun)
+    testManager.RunTests().Wait()
 
-    Console.WriteLine("All threads have finished their work.")
-    Console.Write("Press ENTER to close: ")
+    Console.WriteLine("All threads have completed")
+    Console.Write("Press a key to close: ")
     Console.ReadKey()
 
     stop

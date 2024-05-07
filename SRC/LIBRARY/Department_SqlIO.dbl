@@ -450,9 +450,9 @@ proc
     if (Settings.SqlCommandReuse && command==^null)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.Add(new SqlParameter("@DeptId",DblToNetConverter.AlphaToString(department.dept_id)))
-        command.Parameters.Add(new SqlParameter("@DeptName",DblToNetConverter.AlphaToString(department.dept_name)))
-        command.Parameters.Add(new SqlParameter("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager)))
+        command.Parameters.Add(new SqlParameter("@DeptId",DblNetConverter.AlphaToString(department.dept_id)))
+        command.Parameters.Add(new SqlParameter("@DeptName",DblNetConverter.AlphaToString(department.dept_name)))
+        command.Parameters.Add(new SqlParameter("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager)))
     end
 
     ;If we're reusing the SqlCommand bind data to the existing parameters in the existing command
@@ -461,17 +461,17 @@ proc
     if (Settings.SqlCommandReuse) then
     begin
         ;Existing command and parameters
-        command.Parameters["@DeptId"].Value = DblToNetConverter.AlphaToString(department.dept_id)
-        command.Parameters["@DeptName"].Value = DblToNetConverter.AlphaToString(department.dept_name)
-        command.Parameters["@DeptManager"].Value = DblToNetConverter.SmallDecimalToInt(department.dept_manager)
+        command.Parameters["@DeptId"].Value = DblNetConverter.AlphaToString(department.dept_id)
+        command.Parameters["@DeptName"].Value = DblNetConverter.AlphaToString(department.dept_name)
+        command.Parameters["@DeptManager"].Value = DblNetConverter.SmallDecimalToInt(department.dept_manager)
     end
     else
     begin
         ;New command and parameters
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
-        command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
-        command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
+        command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
+        command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
+        command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
     end
 
     ;In manual commit mode, commit or rollback the transaction
@@ -608,9 +608,9 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.Add(new SqlParameter("@DeptId",DblToNetConverter.AlphaToString(department.dept_id)))
-        command.Parameters.Add(new SqlParameter("@DeptName",DblToNetConverter.AlphaToString(department.dept_name)))
-        command.Parameters.Add(new SqlParameter("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager)))
+        command.Parameters.Add(new SqlParameter("@DeptId",DblNetConverter.AlphaToString(department.dept_id)))
+        command.Parameters.Add(new SqlParameter("@DeptName",DblNetConverter.AlphaToString(department.dept_name)))
+        command.Parameters.Add(new SqlParameter("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager)))
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
@@ -641,17 +641,17 @@ proc
             if (Settings.SqlCommandReuse) then
             begin
                 ;Bind data for the current record to the existing command parameters
-                command.Parameters["@DeptId"].Value = DblToNetConverter.AlphaToString(department.dept_id)
-                command.Parameters["@DeptName"].Value = DblToNetConverter.AlphaToString(department.dept_name)
-                command.Parameters["@DeptManager"].Value = DblToNetConverter.SmallDecimalToInt(department.dept_manager)
+                command.Parameters["@DeptId"].Value = DblNetConverter.AlphaToString(department.dept_id)
+                command.Parameters["@DeptName"].Value = DblNetConverter.AlphaToString(department.dept_name)
+                command.Parameters["@DeptManager"].Value = DblNetConverter.SmallDecimalToInt(department.dept_manager)
             end
             else
             begin
                 ;Create the SqlCommand, add parameters and bind the data for the current record
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-                command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
-                command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
-                command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
+                command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
+                command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
+                command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
                 if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
                 begin
                     command.Transaction = Settings.CurrentTransaction
@@ -824,9 +824,9 @@ proc
             end
 
             ;Bind the host variables for data to be updated
-            command.Parameters.AddWithValue("@DeptId",DblToNetConverter.AlphaToString(department.dept_id))
-            command.Parameters.AddWithValue("@DeptName",DblToNetConverter.AlphaToString(department.dept_name))
-            command.Parameters.AddWithValue("@DeptManager",DblToNetConverter.SmallDecimalToInt(department.dept_manager))
+            command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
+            command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
+            command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
 
             rows = command.ExecuteNonQuery()
 

@@ -1,6 +1,6 @@
 ;*****************************************************************************
 ;
-; File:         IWorkerTask.dbl
+; File:         ILoadTestWorker.dbl
 ;
 ; Type:         Inferface
 ;
@@ -35,12 +35,14 @@
 ;
 ;*****************************************************************************
 
-namespace NetLoadTester
+.ifdef DBLNET
+
+namespace ReplicationLibrary
 
     ;;; <summary>
     ;;; Defines the interface for load test worker classes
     ;;; </summary>
-    public interface IWorkerTask
+    public interface ILoadTestWorker
 
         method DoWork, void
         endmethod
@@ -48,3 +50,5 @@ namespace NetLoadTester
     endinterface
 
 endnamespace
+
+.endc

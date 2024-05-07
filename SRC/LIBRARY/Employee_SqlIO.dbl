@@ -704,21 +704,21 @@ proc
     if (Settings.SqlCommandReuse && command==^null)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.Add(new SqlParameter("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id)))
-        command.Parameters.Add(new SqlParameter("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name)))
-        command.Parameters.Add(new SqlParameter("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name)))
-        command.Parameters.Add(new SqlParameter("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept)))
-        command.Parameters.Add(new SqlParameter("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date)))
-        command.Parameters.Add(new SqlParameter("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work)))
-        command.Parameters.Add(new SqlParameter("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell)))
-        command.Parameters.Add(new SqlParameter("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid)))
-        command.Parameters.Add(new SqlParameter("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)))
-        command.Parameters.Add(new SqlParameter("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time)))
-        command.Parameters.Add(new SqlParameter("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email)))
-        command.Parameters.Add(new SqlParameter("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street)))
-        command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city)))
-        command.Parameters.Add(new SqlParameter("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state)))
-        command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
+        command.Parameters.Add(new SqlParameter("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id)))
+        command.Parameters.Add(new SqlParameter("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name)))
+        command.Parameters.Add(new SqlParameter("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name)))
+        command.Parameters.Add(new SqlParameter("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept)))
+        command.Parameters.Add(new SqlParameter("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell)))
+        command.Parameters.Add(new SqlParameter("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid)))
+        command.Parameters.Add(new SqlParameter("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)))
+        command.Parameters.Add(new SqlParameter("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time)))
+        command.Parameters.Add(new SqlParameter("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
     end
 
     ;If we're reusing the SqlCommand bind data to the existing parameters in the existing command
@@ -727,41 +727,41 @@ proc
     if (Settings.SqlCommandReuse) then
     begin
         ;Existing command and parameters
-        command.Parameters["@EmpId"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_id)
-        command.Parameters["@EmpFirstName"].Value = DblToNetConverter.AlphaToString(employee.emp_first_name)
-        command.Parameters["@EmpLastName"].Value = DblToNetConverter.AlphaToString(employee.emp_last_name)
-        command.Parameters["@EmpDept"].Value = DblToNetConverter.AlphaToString(employee.emp_dept)
-        command.Parameters["@EmpHireDate"].Value = DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date)
-        command.Parameters["@EmpPhoneWork"].Value = DblToNetConverter.AlphaToString(employee.emp_phone_work)
-        command.Parameters["@EmpPhoneCell"].Value = DblToNetConverter.AlphaToString(employee.emp_phone_cell)
-        command.Parameters["@EmpPaid"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_paid)
-        command.Parameters["@EmpDateOfBirth"].Value = DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)
-        command.Parameters["@EmpHireTime"].Value = DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time)
-        command.Parameters["@EmpEmail"].Value = DblToNetConverter.AlphaToString(employee.emp_email)
-        command.Parameters["@EmpAddressStreet"].Value = DblToNetConverter.AlphaToString(employee.emp_address_street)
-        command.Parameters["@EmpAddressCity"].Value = DblToNetConverter.AlphaToString(employee.emp_address_city)
-        command.Parameters["@EmpAddressState"].Value = DblToNetConverter.AlphaToString(employee.emp_address_state)
-        command.Parameters["@EmpAddressZip"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)
+        command.Parameters["@EmpId"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_id)
+        command.Parameters["@EmpFirstName"].Value = DblNetConverter.AlphaToString(employee.emp_first_name)
+        command.Parameters["@EmpLastName"].Value = DblNetConverter.AlphaToString(employee.emp_last_name)
+        command.Parameters["@EmpDept"].Value = DblNetConverter.AlphaToString(employee.emp_dept)
+        command.Parameters["@EmpHireDate"].Value = DblNetConverter.DateToNullableDateTime(employee.emp_hire_date)
+        command.Parameters["@EmpPhoneWork"].Value = DblNetConverter.AlphaToString(employee.emp_phone_work)
+        command.Parameters["@EmpPhoneCell"].Value = DblNetConverter.AlphaToString(employee.emp_phone_cell)
+        command.Parameters["@EmpPaid"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_paid)
+        command.Parameters["@EmpDateOfBirth"].Value = DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)
+        command.Parameters["@EmpHireTime"].Value = DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time)
+        command.Parameters["@EmpEmail"].Value = DblNetConverter.AlphaToString(employee.emp_email)
+        command.Parameters["@EmpAddressStreet"].Value = DblNetConverter.AlphaToString(employee.emp_address_street)
+        command.Parameters["@EmpAddressCity"].Value = DblNetConverter.AlphaToString(employee.emp_address_city)
+        command.Parameters["@EmpAddressState"].Value = DblNetConverter.AlphaToString(employee.emp_address_state)
+        command.Parameters["@EmpAddressZip"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_address_zip)
     end
     else
     begin
         ;New command and parameters
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
-        command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
-        command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
-        command.Parameters.AddWithValue("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept))
-        command.Parameters.AddWithValue("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date))
-        command.Parameters.AddWithValue("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work))
-        command.Parameters.AddWithValue("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell))
-        command.Parameters.AddWithValue("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid))
-        command.Parameters.AddWithValue("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
-        command.Parameters.AddWithValue("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
-        command.Parameters.AddWithValue("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email))
-        command.Parameters.AddWithValue("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street))
-        command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
-        command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
-        command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
+        command.Parameters.AddWithValue("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id))
+        command.Parameters.AddWithValue("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name))
+        command.Parameters.AddWithValue("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name))
+        command.Parameters.AddWithValue("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept))
+        command.Parameters.AddWithValue("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+        command.Parameters.AddWithValue("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work))
+        command.Parameters.AddWithValue("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell))
+        command.Parameters.AddWithValue("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid))
+        command.Parameters.AddWithValue("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+        command.Parameters.AddWithValue("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+        command.Parameters.AddWithValue("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email))
+        command.Parameters.AddWithValue("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street))
+        command.Parameters.AddWithValue("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city))
+        command.Parameters.AddWithValue("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state))
+        command.Parameters.AddWithValue("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip))
     end
 
     ;In manual commit mode, commit or rollback the transaction
@@ -923,21 +923,21 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.Add(new SqlParameter("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id)))
-        command.Parameters.Add(new SqlParameter("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name)))
-        command.Parameters.Add(new SqlParameter("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name)))
-        command.Parameters.Add(new SqlParameter("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept)))
-        command.Parameters.Add(new SqlParameter("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date)))
-        command.Parameters.Add(new SqlParameter("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work)))
-        command.Parameters.Add(new SqlParameter("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell)))
-        command.Parameters.Add(new SqlParameter("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid)))
-        command.Parameters.Add(new SqlParameter("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)))
-        command.Parameters.Add(new SqlParameter("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time)))
-        command.Parameters.Add(new SqlParameter("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email)))
-        command.Parameters.Add(new SqlParameter("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street)))
-        command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city)))
-        command.Parameters.Add(new SqlParameter("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state)))
-        command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
+        command.Parameters.Add(new SqlParameter("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id)))
+        command.Parameters.Add(new SqlParameter("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name)))
+        command.Parameters.Add(new SqlParameter("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name)))
+        command.Parameters.Add(new SqlParameter("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept)))
+        command.Parameters.Add(new SqlParameter("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell)))
+        command.Parameters.Add(new SqlParameter("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid)))
+        command.Parameters.Add(new SqlParameter("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)))
+        command.Parameters.Add(new SqlParameter("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time)))
+        command.Parameters.Add(new SqlParameter("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
@@ -991,41 +991,41 @@ proc
             if (Settings.SqlCommandReuse) then
             begin
                 ;Bind data for the current record to the existing command parameters
-                command.Parameters["@EmpId"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_id)
-                command.Parameters["@EmpFirstName"].Value = DblToNetConverter.AlphaToString(employee.emp_first_name)
-                command.Parameters["@EmpLastName"].Value = DblToNetConverter.AlphaToString(employee.emp_last_name)
-                command.Parameters["@EmpDept"].Value = DblToNetConverter.AlphaToString(employee.emp_dept)
-                command.Parameters["@EmpHireDate"].Value = DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date)
-                command.Parameters["@EmpPhoneWork"].Value = DblToNetConverter.AlphaToString(employee.emp_phone_work)
-                command.Parameters["@EmpPhoneCell"].Value = DblToNetConverter.AlphaToString(employee.emp_phone_cell)
-                command.Parameters["@EmpPaid"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_paid)
-                command.Parameters["@EmpDateOfBirth"].Value = DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)
-                command.Parameters["@EmpHireTime"].Value = DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time)
-                command.Parameters["@EmpEmail"].Value = DblToNetConverter.AlphaToString(employee.emp_email)
-                command.Parameters["@EmpAddressStreet"].Value = DblToNetConverter.AlphaToString(employee.emp_address_street)
-                command.Parameters["@EmpAddressCity"].Value = DblToNetConverter.AlphaToString(employee.emp_address_city)
-                command.Parameters["@EmpAddressState"].Value = DblToNetConverter.AlphaToString(employee.emp_address_state)
-                command.Parameters["@EmpAddressZip"].Value = DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip)
+                command.Parameters["@EmpId"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_id)
+                command.Parameters["@EmpFirstName"].Value = DblNetConverter.AlphaToString(employee.emp_first_name)
+                command.Parameters["@EmpLastName"].Value = DblNetConverter.AlphaToString(employee.emp_last_name)
+                command.Parameters["@EmpDept"].Value = DblNetConverter.AlphaToString(employee.emp_dept)
+                command.Parameters["@EmpHireDate"].Value = DblNetConverter.DateToNullableDateTime(employee.emp_hire_date)
+                command.Parameters["@EmpPhoneWork"].Value = DblNetConverter.AlphaToString(employee.emp_phone_work)
+                command.Parameters["@EmpPhoneCell"].Value = DblNetConverter.AlphaToString(employee.emp_phone_cell)
+                command.Parameters["@EmpPaid"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_paid)
+                command.Parameters["@EmpDateOfBirth"].Value = DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)
+                command.Parameters["@EmpHireTime"].Value = DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time)
+                command.Parameters["@EmpEmail"].Value = DblNetConverter.AlphaToString(employee.emp_email)
+                command.Parameters["@EmpAddressStreet"].Value = DblNetConverter.AlphaToString(employee.emp_address_street)
+                command.Parameters["@EmpAddressCity"].Value = DblNetConverter.AlphaToString(employee.emp_address_city)
+                command.Parameters["@EmpAddressState"].Value = DblNetConverter.AlphaToString(employee.emp_address_state)
+                command.Parameters["@EmpAddressZip"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_address_zip)
             end
             else
             begin
                 ;Create the SqlCommand, add parameters and bind the data for the current record
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-                command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
-                command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
-                command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
-                command.Parameters.AddWithValue("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept))
-                command.Parameters.AddWithValue("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date))
-                command.Parameters.AddWithValue("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work))
-                command.Parameters.AddWithValue("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell))
-                command.Parameters.AddWithValue("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid))
-                command.Parameters.AddWithValue("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
-                command.Parameters.AddWithValue("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
-                command.Parameters.AddWithValue("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email))
-                command.Parameters.AddWithValue("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street))
-                command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
-                command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
-                command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
+                command.Parameters.AddWithValue("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id))
+                command.Parameters.AddWithValue("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name))
+                command.Parameters.AddWithValue("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name))
+                command.Parameters.AddWithValue("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept))
+                command.Parameters.AddWithValue("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+                command.Parameters.AddWithValue("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work))
+                command.Parameters.AddWithValue("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell))
+                command.Parameters.AddWithValue("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid))
+                command.Parameters.AddWithValue("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+                command.Parameters.AddWithValue("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+                command.Parameters.AddWithValue("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email))
+                command.Parameters.AddWithValue("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street))
+                command.Parameters.AddWithValue("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city))
+                command.Parameters.AddWithValue("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state))
+                command.Parameters.AddWithValue("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip))
                 if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
                 begin
                     command.Transaction = Settings.CurrentTransaction
@@ -1234,21 +1234,21 @@ proc
             end
 
             ;Bind the host variables for data to be updated
-            command.Parameters.AddWithValue("@EmpId",DblToNetConverter.SmallDecimalToInt(employee.emp_id))
-            command.Parameters.AddWithValue("@EmpFirstName",DblToNetConverter.AlphaToString(employee.emp_first_name))
-            command.Parameters.AddWithValue("@EmpLastName",DblToNetConverter.AlphaToString(employee.emp_last_name))
-            command.Parameters.AddWithValue("@EmpDept",DblToNetConverter.AlphaToString(employee.emp_dept))
-            command.Parameters.AddWithValue("@EmpHireDate",DblToNetConverter.DateToNullableDateTime(employee.emp_hire_date))
-            command.Parameters.AddWithValue("@EmpPhoneWork",DblToNetConverter.AlphaToString(employee.emp_phone_work))
-            command.Parameters.AddWithValue("@EmpPhoneCell",DblToNetConverter.AlphaToString(employee.emp_phone_cell))
-            command.Parameters.AddWithValue("@EmpPaid",DblToNetConverter.SmallDecimalToInt(employee.emp_paid))
-            command.Parameters.AddWithValue("@EmpDateOfBirth",DblToNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
-            command.Parameters.AddWithValue("@EmpHireTime",DblToNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
-            command.Parameters.AddWithValue("@EmpEmail",DblToNetConverter.AlphaToString(employee.emp_email))
-            command.Parameters.AddWithValue("@EmpAddressStreet",DblToNetConverter.AlphaToString(employee.emp_address_street))
-            command.Parameters.AddWithValue("@EmpAddressCity",DblToNetConverter.AlphaToString(employee.emp_address_city))
-            command.Parameters.AddWithValue("@EmpAddressState",DblToNetConverter.AlphaToString(employee.emp_address_state))
-            command.Parameters.AddWithValue("@EmpAddressZip",DblToNetConverter.SmallDecimalToInt(employee.emp_address_zip))
+            command.Parameters.AddWithValue("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id))
+            command.Parameters.AddWithValue("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name))
+            command.Parameters.AddWithValue("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name))
+            command.Parameters.AddWithValue("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept))
+            command.Parameters.AddWithValue("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+            command.Parameters.AddWithValue("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work))
+            command.Parameters.AddWithValue("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell))
+            command.Parameters.AddWithValue("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid))
+            command.Parameters.AddWithValue("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+            command.Parameters.AddWithValue("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+            command.Parameters.AddWithValue("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email))
+            command.Parameters.AddWithValue("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street))
+            command.Parameters.AddWithValue("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city))
+            command.Parameters.AddWithValue("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state))
+            command.Parameters.AddWithValue("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip))
 
             rows = command.ExecuteNonQuery()
 
@@ -2492,47 +2492,47 @@ proc
         & }
 
         disposable data prc = new Process() { StartInfo=psi }
-        prc.OutputDataReceived += outputReceived
-        prc.ErrorDataReceived += errorReceived
 
         data output = new List<string>()
         data errors = new List<string>()
 
-        ;Monitor the process output
-        lambda outputReceived(sender,args)
-        begin
-;NOT WORKING. NEVER GETS HERE!
-            output.Add(args.Data)
-            if (args.Data.Contains("rows copied")) then
-            begin
-                ;1000000 rows copied.
-                data regex = new Regex("^\d+")
-                data match = regex.Match(args.data)
-                if (match.Success)
-                begin
-                    recordCount = int.Parse(match.Value)
-                end
-            end
-            else if (args.Data.StartsWith("Network packet size")) then
-            begin
-                ;Network packet size (bytes): 8000
-
-            end
-            else if (args.Data.StartsWith("Clock Time"))
-            begin
-                ;Clock Time (ms.) Total     : 36484  Average : (27409.28 rows per sec.)
-
-            end
-        end
-
-        lambda errorReceived(sender,args)
-        begin
-;NOT WORKING. NEVER GETS HERE!
-            errors.Add(args.Data)
-        end
-
         try
         begin
+            ;Monitor the process output
+            lambda outputReceived(sender,args)
+            begin
+;NOT WORKING. NEVER GETS HERE!
+                output.Add(args.Data)
+                if (args.Data.Contains("rows copied")) then
+                begin
+                    ;1000000 rows copied.
+                    data regex = new Regex("^\d+")
+                    data match = regex.Match(args.data)
+                    if (match.Success)
+                    begin
+                        recordCount = int.Parse(match.Value)
+                    end
+                end
+                else if (args.Data.StartsWith("Network packet size")) then
+                begin
+                    ;Network packet size (bytes): 8000
+
+                end
+                else if (args.Data.StartsWith("Clock Time"))
+                begin
+                    ;Clock Time (ms.) Total     : 36484  Average : (27409.28 rows per sec.)
+
+                end
+            end
+            prc.OutputDataReceived += outputReceived
+
+            lambda errorReceived(sender,args)
+            begin
+;NOT WORKING. NEVER GETS HERE!
+                errors.Add(args.Data)
+            end
+            prc.ErrorDataReceived += errorReceived
+
             ;Start the process
             prc.Start()
 

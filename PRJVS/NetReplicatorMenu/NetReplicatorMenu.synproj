@@ -14,20 +14,27 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
     <Prefer32Bit>False</Prefer32Bit>
+    <OutputPath>$(SolutionDir)EXE</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
     <Prefer32Bit>False</Prefer32Bit>
+    <OutputPath>$(SolutionDir)EXE</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
     <Prefer32Bit>False</Prefer32Bit>
+    <OutputPath>$(SolutionDir)EXE</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
     <Prefer32Bit>False</Prefer32Bit>
+    <OutputPath>$(SolutionDir)EXE</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\SRC\LOADTEST\EmployeeLoadTester.dbl" />
+    <Compile Include="..\..\SRC\LOADTEST\ILoadTestWorker.dbl" />
+    <Compile Include="..\..\SRC\LOADTEST\LoadTestManager.dbl" />
     <Compile Include="..\..\SRC\TOOLS\ReplicatorMenu.dbl" />
   </ItemGroup>
   <ItemGroup>
