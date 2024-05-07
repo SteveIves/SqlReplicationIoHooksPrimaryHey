@@ -4,7 +4,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Configuration)' == '' ">x86</Platform>
     <Name>tools</Name>
-    <StartupObject>EmployeeMaintenance.dbl</StartupObject>
+    <StartupObject>ReplicatorMenu.dbl</StartupObject>
     <OutputName>$(StartupObject)</OutputName>
     <ProjectGuid>{123f18a8-db24-4ed3-91bf-ed7917bef4c1}</ProjectGuid>
     <ProjectTypeGuids>{7B8CF543-378A-4EC1-BB1B-98E4DC6E6820};{BBD0F5D1-1CC4-42fd-BA4C-A96779C64378}</ProjectTypeGuids>

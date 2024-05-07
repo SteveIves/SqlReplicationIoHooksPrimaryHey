@@ -57,6 +57,7 @@
     <Compile Include="..\..\SRC\LIBRARY\Counters.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseCommunicationException.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseConnect.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseConnection.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseDisconnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseReconnect.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DatabaseTransform.dbl" />
@@ -74,7 +75,6 @@
     <Compile Include="..\..\SRC\LIBRARY\GenerateDepartmentData.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\GenerateEmployeeData.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\GetDateTimeString.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\GetSettings.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\ILoadTestWorker.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\IndexExists.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Index_Exists.dbl" />

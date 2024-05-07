@@ -117,6 +117,9 @@
     <Compile Include="..\..\SRC\LIBRARY\DatabaseConnect.dbl">
       <Link>DatabaseConnect.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\DatabaseConnection.dbl">
+      <Link>DatabaseConnection.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\DatabaseDisconnect.dbl">
       <Link>DatabaseDisconnect.dbl</Link>
     </Compile>
@@ -155,9 +158,6 @@
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\GetDateTimeString.dbl">
       <Link>GetDateTimeString.dbl</Link>
-    </Compile>
-    <Compile Include="..\..\SRC\LIBRARY\GetSettings.dbl">
-      <Link>GetSettings.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\IndexExists.dbl">
       <Link>IndexExists.dbl</Link>

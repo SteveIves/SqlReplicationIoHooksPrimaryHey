@@ -94,7 +94,7 @@ proc
     ;Load the replication environment settings
     begin
         data errorMessage, string
-        if (!%GetSettings(errorMessage))
+        if (!Settings.Load(errorMessage))
         begin
             Console.WriteLine("ERROR: Failed to load replication environment settings. Error was: " + errorMessage)
             Console.Write("Press ENTER: ")
@@ -692,7 +692,7 @@ proc
                 xcall setlog("REPLICATOR_INSTANCE",Settings.InstanceName,status)
 
                 ;Load the new instances settings
-                if (!%GetSettings(errorMessage))
+                if (!Settings.Load(errorMessage))
                 begin
                     Console.WriteLine("ERROR: Failed to load replication environment settings. Error was: " + errorMessage)
                     Console.Write("Press ENTER: ")

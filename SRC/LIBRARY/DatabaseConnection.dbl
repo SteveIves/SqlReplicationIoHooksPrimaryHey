@@ -1,0 +1,31 @@
+
+namespace ReplicationLibrary
+
+    public enum DatabaseConnectionMode
+        SqlConnection,      1
+        SqlClient,          2
+    endenum
+
+    ;;; <summary>
+    ;;; Represents a database connection in the DatabaseConnections collection
+    ;;; </summary>
+    public class DatabaseConnection
+
+        ;;; <summary>
+        ;;; The name of the database connection
+        ;;; </summary>
+        public readwrite property Name, string
+
+        ;;; <summary>
+        ;;; The database connection mode
+        ;;; </summary>
+        public readwrite property Mode, DatabaseConnectionMode
+
+        ;;; <summary>
+        ;;; The database connect string to use
+        ;;; </summary>
+        public readwrite property ConnectString, string
+
+    endclass
+
+endnamespace

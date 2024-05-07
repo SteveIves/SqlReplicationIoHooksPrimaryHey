@@ -8,7 +8,7 @@
   ],
   "InstanceDefaults": {
     "QueueType": "Kafka",
-    "DatabaseConnectionName": "SqlClient_LOCAL",
+    "DatabaseConnectionName": "SqlConnection_LOCAL",
     "DatabaseServer": "localhost",
     "DatabaseName": "SqlReplication",
     "DatabaseSchema": "dbo",

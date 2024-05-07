@@ -25,6 +25,7 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:Counters.dbl -
  + LIBSRC:DatabaseCommunicationException.dbl -
  + LIBSRC:DatabaseConnect.dbl -
+ + LIBSRC:DatabaseConnection.dbl -
  + LIBSRC:DatabaseDisconnect.dbl -
  + LIBSRC:DatabaseReconnect.dbl -
  + LIBSRC:DatabaseTransform.dbl -
@@ -38,7 +39,6 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:GenerateDepartmentData.dbl -
  + LIBSRC:GenerateEmployeeData.dbl -
  + LIBSRC:GetDateTimeString.dbl -
- + LIBSRC:GetSettings.dbl -
  + LIBSRC:IndexExists.dbl -
  + LIBSRC:InstanceDefaultSettings.dbl -
  + LIBSRC:InstanceInfo.dbl -

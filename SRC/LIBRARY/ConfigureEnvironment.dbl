@@ -35,7 +35,7 @@ proc
 
     ;Get settings from the environment and ReplicatorConfig.json
 
-    ok = %GetSettings(errorMessage)
+    ok = Settings.Load(errorMessage)
 
     ;Running on terminal?
 
