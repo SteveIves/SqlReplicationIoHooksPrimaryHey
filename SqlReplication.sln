@@ -67,8 +67,6 @@ Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetReplicationLibrary", "PR
 EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetReplicatorMenu", "PRJVS\NetReplicatorMenu\NetReplicatorMenu.synproj", "{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}"
 EndProject
-Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetKafkaClientTest", "PRJVS\NetMqClientTest\NetKafkaClientTest.synproj", "{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DAT", "DAT", "{9C0C9260-545E-4B29-B8EE-F471D1FE83C3}"
 	ProjectSection(SolutionItems) = preProject
 		DAT\.gitignore = DAT\.gitignore
@@ -272,24 +270,6 @@ Global
 		{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}.Release|x64.Build.0 = Release|Any CPU
 		{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}.Release|x86.ActiveCfg = Release|x86
 		{8D5E6B55-813C-4921-A676-E0EB82A3DBD9}.Release|x86.Build.0 = Release|x86
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|x64.Build.0 = Debug|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|x86.ActiveCfg = Debug|x86
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Debug|x86.Build.0 = Debug|x86
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|Any CPU.ActiveCfg = Debug|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|Any CPU.Build.0 = Debug|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|x64.ActiveCfg = Debug|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|x64.Build.0 = Debug|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|x86.ActiveCfg = Debug|x86
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Deploy|x86.Build.0 = Debug|x86
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x64.ActiveCfg = Release|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x64.Build.0 = Release|Any CPU
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x86.ActiveCfg = Release|x86
-		{FABEB5BE-F6DC-44F7-A88A-3BCDA3ECFA4B}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -467,7 +467,7 @@ namespace ReplicationLibrary
 
             ;;If we're on a 64-bit system, or we're on a 32-bit system and the
             ;;size of the data is less than 64K then we can copy it in one go
-.ifdef D_NETSTANDARD
+.ifdef DBLNET
             if (Environment.Is64BitProcess || (totalSize <= D_32BIT_MAX)) then
 .else
             if ((D_ADDRSIZE == 8) || (totalSize <= D_32BIT_MAX)) then
@@ -627,7 +627,7 @@ namespace ReplicationLibrary
                 ;;If we're on a 64-bit system, or if we're on a 32-bit system
                 ;;and the size of the data is less than 64K, then we can write
                 ;;the data out with a single PUTS.
-.ifdef D_NETSTANDARD
+.ifdef DBLNET
                 if (Environment.Is64BitProcess || (totalSize <= D_32BIT_MAX)) then
 .else
                 if ((D_ADDRSIZE==8)||(totalSize<=D_32BIT_MAX)) then
@@ -723,7 +723,7 @@ namespace ReplicationLibrary
             mreturn outData
         endmethod
 
-.ifdef D_NETSTANDARD
+.ifdef DBLNET
         public static method StringToFile, boolean
             required in inString    ,string
             required in fileSpec    ,string

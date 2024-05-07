@@ -35,7 +35,7 @@
 ;;
 ;;*****************************************************************************
 
-.ifndef D_NETSTANDARD
+.ifndef DBLNET
 
 import System.Collections
 

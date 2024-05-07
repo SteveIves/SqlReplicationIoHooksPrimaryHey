@@ -35,7 +35,7 @@
 ;;
 ;;*****************************************************************************
 
-.ifdef D_NETSTANDARD
+.ifdef DBLNET
 import System.Collections.Generic
 import System.Linq
 import System.Net.Http
@@ -160,7 +160,7 @@ namespace ReplicationLibrary
         endmethod
 
 
-.ifdef D_NETSTANDARD
+.ifdef DBLNET
         ;;; <summary>
         ;;; Upload a file in multiple chunks
         ;;; </summary>
@@ -440,7 +440,7 @@ namespace ReplicationLibrary
             using httpError = %http_get(getURI("text/"+serverFileName),,responseBody,errorMessage,requestHeaders,responseHeaders,,,,,,,"1.1") select
             (0), ;OK (actually 200)
             begin
-.ifdef D_NETSTANDARD
+.ifdef DBLNET
                 disposable data doc, @JsonDocument, JsonDocument.Parse(responseBody)
                 data root, JsonElement, doc.RootElement
 

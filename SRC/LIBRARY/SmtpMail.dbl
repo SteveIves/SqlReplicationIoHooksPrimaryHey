@@ -72,7 +72,7 @@
 ;;
 ;;*****************************************************************************
 
-.ifndef D_NETSTANDARD
+.ifndef DBLNET
 
 function SmtpMail ,^val
 
