@@ -23,6 +23,6 @@ rem ---------------------------------------------------------------------------
 rem Generate code
 
 rem Generate SQL I/O routines for the structures being replicated
-codegen -s %STRUCTURES% -t SqlIO SqlClientIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
+codegen -s %STRUCTURES% -t SqlIO SqlClientIO SdmsIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
 
 endlocal

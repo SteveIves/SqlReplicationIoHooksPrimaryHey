@@ -1,62 +1,8 @@
-<CODEGEN_FILENAME><StructureName>SdmsIO.dbl</CODEGEN_FILENAME>
-<REQUIRES_CODEGEN_VERSION>6.0.2</REQUIRES_CODEGEN_VERSION>
-;//****************************************************************************
-;//
-;// Guard against REPLICATOR_EXCLUDE being used on key segments
-;//
-<COUNTER_1_RESET>
-<FIELD_LOOP>
-  <IF CUSTOM_REPLICATOR_EXCLUDE AND KEYSEGMENT>
-    <COUNTER_1_INCREMENT>
-    <IF COUNTER_1_EQ_1>
-*****************************************************************************
-CODE GENERATION EXCEPTIONS:
-
-    </IF COUNTER_1_EQ_1>
-Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a key segment!
-
-  </IF CUSTOM_REPLICATOR_EXCLUDE>
-</FIELD_LOOP>
-;//
-;//*****************************************************************************
-;//
-;// Title:       SdmsIO.tpl
-;//
-;// Description: Template to generate a collection of Synergy functions which
-;//              facilitate SDMS to SDMS data replication.
-;//
-;// Author:      Steve Ives, Synergex Professional Services Group
-;//
-;// Copyright    (c) 2024 Synergex International Corporation.
-;//              All rights reserved.
-;//
-;// Redistribution and use in source and binary forms, with or without
-;// modification, are permitted provided that the following conditions are met:
-;//
-;// * Redistributions of source code must retain the above copyright notice,
-;//   this list of conditions and the following disclaimer.
-;//
-;// * Redistributions in binary form must reproduce the above copyright notice,
-;//   this list of conditions and the following disclaimer in the documentation
-;//   and/or other materials provided with the distribution.
-;//
-;// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-;// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-;// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-;// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-;// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-;// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-;// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-;// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-;// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-;// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-;// POSSIBILITY OF SUCH DAMAGE.
-;//
 ;*****************************************************************************
 ;
-; File:        <StructureName>SdmsIO.dbl
+; File:        EmployeeSdmsIO.dbl
 ;
-; Description: Various functions that performs SDMS I/O for <STRUCTURE_NAME>
+; Description: Various functions that performs SDMS I/O for EMPLOYEE
 ;
 ;*****************************************************************************
 ; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
@@ -70,8 +16,8 @@ import System.IO
 .endc
 import System.Text
 
-.ifndef str<StructureName>
-.include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
+.ifndef strEmployee
+.include "EMPLOYEE" repository, structure="strEmployee", end
 .endc
 
 .define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
@@ -79,12 +25,12 @@ import System.Text
 
 ;*****************************************************************************
 ; <summary>
-; Determines if <FILE_NAME> exists in the replicated data set.
+; Determines if REPLICATOR_DATA:EMPLOYEE.ISM exists in the replicated data set.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
 
-function <StructureName>Exists, ^val
+function EmployeeExists, ^val
     required out errorMessage, a
     endparams
 
@@ -97,12 +43,12 @@ proc
     init localData
     errorMessage = ""
 
-    if (ReplicationLibrary.File.Exists("<FILE_NAME>")) then
+    if (ReplicationLibrary.File.Exists("REPLICATOR_DATA:EMPLOYEE.ISM")) then
         status = 1
     else
     begin
         status = 0
-        errorMessage = "File <FILE_NAME> does not exist!"
+        errorMessage = "File REPLICATOR_DATA:EMPLOYEE.ISM does not exist!"
     end
 
     freturn status
@@ -111,20 +57,17 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Creates <FILE_NAME> in the replicated data set.
+; Creates REPLICATOR_DATA:EMPLOYEE.ISM in the replicated data set.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Create, ^val
+function EmployeeCreate, ^val
     required out errorMessage, a
 
     .align
     stack record localData
         ok,     boolean    ;Return status
-<IF STRUCTURE_RELATIVE>
-        ch,     int         ;Channel number
-</IF>
     endrecord
 
 proc
@@ -134,35 +77,25 @@ proc
 
     try
     begin
- <IF STRUCTURE_ISAM>
-        xcall isamc("<FILE_ISAMC_SPEC>",<STRUCTURE_SIZE>,<STRUCTURE_KEYS>,
-<KEY_LOOP>
-        & "<KEY_ISAMC_SPEC>"<,>
-</KEY_LOOP>
+        xcall isamc("REPLICATOR_DATA:EMPLOYEE.ISM,FIXED,COMPRESS,DENSITY=50,PAGE=1024",300,5,
+        & "START=1,LENGTH=8,NAME=EMP_ID,TYPE=ALPHA,ASCEND,DENSITY=50,DUPS,NOATEND,NOMODIFY",
+        & "START=49,LENGTH=15,NAME=EMP_DEPT,ASCEND,DENSITY=50,NODUPS,MODIFY",
+        & "START=29,LENGTH=20,NAME=EMP_LAST_NAME,TYPE=NOCASE,ORDER=A,DENSITY=50,NODUPS,MODIFY",
+        & "START=218,LENGTH=2,NAME=STATE_CODE,TYPE=ALPHA,ORDER=A,DENSITY=50,NODUPS,MODIFY",
+        & "START=220,LENGTH=5,NAME=ZIP_CODE,TYPE=ALPHA,ORDER=A,DENSITY=50,NODUPS,MODIFY"
         & )
-<ELSE STRUCTURE_RELATIVE>
-        open(ch=0,o:r,"<FILE_NAME>",RECSIZ:<STRUCTURE_SIZE>)
-</IF>
     end
     catch (ex, @Exception)
     begin
         ok = false
-        errorMessage = "Failed to create <FILE_NAME>. Error was " + ex.Message
+        errorMessage = "Failed to create REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
     end
-<IF STRUCTURE_RELATIVE>
-    finally
-    begin
-        if (ch > 0)
-            close ch
-    end
-</IF>
     endtry
 
     freturn ok
 
 endfunction
 
-<IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ; <summary>
 ; Not used in the SDMS replication use case.
@@ -170,7 +103,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Index, ^val
+function EmployeeIndex, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -184,29 +117,22 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>UnIndex, ^val
+function EmployeeUnIndex, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
     freturn true
 endfunction
 
-</IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ; <summary>
-; Insert a record into <FILE_NAME>.
+; Insert a record into REPLICATOR_DATA:EMPLOYEE.ISM.
 ; </summary>
-<IF STRUCTURE_RELATIVE>
-; <param name="recordNumber">Relative record number to be inserted.</param>
-</IF STRUCTURE_RELATIVE>
 ; <param name="recordData">Record to be inserted.</param>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
-function <StructureName>Insert, ^val
-<IF STRUCTURE_RELATIVE>
-    required in  recordNumber, n
-</IF STRUCTURE_RELATIVE>
+function EmployeeInsert, ^val
     required in  recordData,   a
     required out errorMessage, a
 
@@ -222,11 +148,7 @@ proc
 
     try
     begin
-<IF STRUCTURE_ISAM>
         store(updateChannel,recordData)
-<ELSE STRUCTURE_RELATIVE>
-        write(updateChannel,recordData,recordNumber)
-</IF>
     end
     catch (ex, @DuplicateKeyException)
     begin
@@ -246,14 +168,14 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Inserts multiple records into <FILE_NAME>.
+; Inserts multiple records into REPLICATOR_DATA:EMPLOYEE.ISM.
 ; </summary>
 ; <param name="recordsHandle">Memory handle containing one or more rows to insert.</param>
 ; <param name="errorMessage">Returned error text.</param>
 ; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>InsertRows, ^val
+function EmployeeInsertRows, ^val
     required in  recordsHandle, D_HANDLE
     required out errorMessage, a
     required out exceptionRecordsHandle, D_HANDLE
@@ -265,20 +187,10 @@ function <StructureName>InsertRows, ^val
         rows        ,int        ;Number of rows to insert
         ex_ms       ,int        ;Size of exception array
         ex_mc       ,int        ;Items in exception array
-<IF STRUCTURE_RELATIVE>
-        recordNumber,d28
-</IF STRUCTURE_RELATIVE>
     endrecord
 
-<IF STRUCTURE_ISAM>
-    .include "<STRUCTURE_NOALIAS>" repository, structure="inpbuf", nofields, end
-<ELSE STRUCTURE_RELATIVE>
-    structure inpbuf
-        recnum, d28
-        .include "<STRUCTURE_NOALIAS>" repository, group="inprec", nofields
-    endstructure
-</IF STRUCTURE_ISAM>
-    .include "<STRUCTURE_NOALIAS>" repository, static record="<structure_name>", end
+    .include "EMPLOYEE" repository, structure="inpbuf", nofields, end
+    .include "EMPLOYEE" repository, static record="employee", end
 
 proc
     init localData
@@ -297,26 +209,12 @@ proc
         begin
             ;Load data into bound record
 
-<IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
-            <structure_name> = %<structure_name>_map(^m(inpbuf[cnt],recordsHandle))
-<ELSE STRUCTURE_ISAM AND NOT STRUCTURE_MAPPED>
-            <structure_name> = ^m(inpbuf[cnt],recordsHandle)
-<ELSE STRUCTURE_RELATIVE AND STRUCTURE_MAPPED>
-            recordNumber = ^m(inpbuf[cnt].recnum,recordsHandle)
-            <structure_name> = %<structure_name>_map(^m(inpbuf[cnt].inprec,recordsHandle))
-<ELSE STRUCTURE_RELATIVE AND NOT STRUCTURE_MAPPED>
-            recordNumber = ^m(inpbuf[cnt].recnum,recordsHandle)
-            <structure_name> = ^m(inpbuf[cnt].inprec,recordsHandle)
-</IF STRUCTURE_ISAM>
+            employee = ^m(inpbuf[cnt],recordsHandle)
 
             ;Insert the record into the file
             try
             begin
-<IF STRUCTURE_ISAM>
-                store(ch,<structure_name>)
-<ELSE STRUCTURE_RELATIVE>
-                write(ch,<structure_name>,recordNumber)
-</IF>
+                store(ch,employee)
             end
             catch (ex, @Exception)
             begin
@@ -330,7 +228,7 @@ proc
                 begin
                     exceptionRecordsHandle = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),exceptionRecordsHandle)
                 end
-                ^m(inpbuf[ex_mc],exceptionRecordsHandle) = <structure_name>
+                ^m(inpbuf[ex_mc],exceptionRecordsHandle) = employee
             end
             endtry
         end
@@ -350,20 +248,14 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Updates a record in <FILE_NAME>.
+; Updates a record in REPLICATOR_DATA:EMPLOYEE.ISM.
 ; </summary>
-<IF STRUCTURE_RELATIVE>
-; <param name="recordNumber">record number.</param>
-</IF STRUCTURE_RELATIVE>
 ; <param name="dataRecord">Record containing data to update.</param>
 ; <param name="recordsUpdated">Returned number of rows affected.</param>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Update, ^val
-<IF STRUCTURE_RELATIVE>
-    required in  recordNumber, n
-</IF STRUCTURE_RELATIVE>
+function EmployeeUpdate, ^val
     required in  dataRecord, a
     required out recordsUpdated, i
     required out errorMessage, a
@@ -375,12 +267,12 @@ function <StructureName>Update, ^val
     endrecord
 
     static record
-        <structure_name>, str<StructureName>
+        employee, strEmployee
     endrecord
 
     external function
-        <StructureName>KeyVal, ^val
-        <StructureName>KeyNum, ^value
+        EmployeeKeyVal, ^val
+        EmployeeKeyNum, ^value
     endexternal
 
 proc
@@ -390,17 +282,13 @@ proc
 
     ;Extract the key value from the RECORD
 
-    xcall <StructureName>KeyVal(dataRecord,keyValue,keyLength)
+    xcall EmployeeKeyVal(dataRecord,keyValue,keyLength)
 
     ;Read the record to lock it
 
     try
     begin
-<IF STRUCTURE_ISAM>
-        read(updateChannel,<structure_name>,keyValue(1:keyLength),KEYNUM:%<StructureName>KeyNum)
-<ELSE STRUCTURE_RELATIVE>
-        read(updateChannel,<structure_name>,recordNumber)
-</IF>
+        read(updateChannel,employee,keyValue(1:keyLength),KEYNUM:%EmployeeKeyNum)
     end
     catch (ex, @Exception)
     begin
@@ -412,18 +300,10 @@ proc
 
     if (ok)
     begin
-<IF STRUCTURE_MAPPED>
-        <structure_name> = %<structure_name>_map(dataRecord)
-<ELSE>
-        <structure_name> = dataRecord
-</IF STRUCTURE_MAPPED>
+        employee = dataRecord
         try
         begin
-<IF STRUCTURE_ISAM>
-            write(updateChannel,<structure_name>)
-<ELSE STRUCTURE_RELATIVE>
-            write(updateChannel,<structure_name>,recordNumber)
-</IF>
+            write(updateChannel,employee)
             recordsUpdated = 1
             ok = true
         end
@@ -438,27 +318,26 @@ proc
 
 endfunction
 
-<IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ; <summary>
-; Deletes a record from <FILE_NAME>
+; Deletes a record from REPLICATOR_DATA:EMPLOYEE.ISM
 ; </summary>
 ; <param name="keyValue">Unique key of record to be deleted.</param>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Delete, ^val
+function EmployeeDelete, ^val
     required in  keyValue, a
     required out errorMessage, a
-    .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>", nofields
+    .include "EMPLOYEE" repository, stack record="employee", nofields
     external function
-        <StructureName>KeyNum, ^value
+        EmployeeKeyNum, ^value
     endexternal
 proc
     ;TODO: Needs to support relative files on OpenVMS
     try
     begin
-        read(updateChannel,<structure_name>,keyValue,KEYNUM:%<StructureName>KeyNum)
+        read(updateChannel,employee,keyValue,KEYNUM:%EmployeeKeyNum)
         try
         begin
             delete(updateChannel)
@@ -479,15 +358,14 @@ proc
     freturn false
 endfunction
 
-</IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ; <summary>
-; Deletes all rows from the <StructureName> table.
+; Deletes all rows from the Employee table.
 ; </summary>
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Clear, ^val
+function EmployeeClear, ^val
     required out errorMessage, a
 proc
     try
@@ -499,7 +377,7 @@ proc
     end
     catch (ex, @Exception)
     begin
-        errorMessage = "Failed to clear file <FILE_NAME>. Error was " + ex.Message
+        errorMessage = "Failed to clear file REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
     end
     endtry
     freturn false
@@ -507,25 +385,25 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Deletes the <StructureName> table from the database.
+; Deletes the Employee table from the database.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Drop, ^val
+function EmployeeDrop, ^val
     required out errorMessage, a
 proc
     if (updateChannel)
         close updateChannel
     try
     begin
-        xcall delet("<FILE_NAME>")
+        xcall delet("REPLICATOR_DATA:EMPLOYEE.ISM")
         errorMessage = ""
         freturn true
     end
     catch (ex, @Exception)
     begin
-        errorMessage = "Failed to delete <FILE_NAME>. Error was " + ex.Message
+        errorMessage = "Failed to delete REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
     end
     endtry
     freturn false
@@ -533,7 +411,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
+; Load all data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table.
 ; </summary>
 ; <param name="a_maxrows">Maximum number of rows to load.</param>
 ; <param name="a_added">Total number of successful inserts.</param>
@@ -541,33 +419,15 @@ endfunction
 ; <param name="a_errtxt">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Load, ^val
+function EmployeeLoad, ^val
     required in  a_maxrows,       n
     required out a_added,         n
     required out a_failed,        n
     required out a_errtxt,        a
 
     .include "CONNECTDIR:ssql.def"
-<IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
-    .include "<MAPPED_STRUCTURE>" repository, structure="inpbuf", end
-<ELSE STRUCTURE_ISAM AND NOT STRUCTURE_MAPPED>
-    .include "<STRUCTURE_NOALIAS>" repository, structure="inpbuf", end
-<ELSE STRUCTURE_RELATIVE AND STRUCTURE_MAPPED>
-    structure inpbuf
-        recnum, d28
-        .include "<MAPPED_STRUCTURE>" repository, group="inprec"
-<ELSE STRUCTURE_RELATIVE AND NOT STRUCTURE_MAPPED>
-    structure inpbuf
-        recnum, d28
-        .include "<STRUCTURE_NOALIAS>" repository, group="inprec"
-    endstructure
-    .include "<STRUCTURE_NOALIAS>" repository, structure="<STRUCTURE_NAME>", end
-</IF STRUCTURE_ISAM>
-<IF STRUCTURE_MAPPED>
-    .include "<MAPPED_STRUCTURE>" repository, stack record="tmprec", end
-<ELSE>
-    .include "<STRUCTURE_NOALIAS>" repository, stack record="tmprec", end
-</IF STRUCTURE_MAPPED>
+    .include "EMPLOYEE" repository, structure="inpbuf", end
+    .include "EMPLOYEE" repository, stack record="tmprec", end
 
     .define BUFFER_ROWS     1000
     .define EXCEPTION_BUFSZ 100
@@ -591,17 +451,11 @@ function <StructureName>Load, ^val
         errtxt      ,a512       ;Error message text
         now         ,a20        ;Current date and time
         timer       ,@Timer
-<IF STRUCTURE_RELATIVE>
-        recordNumber,d28
-</IF STRUCTURE_RELATIVE>
     endrecord
 
 proc
     init local_data
     ok = true
-<IF STRUCTURE_RELATIVE>
-    recordNumber = 0
-</IF STRUCTURE_RELATIVE>
 
     timer = new Timer()
     timer.Start()
@@ -609,12 +463,12 @@ proc
     ;If we are logging exceptions, delete any existing exceptions file.
     if (Settings.LogBulkLoadExceptions)
     begin
-        xcall delet("REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
+        xcall delet("REPLICATOR_LOGDIR:employee_data_exceptions.log")
     end
 
     ;Open the data file associated with the structure
 
-    if (!(filechn = %<StructureName>OpenInput(errtxt)))
+    if (!(filechn = %EmployeeOpenInput(errtxt)))
     begin
         errtxt = "Failed to open data file! Error was " + errtxt
         ok = false
@@ -639,39 +493,14 @@ proc
             ;Get the next record from the input file
             try
             begin
-;//
-;// First record processing
-;//
                 if (firstRecord) then
                 begin
-<IF STRUCTURE_TAGS>
-                    find(filechn,,^FIRST)
-                    repeat
-                    begin
-                        reads(filechn,tmprec)
-                        if (<TAG_LOOP><TAGLOOP_CONNECTOR_C>tmprec.<TAGLOOP_FIELD_NAME><TAGLOOP_OPERATOR_C><TAGLOOP_TAG_VALUE></TAG_LOOP>)
-                            exitloop
-                    end
-<ELSE>
                     read(filechn,tmprec,^FIRST)
-</IF STRUCTURE_TAGS>
                     firstRecord = false
                 end
-;//
-;// Subsequent record processing
-;//
                 else
                 begin
-<IF STRUCTURE_TAGS>
-                    repeat
-                    begin
-                        reads(filechn,tmprec)
-                        if (<TAG_LOOP><TAGLOOP_CONNECTOR_C>tmprec.<TAGLOOP_FIELD_NAME><TAGLOOP_OPERATOR_C><TAGLOOP_TAG_VALUE></TAG_LOOP>)
-                            exitloop
-                    end
-<ELSE>
                     reads(filechn,tmprec)
-</IF STRUCTURE_TAGS>
                 end
             end
             catch (ex, @EndOfFileException)
@@ -687,12 +516,7 @@ proc
             endtry
 
             ;Got one, load it into or buffer
-<IF STRUCTURE_ISAM>
             ^m(inpbuf[mc+=1],mh) = tmprec
-<ELSE STRUCTURE_RELATIVE>
-            ^m(inpbuf[mc+=1].recnum,mh) = recordNumber += 1
-            ^m(inpbuf[mc].inprec,mh) = tmprec
-</IF STRUCTURE_ISAM>
 
             incr done_records
 
@@ -755,7 +579,7 @@ insert_data,
 
     attempted = (%mem_proc(DM_GETSIZE,mh)/^size(inpbuf))
 
-    if (%<StructureName>InsertRows(mh,errtxt,ex_mh))
+    if (%EmployeeInsertRows(mh,errtxt,ex_mh))
     begin
         ;Any exceptions?
         if (ex_mh) then
@@ -771,12 +595,12 @@ insert_data,
                 data cnt, int
                 ;Open the log file
                 if (!ex_ch)
-                    open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
+                    open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:employee_data_exceptions.log")
                 ;Log the exceptions
                 for cnt from 1 thru ex_mc
                     writes(ex_ch,^m(inpbuf[cnt],ex_mh))
                 if (Settings.RunningOnTerminal)
-                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
+                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:employee_data_exceptions.log")
             end
             else
             begin
@@ -805,7 +629,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
+; Bulk load data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a CSV file.
 ; </summary>
 ; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ; <param name="a_records">Records loaded</param>
@@ -813,7 +637,7 @@ endfunction
 ; <param name="a_errtxt">Error message (if return value is false)</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>BulkLoad, ^val
+function EmployeeBulkLoad, ^val
     required in recordsToLoad, n
     required out a_records,    n
     required out a_exceptions, n
@@ -880,20 +704,20 @@ proc
         ;Determine temporary file names
 
         .ifdef OS_WINDOWS7
-        localCsvFile = Settings.LocalExportPath + "\<StructureName>.csv"
+        localCsvFile = Settings.LocalExportPath + "\Employee.csv"
         .endc
         .ifdef OS_UNIX
-        localCsvFile = Settings.LocalExportPath + "/<StructureName>.csv"
+        localCsvFile = Settings.LocalExportPath + "/Employee.csv"
         .endc
         .ifdef OS_VMS
-        localCsvFile = Settings.LocalExportPath + "<StructureName>.csv"
+        localCsvFile = Settings.LocalExportPath + "Employee.csv"
         .endc
         localExceptionsFile  = localCsvFile + "_err"
         localExceptionsLog   = localExceptionsFile + ".Error.Txt"
 
         if (remoteBulkLoad)
         begin
-            remoteCsvFile = "<StructureName>.csv"
+            remoteCsvFile = "Employee.csv"
             remoteExceptionsFile = remoteCsvFile + "_err"
             remoteExceptionsLog  = remoteExceptionsFile + ".Error.Txt"
         end
@@ -929,7 +753,7 @@ proc
         writelog("Exporting delimited file")
         writett("Exporting delimited file")
 
-        ok = %<StructureName>Csv(localCsvFile,recordsToLoad,recordCount,errtxt)
+        ok = %EmployeeCsv(localCsvFile,recordsToLoad,recordCount,errtxt)
     end
 
     if (ok)
@@ -966,7 +790,7 @@ proc
 
         if (ok)
         begin
-            sql = "BULK INSERT <StructureName> FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + fileToLoad + "_err'"
+            sql = "BULK INSERT Employee FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + fileToLoad + "_err'"
 
             if (Settings.BulkLoadBatchSize > 0)
             begin
@@ -1269,29 +1093,26 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Close cursors associated with the <StructureName> table.
+; Close cursors associated with the Employee table.
 ; </summary>
 
-subroutine <StructureName>Close
+subroutine EmployeeClose
 
     .include "CONNECTDIR:ssql.def"
 
     external common
-<IF STRUCTURE_ISAM>
-        c1<StructureName>, i4
-        c2<StructureName>, i4
-</IF STRUCTURE_ISAM>
-        c3<StructureName>,  i4
+        c1Employee, i4
+        c2Employee, i4
+        c3Employee,  i4
     endcommon
 
 proc
 
-<IF STRUCTURE_ISAM>
-    if (c1<StructureName>)
+    if (c1Employee)
     begin
         try
         begin
-            if (%ssc_close(Settings.DatabaseChannel,c1<StructureName>))
+            if (%ssc_close(Settings.DatabaseChannel,c1Employee))
                 nop
         end
         catch (ex, @Exception)
@@ -1300,16 +1121,16 @@ proc
         end
         finally
         begin
-            clear c1<StructureName>
+            clear c1Employee
         end
         endtry
     end
 
-    if (c2<StructureName>)
+    if (c2Employee)
     begin
         try
         begin
-            if (%ssc_close(Settings.DatabaseChannel,c2<StructureName>))
+            if (%ssc_close(Settings.DatabaseChannel,c2Employee))
                 nop
         end
         catch (ex, @Exception)
@@ -1318,17 +1139,16 @@ proc
         end
         finally
         begin
-            clear c2<StructureName>
+            clear c2Employee
         end
         endtry
     end
 
-</IF STRUCTURE_ISAM>
-    if (c3<StructureName>)
+    if (c3Employee)
     begin
         try
         begin
-            if (%ssc_close(Settings.DatabaseChannel,c3<StructureName>))
+            if (%ssc_close(Settings.DatabaseChannel,c3Employee))
                 nop
         end
         catch (ex, @Exception)
@@ -1337,7 +1157,7 @@ proc
         end
         finally
         begin
-            clear c3<StructureName>
+            clear c3Employee
         end
         endtry
     end
@@ -1348,7 +1168,7 @@ endsubroutine
 
 ;*****************************************************************************
 ; <summary>
-; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> to a CSV file.
+; Exports REPLICATOR_DATA:EMPLOYEE.ISM to a CSV file.
 ; </summary>
 ; <param name="fileSpec">File to create</param>
 ; <param name="maxRecords">Mumber of records to export.</param>
@@ -1356,28 +1176,21 @@ endsubroutine
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Csv, boolean
+function EmployeeCsv, boolean
     required in  fileSpec, a
     required in  maxRecords, n
     required out recordCount, n
     required out errorMessage, a
 
-    .include "<STRUCTURE_NOALIAS>" repository, record="<structure_name>", end
+    .include "EMPLOYEE" repository, record="employee", end
 
     .define EXCEPTION_BUFSZ 100
 
     external function
         IsDecimalNo, boolean
-<IF NOT_DEFINED_DBLV11>
-        MakeDateForCsv, a
-</IF>
         MakeDecimalForCsvNegatives, a
         MakeDecimalForCsvNoNegatives, a
         MakeTimeForCsv, a
-<IF DEFINED_ASA_TIREMAX>
-        TmJulianToYYYYMMDD, a
-        TmJulianToCsvDate, a
-</IF>
     endexternal
 
     .align
@@ -1408,7 +1221,7 @@ proc
 
     ;Open the data file associated with the structure
 
-    if (!(filechn=%<StructureName>OpenInput(errtxt)))
+    if (!(filechn=%EmployeeOpenInput(errtxt)))
     begin
         errtxt = "Failed to open data file! Error was " + errtxt
         ok = false
@@ -1430,18 +1243,18 @@ proc
 
         ;Add a row of column headers
 .ifdef OS_WINDOWS7
-        writes(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF></IF></FIELD_LOOP>")
+        writes(outchn,"EmpId|EmpFirstName|EmpLastName|EmpDept|EmpHireDate|EmpPhoneWork|EmpPhoneCell|EmpPaid|EmpDateOfBirth|EmpHireTime|EmpEmail|EmpAddressStreet|EmpAddressCity|EmpAddressState|EmpAddressZip")
 .else
-        puts(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF></IF></FIELD_LOOP>" + %char(13) + %char(10))
+        puts(outchn,"EmpId|EmpFirstName|EmpLastName|EmpDept|EmpHireDate|EmpPhoneWork|EmpPhoneCell|EmpPaid|EmpDateOfBirth|EmpHireTime|EmpEmail|EmpAddressStreet|EmpAddressCity|EmpAddressState|EmpAddressZip" + %char(13) + %char(10))
 .endc
 
         ;Read and add data file records
-        foreach <structure_name> in new Select(new From(filechn,Q_NO_GRFA,0,<structure_name>)<IF STRUCTURE_TAGS>,(Where)(<TAG_LOOP><TAGLOOP_CONNECTOR_C>(<structure_name>.<tagloop_field_name><TAGLOOP_OPERATOR_DBL><TAGLOOP_TAG_VALUE>)</TAG_LOOP>)</IF>)
+        foreach employee in new Select(new From(filechn,Q_NO_GRFA,0,employee))
         begin
             ;Make sure there are no | characters in the data
-            while (pos = %instr(1,<structure_name>,"|"))
+            while (pos = %instr(1,employee,"|"))
             begin
-                clear <structure_name>(pos:1)
+                clear employee(pos:1)
             end
 
             incr records
@@ -1453,81 +1266,21 @@ proc
             end
 
             outrec = new StringBuilder()
-<FIELD_LOOP>
-  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <IF STRUCTURE_RELATIVE>
-            outrec.Append(%string(records) + "|")
-    </IF>
-    <IF CUSTOM_DBL_TYPE>
-;//
-;// CUSTOM FIELDS
-;//
-            outrec.Append(%<FIELD_CUSTOM_STRING_FUNCTION>(<structure_name>.<field_original_name_modified>,<structure_name>) + "<IF MORE>|</IF MORE>")
-;//
-;// ALPHA
-;//
-    <ELSE ALPHA>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? %atrim(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(%atrim(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// DECIMAL
-;//
-    <ELSE DECIMAL>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>0|</IF>")
-      <ELSE>
-            outrec.Append(<IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// DATE
-;//
-    <ELSE DATE>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? %string(<structure_name>.<field_original_name_modified>,"XXXX-XX-XX")<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(%MakeDateForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// DATE_YYMMDD
-;//
-    <ELSE DATE_YYMMDD>
-            outrec.Append(%atrim(^a(<structure_name>.<field_original_name_modified>)) + "<IF MORE>|</IF>")
-;//
-;// TIME_HHMM
-;//
-    <ELSE TIME_HHMM>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(%MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// TIME_HHMMSS
-;//
-    <ELSE TIME_HHMMSS>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(%MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// USER-DEFINED
-;//
-    <ELSE USER>
-      <IF USERTIMESTAMP>
-            outrec.Append(%string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX") + "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(<IF DEFINED_ASA_TIREMAX>%TmJulianToCsvDate<ELSE>%atrim</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;//
-;//
-    </IF CUSTOM_DBL_TYPE>
-  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-</FIELD_LOOP>
+            outrec.Append(employee.emp_id ? %MakeDecimalForCsvNoNegatives(employee.emp_id) + "|" : "0|")
+            outrec.Append(employee.emp_first_name ? %atrim(employee.emp_first_name) + "|" : "|")
+            outrec.Append(employee.emp_last_name ? %atrim(employee.emp_last_name) + "|" : "|")
+            outrec.Append(employee.emp_dept ? %atrim(employee.emp_dept) + "|" : "|")
+            outrec.Append(employee.emp_hire_date ? %string(employee.emp_hire_date,"XXXX-XX-XX") + "|" : "|")
+            outrec.Append(employee.emp_phone_work ? %atrim(employee.emp_phone_work) + "|" : "|")
+            outrec.Append(employee.emp_phone_cell ? %atrim(employee.emp_phone_cell) + "|" : "|")
+            outrec.Append(employee.emp_paid ? %MakeDecimalForCsvNoNegatives(employee.emp_paid) + "|" : "0|")
+            outrec.Append(employee.emp_date_of_birth ? %string(employee.emp_date_of_birth,"XXXX-XX-XX") + "|" : "|")
+            outrec.Append(employee.emp_hire_time ? %MakeTimeForCsv(employee.emp_hire_time) + "|" : "|")
+            outrec.Append(employee.emp_email ? %atrim(employee.emp_email) + "|" : "|")
+            outrec.Append(employee.emp_address_street ? %atrim(employee.emp_address_street) + "|" : "|")
+            outrec.Append(employee.emp_address_city ? %atrim(employee.emp_address_city) + "|" : "|")
+            outrec.Append(employee.emp_address_state ? %atrim(employee.emp_address_state) + "|" : "|")
+            outrec.Append(employee.emp_address_zip ? %MakeDecimalForCsvNoNegatives(employee.emp_address_zip) : "")
 
             .ifdef OS_WINDOWS7
             writes(outchn,outrec.ToString())
@@ -1537,9 +1290,7 @@ proc
         end
     end
 
-<IF NOT STRUCTURE_TAGS>
 eof,
-</IF>
 
     ;Close the file
     if (filechn && %chopen(filechn))
@@ -1574,12 +1325,12 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Opens the <FILE_NAME> for input.
+; Opens the REPLICATOR_DATA:EMPLOYEE.ISM for input.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
-function <StructureName>OpenInput, ^val
+function EmployeeOpenInput, ^val
     required out errorMessage, a  ;Returned error text
 
     stack record
@@ -1590,7 +1341,7 @@ proc
 
     try
     begin
-        open(ch=0,<IF STRUCTURE_ISAM>i:i<ELSE STRUCTURE_RELATIVE>i:r</IF>,"<FILE_NAME>")
+        open(ch=0,i:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
         clear errmsg
     end
     catch (ex, @Exception)
@@ -1606,7 +1357,6 @@ proc
 
 endfunction
 
-<IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ; <summary>
 ; Loads a unique key value into the respective fields in a record.
@@ -1614,10 +1364,10 @@ endfunction
 ; <param name="aKeyValue">Unique key value.</param>
 ; <returns>Returns a record containig only the unique key segment data.</returns>
 
-function <StructureName>KeyToRecord, a
+function EmployeeKeyToRecord, a
     required in aKeyValue, a
 
-    .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>", end
+    .include "EMPLOYEE" repository, stack record="employee", end
 
     stack record
         segPos, int
@@ -1625,30 +1375,13 @@ function <StructureName>KeyToRecord, a
 
 proc
 
-    clear <structureName>
+    clear employee
     segPos = 1
 
-  <UNIQUE_KEY>
-    <SEGMENT_LOOP>
-      <IF ALPHA>
-    <structureName>.<segment_name> = aKeyValue(segPos:<SEGMENT_LENGTH>)
-      <ELSE DECIMAL>
-    <structureName>.<segment_name> = ^d(aKeyValue(segPos:<SEGMENT_LENGTH>))
-      <ELSE DATE>
-    if ((!^d(aKeyValue(segPos:<SEGMENT_LENGTH>)))||(!%IsDate(^a(^d(aKeyValue(segPos:<SEGMENT_LENGTH>)))))) then
-        ^a(<structureName>.<segment_name>) = "17530101"
-    else
-        <structureName>.<segment_name> = ^d(aKeyValue(segPos:<SEGMENT_LENGTH>))
-      <ELSE TIME>
-    <structureName>.<segment_name> = ^d(aKeyValue(segPos:<SEGMENT_LENGTH>))
-      <ELSE USER>
-    <structureName>.<segment_name> = aKeyValue(segPos:<SEGMENT_LENGTH>)
-      </IF ALPHA>
-    segPos += <SEGMENT_LENGTH>
-    </SEGMENT_LOOP>
-  </UNIQUE_KEY>
+    employee.emp_id = ^d(aKeyValue(segPos:8))
+    segPos += 8
 
-    freturn <structureName>
+    freturn employee
 
 endfunction
 
@@ -1662,7 +1395,7 @@ endfunction
 ; <param name="aKeyLen">Returned key length</param>
 ; <returns>Always returns true</returns>
 
-function <StructureName>KeyVal, ^val
+function EmployeeKeyVal, ^val
     required in  aRecord, a
     required out aKeyVal, a
     required out aKeyLen, n
@@ -1672,42 +1405,16 @@ function <StructureName>KeyVal, ^val
         pos,    int
         len,    int
         keyval, a255
-  <UNIQUE_KEY>
-    <IF LITERAL_SEGMENTS>
-        tmpval, string
-    </IF LITERAL_SEGMENTS>
-  </UNIQUE_KEY>
     endrecord
 proc
     clear keyval
     pos = 1
     len = 0
 
-  <UNIQUE_KEY>
-    <SEGMENT_LOOP>
-      <IF SEG_TYPE_FIELD>
-    ; Key segment <SEGMENT_NUMBER> (Field)
-    keyval(pos:<SEGMENT_LENGTH>) = aRecord(<SEGMENT_POSITION>:<SEGMENT_LENGTH>)
-        <IF MORE>
-    pos += <SEGMENT_LENGTH>
-        </IF MORE>
-    len += <SEGMENT_LENGTH>
-      <ELSE SEG_TYPE_LITERAL>
-    ; Key segment <SEGMENT_NUMBER> (Literal value)
-    tmpval = "<SEGMENT_LITVAL>"
-    keyval(pos:tmpval.Length) = tmpval
-        <IF MORE>
-    pos += tmpval.Length
-        </IF MORE>
-    len += tmpval.Length
-      <ELSE SEG_TYPE_RECNUM>
-    throw new ApplicationException("Key segments of type RECORD NUMBER are not supported by replication!")
-      <ELSE SEG_TYPE_EXTERNAL>
-    throw new ApplicationException("Key segments of type EXTERNAL VALUE are not supported by replication!")
-      </IF>
+    ; Key segment 1 (Field)
+    keyval(pos:8) = aRecord(1:8)
+    len += 8
 
-    </SEGMENT_LOOP>
-  </UNIQUE_KEY>
     aKeyVal = keyval(1,len)
     aKeyLen = len
 
@@ -1721,63 +1428,20 @@ endfunction
 ; </summary>
 ; <returns>Returned key number.</returns>
 
-function <StructureName>KeyNum, ^val
+function EmployeeKeyNum, ^val
 proc
-    freturn <UNIQUE_KEY><KEY_NUMBER></UNIQUE_KEY>
-endfunction
-
-</IF STRUCTURE_ISAM>
-<IF STRUCTURE_MAPPED>
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="<mapped_structure>"></param>
-; <returns></returns>
-
-function <structure_name>_map, a
-    .include "<MAPPED_STRUCTURE>" repository, required in group="<mapped_structure>"
-
-    .include "<STRUCTURE_NAME>" repository, stack record="<structure_name>"
-proc
-    init <structure_name>
-    ;Store the record
-  <FIELD_LOOP>
-    <field_path> = <mapped_path_conv>
-  </FIELD_LOOP>
-    freturn <structure_name>
+    freturn 0
 endfunction
 
 ;*****************************************************************************
 ; <summary>
 ; 
 ; </summary>
-; <param name="<structure_name>"></param>
 ; <returns></returns>
 
-function <structure_name>_unmap, a
-    .include "<STRUCTURE_NAME>" repository, required in group="<structure_name>"
-
-    .include "<MAPPED_STRUCTURE>" repository, stack record="<mapped_structure>"
+function EmployeeLength ,^val
 proc
-    init <mapped_structure>
-    ;Store the record
-  <FIELD_LOOP>
-    <mapped_path> = <field_path_conv>
-  </FIELD_LOOP>
-    freturn <mapped_structure>
-endfunction
-
-</IF STRUCTURE_MAPPED>
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
-
-function <StructureName>Length ,^val
-proc
-    freturn <STRUCTURE_SIZE>
+    freturn 300
 endfunction
 
 ;*****************************************************************************
@@ -1787,10 +1451,10 @@ endfunction
 ; <param name="fileType"></param>
 ; <returns></returns>
 
-function <StructureName>Type, ^val
+function EmployeeType, ^val
     required out fileType, a
 proc
-    fileType = "<FILE_TYPE>"
+    fileType = "DBL ISAM"
     freturn true
 endfunction
 
@@ -1800,32 +1464,10 @@ endfunction
 ; </summary>
 ; <returns></returns>
 
-function <StructureName>Cols ,^val
+function EmployeeCols ,^val
 proc
-<COUNTER_1_RESET>
-<IF STRUCTURE_RELATIVE><COUNTER_1_INCREMENT></IF STRUCTURE_RELATIVE>
-<FIELD_LOOP>
-  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <IF DEFINED_ASA_TIREMAX>
-      <IF STRUCTURE_ISAM AND USER>
-        <COUNTER_1_INCREMENT>
-      <ELSE STRUCTURE_ISAM AND NOT USER>
-        <COUNTER_1_INCREMENT>
-      <ELSE STRUCTURE_RELATIVE AND USER>
-        <COUNTER_1_INCREMENT>
-      <ELSE STRUCTURE_RELATIVE AND NOT USER>
-        <COUNTER_1_INCREMENT>
-      </IF STRUCTURE_ISAM>
-    <ELSE>
-      <IF STRUCTURE_ISAM>
-        <COUNTER_1_INCREMENT>
-      <ELSE STRUCTURE_RELATIVE>
-        <COUNTER_1_INCREMENT>
-      </IF STRUCTURE_ISAM>
-    </IF DEFINED_ASA_TIREMAX>
-  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-</FIELD_LOOP>
-    freturn <COUNTER_1_VALUE>
+
+    freturn 15
 
 endfunction
 
@@ -1836,7 +1478,7 @@ endfunction
 ; <param name="fileType"></param>
 ; <returns></returns>
 
-function <StructureName>Recs, ^val
+function EmployeeRecs, ^val
     required out recordCount, n
     required out errorMessage, a
     stack record
@@ -1846,7 +1488,7 @@ function <StructureName>Recs, ^val
 proc
     try
     begin
-        open(ch=0,<IF STRUCTURE_ISAM>i:i<ELSE STRUCTURE_RELATIVE>i:r</IF>,"<FILE_NAME>")
+        open(ch=0,i:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
         recordCount = %isinfo(ch,"NUMRECS")
         errorMessage = ""
         ok = true
