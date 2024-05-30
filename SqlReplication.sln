@@ -14,6 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{
 		SRC\TEMPLATES\ExcludeKeyTest.json = SRC\TEMPLATES\ExcludeKeyTest.json
 		SRC\TEMPLATES\FileDataReport.tpl = SRC\TEMPLATES\FileDataReport.tpl
 		SRC\TEMPLATES\SqlClientIO.tpl = SRC\TEMPLATES\SqlClientIO.tpl
+		SRC\TEMPLATES\SdmsIO.tpl = SRC\TEMPLATES\SdmsIO.tpl
 		SRC\TEMPLATES\SqlIO.tpl = SRC\TEMPLATES\SqlIO.tpl
 	EndProjectSection
 EndProject
