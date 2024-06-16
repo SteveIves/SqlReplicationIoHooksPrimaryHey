@@ -4,6 +4,7 @@ namespace ReplicationLibrary
     public enum DatabaseConnectionMode
         SqlConnection,      1
         SqlClient,          2
+        SDMS,               3
     endenum
 
     ;;; <summary>

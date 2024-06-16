@@ -84,6 +84,8 @@ proc
             else
                 Logger.Log("SQL command reuse:  NO")
         end
+        (DatabaseConnectionMode.SDMS),
+            Logger.Log("Database mode:      SDMS")
         endusing
 
         using Settings.DatabaseCommitMode select
@@ -306,6 +308,10 @@ proc
             (DatabaseConnectionMode.SqlClient),
             begin
                 body[ix+=1] = "Connection mode:    SQL Client"
+            end
+            (DatabaseConnectionMode.SDMS),
+            begin
+                body[ix+=1] = "Connection mode:    SDMS"
             end
             endusing
 

@@ -141,16 +141,26 @@ function EmployeeInsert, ^val
         status, int
     endrecord
 
+    external common
+        chEmployee, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!chEmployee && !OpenEmployee(errorMessage))
+    begin
+        freturn 0
+    end
+
     init localData
     status = 1
     errorMessage = ""
 
     try
     begin
-        store(updateChannel,recordData)
+        store(chEmployee,recordData)
     end
-    catch (ex, @DuplicateKeyException)
+    catch (ex, @DuplicateException)
     begin
         status = 2
         errorMessage = "Record already exists!"
@@ -192,7 +202,17 @@ function EmployeeInsertRows, ^val
     .include "EMPLOYEE" repository, structure="inpbuf", nofields, end
     .include "EMPLOYEE" repository, static record="employee", end
 
+    external common
+        chEmployee, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!chEmployee && !OpenEmployee(errorMessage))
+    begin
+        freturn false
+    end
+
     init localData
     ok = true
 
@@ -214,7 +234,7 @@ proc
             ;Insert the record into the file
             try
             begin
-                store(ch,employee)
+                store(chEmployee,employee)
             end
             catch (ex, @Exception)
             begin
@@ -275,7 +295,17 @@ function EmployeeUpdate, ^val
         EmployeeKeyNum, ^value
     endexternal
 
+    external common
+        chEmployee, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!chEmployee && !OpenEmployee(errorMessage))
+    begin
+        freturn false
+    end
+
     init localData
     recordsUpdated = 0
     ok = false
@@ -288,7 +318,7 @@ proc
 
     try
     begin
-        read(updateChannel,employee,keyValue(1:keyLength),KEYNUM:%EmployeeKeyNum)
+        read(chEmployee,employee,keyValue(1:keyLength),KEYNUM:%EmployeeKeyNum)
     end
     catch (ex, @Exception)
     begin
@@ -303,12 +333,13 @@ proc
         employee = dataRecord
         try
         begin
-            write(updateChannel,employee)
+            write(chEmployee,employee)
             recordsUpdated = 1
             ok = true
         end
         catch (ex, @Exception)
         begin
+            unlock chEmployee
             errorMessage = "Failed to update record. Error was " + ex.Message
         end
         endtry
@@ -333,19 +364,29 @@ function EmployeeDelete, ^val
     external function
         EmployeeKeyNum, ^value
     endexternal
+    external common
+        chEmployee, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!chEmployee && !OpenEmployee(errorMessage))
+    begin
+        freturn false
+    end
+
     ;TODO: Needs to support relative files on OpenVMS
     try
     begin
-        read(updateChannel,employee,keyValue,KEYNUM:%EmployeeKeyNum)
+        read(chEmployee,employee,keyValue,KEYNUM:%EmployeeKeyNum)
         try
         begin
-            delete(updateChannel)
+            delete(chEmployee)
             errorMessage = ""
             freturn true
         end
         catch (ex, @Exception)
         begin
+            unlock chEmployee
             errorMessage = "Failed to delete record. Error was " + ex.Message
         end
         endtry
@@ -355,7 +396,9 @@ proc
         errorMessage = "Failed to read and lock record for delete. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
 ;*****************************************************************************
@@ -367,12 +410,26 @@ endfunction
 
 function EmployeeClear, ^val
     required out errorMessage, a
+    external common
+        chEmployee, int
+    endglobal
 proc
+    errorMessage = ""
+
+    ;If the file is open, close it
+
+    if (chEmployee)
+    begin
+        close chEmployee
+        chEmployee = 0
+    end
+
+    ;Clear the file
+
     try
     begin
-        data status, i4
-        xcall isclr("FILE_NAME",status)
-        errorMessage = ""
+        data ignored, i4
+        xcall isclr("FILE_NAME",ignored)
         freturn true
     end
     catch (ex, @Exception)
@@ -380,7 +437,9 @@ proc
         errorMessage = "Failed to clear file REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
 ;*****************************************************************************
@@ -392,13 +451,23 @@ endfunction
 
 function EmployeeDrop, ^val
     required out errorMessage, a
+    external common
+        chEmployee, int
+    endglobal
 proc
-    if (updateChannel)
-        close updateChannel
+    errorMessage = ""
+
+    ;If the file is open, close it
+
+    if (chEmployee)
+    begin
+        close chEmployee
+        chEmployee = 0
+    end
+
     try
     begin
         xcall delet("REPLICATOR_DATA:EMPLOYEE.ISM")
-        errorMessage = ""
         freturn true
     end
     catch (ex, @Exception)
@@ -406,7 +475,9 @@ proc
         errorMessage = "Failed to delete REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
 ;*****************************************************************************
@@ -453,7 +524,16 @@ function EmployeeLoad, ^val
         timer       ,@Timer
     endrecord
 
+    external common
+        chEmployee, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!chEmployee && !OpenEmployee(errorMessage))
+    begin
+        freturn false
+    end
+
     init local_data
     ok = true
 
@@ -670,7 +750,15 @@ function EmployeeBulkLoad, ^val
         timer,                  @Timer
     endrecord
 
+    external common
+        chEmployee, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!chEmployee && !OpenEmployee(errorMessage))
+    begin
+        freturn false
+    end
 
     init local_data
     ok = true
@@ -1097,69 +1185,16 @@ endfunction
 ; </summary>
 
 subroutine EmployeeClose
-
-    .include "CONNECTDIR:ssql.def"
-
     external common
-        c1Employee, i4
-        c2Employee, i4
-        c3Employee,  i4
-    endcommon
-
+        chEmployee, int
+    endglobal
 proc
+    ;If the file is open, close it
 
-    if (c1Employee)
+    if (chEmployee)
     begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c1Employee))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c1Employee
-        end
-        endtry
-    end
-
-    if (c2Employee)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c2Employee))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c2Employee
-        end
-        endtry
-    end
-
-    if (c3Employee)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c3Employee))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c3Employee
-        end
-        endtry
+        close chEmployee
+        chEmployee = 0
     end
 
     xreturn
@@ -1207,7 +1242,16 @@ function EmployeeCsv, boolean
         timer,      @Timer  ;A timer
     endrecord
 
+    external common
+        chEmployee, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!chEmployee && !OpenEmployee(errorMessage))
+    begin
+        freturn false
+    end
+
     clear records, errtxt
     ok = true
     errorMessage = ""
@@ -1325,36 +1369,36 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Opens the REPLICATOR_DATA:EMPLOYEE.ISM for input.
+; Opens the REPLICATOR_DATA:EMPLOYEE.ISM for update.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
-function EmployeeOpenInput, ^val
+function OpenEmployee, ^val
     required out errorMessage, a  ;Returned error text
-
-    stack record
-        ch, int
-        errmsg, a128
-    endrecord
+    global common
+        chEmployee, int
+    endglobal
 proc
+    errorMessage = ""
 
-    try
+    if (chEmployee) then
+        freturn true
+    else
     begin
-        open(ch=0,i:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
-        clear errmsg
+        try
+        begin
+            open(chEmployee=0,u:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
+        end
+        catch (ex, @Exception)
+        begin
+            errorMessage = ex.Message
+            clear chEmployee
+            freturn false
+        end
+        endtry
     end
-    catch (ex, @Exception)
-    begin
-        errmsg = ex.Message
-        clear ch
-    end
-    endtry
-
-    errorMessage = errmsg
-
-    freturn ch
-
+    freturn true
 endfunction
 
 ;*****************************************************************************

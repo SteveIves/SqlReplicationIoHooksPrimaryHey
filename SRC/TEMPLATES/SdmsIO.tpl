@@ -84,7 +84,7 @@ import System.Text
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
 
-function <StructureName>Exists, ^val
+function <StructureName>Exists_, ^val
     required out errorMessage, a
     endparams
 
@@ -116,7 +116,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Create, ^val
+function <StructureName>Create_, ^val
     required out errorMessage, a
 
     .align
@@ -136,9 +136,9 @@ proc
     begin
  <IF STRUCTURE_ISAM>
         xcall isamc("<FILE_ISAMC_SPEC>",<STRUCTURE_SIZE>,<STRUCTURE_KEYS>,
-<KEY_LOOP>
+  <KEY_LOOP>
         & "<KEY_ISAMC_SPEC>"<,>
-</KEY_LOOP>
+<  /KEY_LOOP>
         & )
 <ELSE STRUCTURE_RELATIVE>
         open(ch=0,o:r,"<FILE_NAME>",RECSIZ:<STRUCTURE_SIZE>)
@@ -170,7 +170,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Index, ^val
+function <StructureName>Index_, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -184,7 +184,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>UnIndex, ^val
+function <StructureName>UnIndex_, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -203,7 +203,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
-function <StructureName>Insert, ^val
+function <StructureName>Insert_, ^val
 <IF STRUCTURE_RELATIVE>
     required in  recordNumber, n
 </IF STRUCTURE_RELATIVE>
@@ -215,7 +215,17 @@ function <StructureName>Insert, ^val
         status, int
     endrecord
 
+    external common
+        ch<StructureName>, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    begin
+        freturn 0
+    end
+
     init localData
     status = 1
     errorMessage = ""
@@ -223,12 +233,12 @@ proc
     try
     begin
 <IF STRUCTURE_ISAM>
-        store(updateChannel,recordData)
+        store(ch<StructureName>,recordData)
 <ELSE STRUCTURE_RELATIVE>
-        write(updateChannel,recordData,recordNumber)
+        write(ch<StructureName>,recordData,recordNumber)
 </IF>
     end
-    catch (ex, @DuplicateKeyException)
+    catch (ex, @DuplicateException)
     begin
         status = 2
         errorMessage = "Record already exists!"
@@ -253,7 +263,7 @@ endfunction
 ; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>InsertRows, ^val
+function <StructureName>InsertRows_, ^val
     required in  recordsHandle, D_HANDLE
     required out errorMessage, a
     required out exceptionRecordsHandle, D_HANDLE
@@ -267,7 +277,7 @@ function <StructureName>InsertRows, ^val
         ex_mc       ,int        ;Items in exception array
 <IF STRUCTURE_RELATIVE>
         recordNumber,d28
-</IF STRUCTURE_RELATIVE>
+</IF>
     endrecord
 
 <IF STRUCTURE_ISAM>
@@ -277,10 +287,20 @@ function <StructureName>InsertRows, ^val
         recnum, d28
         .include "<STRUCTURE_NOALIAS>" repository, group="inprec", nofields
     endstructure
-</IF STRUCTURE_ISAM>
+</IF>
     .include "<STRUCTURE_NOALIAS>" repository, static record="<structure_name>", end
 
+    external common
+        ch<StructureName>, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    begin
+        freturn false
+    end
+
     init localData
     ok = true
 
@@ -307,15 +327,15 @@ proc
 <ELSE STRUCTURE_RELATIVE AND NOT STRUCTURE_MAPPED>
             recordNumber = ^m(inpbuf[cnt].recnum,recordsHandle)
             <structure_name> = ^m(inpbuf[cnt].inprec,recordsHandle)
-</IF STRUCTURE_ISAM>
+</IF>
 
             ;Insert the record into the file
             try
             begin
 <IF STRUCTURE_ISAM>
-                store(ch,<structure_name>)
+                store(ch<StructureName>,<structure_name>)
 <ELSE STRUCTURE_RELATIVE>
-                write(ch,<structure_name>,recordNumber)
+                write(ch<StructureName>,<structure_name>,recordNumber)
 </IF>
             end
             catch (ex, @Exception)
@@ -354,16 +374,16 @@ endfunction
 ; </summary>
 <IF STRUCTURE_RELATIVE>
 ; <param name="recordNumber">record number.</param>
-</IF STRUCTURE_RELATIVE>
+</IF>
 ; <param name="dataRecord">Record containing data to update.</param>
 ; <param name="recordsUpdated">Returned number of rows affected.</param>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Update, ^val
+function <StructureName>Update_, ^val
 <IF STRUCTURE_RELATIVE>
     required in  recordNumber, n
-</IF STRUCTURE_RELATIVE>
+</IF>
     required in  dataRecord, a
     required out recordsUpdated, i
     required out errorMessage, a
@@ -383,7 +403,17 @@ function <StructureName>Update, ^val
         <StructureName>KeyNum, ^value
     endexternal
 
+    external common
+        ch<StructureName>, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    begin
+        freturn false
+    end
+
     init localData
     recordsUpdated = 0
     ok = false
@@ -397,9 +427,9 @@ proc
     try
     begin
 <IF STRUCTURE_ISAM>
-        read(updateChannel,<structure_name>,keyValue(1:keyLength),KEYNUM:%<StructureName>KeyNum)
+        read(ch<StructureName>,<structure_name>,keyValue(1:keyLength),KEYNUM:%<StructureName>KeyNum)
 <ELSE STRUCTURE_RELATIVE>
-        read(updateChannel,<structure_name>,recordNumber)
+        read(ch<StructureName>,<structure_name>,recordNumber)
 </IF>
     end
     catch (ex, @Exception)
@@ -416,19 +446,20 @@ proc
         <structure_name> = %<structure_name>_map(dataRecord)
 <ELSE>
         <structure_name> = dataRecord
-</IF STRUCTURE_MAPPED>
+</IF>
         try
         begin
 <IF STRUCTURE_ISAM>
-            write(updateChannel,<structure_name>)
+            write(ch<StructureName>,<structure_name>)
 <ELSE STRUCTURE_RELATIVE>
-            write(updateChannel,<structure_name>,recordNumber)
+            write(ch<StructureName>,<structure_name>,recordNumber)
 </IF>
             recordsUpdated = 1
             ok = true
         end
         catch (ex, @Exception)
         begin
+            unlock ch<StructureName>
             errorMessage = "Failed to update record. Error was " + ex.Message
         end
         endtry
@@ -447,26 +478,36 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Delete, ^val
+function <StructureName>Delete_, ^val
     required in  keyValue, a
     required out errorMessage, a
     .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>", nofields
     external function
         <StructureName>KeyNum, ^value
     endexternal
+    external common
+        ch<StructureName>, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    begin
+        freturn false
+    end
+
     ;TODO: Needs to support relative files on OpenVMS
     try
     begin
-        read(updateChannel,<structure_name>,keyValue,KEYNUM:%<StructureName>KeyNum)
+        read(ch<StructureName>,<structure_name>,keyValue,KEYNUM:%<StructureName>KeyNum)
         try
         begin
-            delete(updateChannel)
+            delete(ch<StructureName>)
             errorMessage = ""
             freturn true
         end
         catch (ex, @Exception)
         begin
+            unlock ch<StructureName>
             errorMessage = "Failed to delete record. Error was " + ex.Message
         end
         endtry
@@ -476,10 +517,12 @@ proc
         errorMessage = "Failed to read and lock record for delete. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
-</IF STRUCTURE_ISAM>
+</IF>
 ;*****************************************************************************
 ; <summary>
 ; Deletes all rows from the <StructureName> table.
@@ -487,14 +530,28 @@ endfunction
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Clear, ^val
+function <StructureName>Clear_, ^val
     required out errorMessage, a
+    external common
+        ch<StructureName>, int
+    endglobal
 proc
+    errorMessage = ""
+
+    ;If the file is open, close it
+
+    if (ch<StructureName>)
+    begin
+        close ch<StructureName>
+        ch<StructureName> = 0
+    end
+
+    ;Clear the file
+
     try
     begin
-        data status, i4
-        xcall isclr("FILE_NAME",status)
-        errorMessage = ""
+        data ignored, i4
+        xcall isclr("FILE_NAME",ignored)
         freturn true
     end
     catch (ex, @Exception)
@@ -502,7 +559,9 @@ proc
         errorMessage = "Failed to clear file <FILE_NAME>. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
 ;*****************************************************************************
@@ -512,15 +571,25 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Drop, ^val
+function <StructureName>Drop_, ^val
     required out errorMessage, a
+    external common
+        ch<StructureName>, int
+    endglobal
 proc
-    if (updateChannel)
-        close updateChannel
+    errorMessage = ""
+
+    ;If the file is open, close it
+
+    if (ch<StructureName>)
+    begin
+        close ch<StructureName>
+        ch<StructureName> = 0
+    end
+
     try
     begin
         xcall delet("<FILE_NAME>")
-        errorMessage = ""
         freturn true
     end
     catch (ex, @Exception)
@@ -528,12 +597,14 @@ proc
         errorMessage = "Failed to delete <FILE_NAME>. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
+; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> into the <StructureName> table.
 ; </summary>
 ; <param name="a_maxrows">Maximum number of rows to load.</param>
 ; <param name="a_added">Total number of successful inserts.</param>
@@ -541,7 +612,7 @@ endfunction
 ; <param name="a_errtxt">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Load, ^val
+function <StructureName>Load_, ^val
     required in  a_maxrows,       n
     required out a_added,         n
     required out a_failed,        n
@@ -562,12 +633,12 @@ function <StructureName>Load, ^val
         .include "<STRUCTURE_NOALIAS>" repository, group="inprec"
     endstructure
     .include "<STRUCTURE_NOALIAS>" repository, structure="<STRUCTURE_NAME>", end
-</IF STRUCTURE_ISAM>
+</IF>
 <IF STRUCTURE_MAPPED>
     .include "<MAPPED_STRUCTURE>" repository, stack record="tmprec", end
 <ELSE>
     .include "<STRUCTURE_NOALIAS>" repository, stack record="tmprec", end
-</IF STRUCTURE_MAPPED>
+</IF>
 
     .define BUFFER_ROWS     1000
     .define EXCEPTION_BUFSZ 100
@@ -593,15 +664,24 @@ function <StructureName>Load, ^val
         timer       ,@Timer
 <IF STRUCTURE_RELATIVE>
         recordNumber,d28
-</IF STRUCTURE_RELATIVE>
+</IF>
     endrecord
 
+    external common
+        ch<StructureName>, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    begin
+        freturn false
+    end
+
     init local_data
     ok = true
 <IF STRUCTURE_RELATIVE>
     recordNumber = 0
-</IF STRUCTURE_RELATIVE>
+</IF>
 
     timer = new Timer()
     timer.Start()
@@ -654,7 +734,7 @@ proc
                     end
 <ELSE>
                     read(filechn,tmprec,^FIRST)
-</IF STRUCTURE_TAGS>
+</IF>
                     firstRecord = false
                 end
 ;//
@@ -671,7 +751,7 @@ proc
                     end
 <ELSE>
                     reads(filechn,tmprec)
-</IF STRUCTURE_TAGS>
+</IF>
                 end
             end
             catch (ex, @EndOfFileException)
@@ -692,7 +772,7 @@ proc
 <ELSE STRUCTURE_RELATIVE>
             ^m(inpbuf[mc+=1].recnum,mh) = recordNumber += 1
             ^m(inpbuf[mc].inprec,mh) = tmprec
-</IF STRUCTURE_ISAM>
+</IF>
 
             incr done_records
 
@@ -805,7 +885,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
+; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> into the <StructureName> table via a CSV file.
 ; </summary>
 ; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ; <param name="a_records">Records loaded</param>
@@ -813,7 +893,7 @@ endfunction
 ; <param name="a_errtxt">Error message (if return value is false)</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>BulkLoad, ^val
+function <StructureName>BulkLoad_, ^val
     required in recordsToLoad, n
     required out a_records,    n
     required out a_exceptions, n
@@ -846,7 +926,15 @@ function <StructureName>BulkLoad, ^val
         timer,                  @Timer
     endrecord
 
+    external common
+        ch<StructureName>, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    begin
+        freturn false
+    end
 
     init local_data
     ok = true
@@ -1272,74 +1360,17 @@ endfunction
 ; Close cursors associated with the <StructureName> table.
 ; </summary>
 
-subroutine <StructureName>Close
-
-    .include "CONNECTDIR:ssql.def"
-
+subroutine <StructureName>Close_
     external common
-<IF STRUCTURE_ISAM>
-        c1<StructureName>, i4
-        c2<StructureName>, i4
-</IF STRUCTURE_ISAM>
-        c3<StructureName>,  i4
-    endcommon
-
+        ch<StructureName>, int
+    endglobal
 proc
+    ;If the file is open, close it
 
-<IF STRUCTURE_ISAM>
-    if (c1<StructureName>)
+    if (ch<StructureName>)
     begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c1<StructureName>))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c1<StructureName>
-        end
-        endtry
-    end
-
-    if (c2<StructureName>)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c2<StructureName>))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c2<StructureName>
-        end
-        endtry
-    end
-
-</IF STRUCTURE_ISAM>
-    if (c3<StructureName>)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c3<StructureName>))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c3<StructureName>
-        end
-        endtry
+        close ch<StructureName>
+        ch<StructureName> = 0
     end
 
     xreturn
@@ -1356,7 +1387,7 @@ endsubroutine
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Csv, boolean
+function <StructureName>Csv_, boolean
     required in  fileSpec, a
     required in  maxRecords, n
     required out recordCount, n
@@ -1394,7 +1425,16 @@ function <StructureName>Csv, boolean
         timer,      @Timer  ;A timer
     endrecord
 
+    external common
+        ch<StructureName>, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    begin
+        freturn false
+    end
+
     clear records, errtxt
     ok = true
     errorMessage = ""
@@ -1574,36 +1614,36 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Opens the <FILE_NAME> for input.
+; Opens the <FILE_NAME> for update.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
-function <StructureName>OpenInput, ^val
+function Open<StructureName>_, ^val
     required out errorMessage, a  ;Returned error text
-
-    stack record
-        ch, int
-        errmsg, a128
-    endrecord
+    global common
+        ch<StructureName>, int
+    endglobal
 proc
+    errorMessage = ""
 
-    try
+    if (ch<StructureName>) then
+        freturn true
+    else
     begin
-        open(ch=0,<IF STRUCTURE_ISAM>i:i<ELSE STRUCTURE_RELATIVE>i:r</IF>,"<FILE_NAME>")
-        clear errmsg
+        try
+        begin
+            open(ch<StructureName>=0,<IF STRUCTURE_ISAM>u:i<ELSE STRUCTURE_RELATIVE>u:r</IF>,"<FILE_NAME>")
+        end
+        catch (ex, @Exception)
+        begin
+            errorMessage = ex.Message
+            clear ch<StructureName>
+            freturn false
+        end
+        endtry
     end
-    catch (ex, @Exception)
-    begin
-        errmsg = ex.Message
-        clear ch
-    end
-    endtry
-
-    errorMessage = errmsg
-
-    freturn ch
-
+    freturn true
 endfunction
 
 <IF STRUCTURE_ISAM>
@@ -1614,7 +1654,7 @@ endfunction
 ; <param name="aKeyValue">Unique key value.</param>
 ; <returns>Returns a record containig only the unique key segment data.</returns>
 
-function <StructureName>KeyToRecord, a
+function <StructureName>KeyToRecord_, a
     required in aKeyValue, a
 
     .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>", end
@@ -1643,7 +1683,7 @@ proc
     <structureName>.<segment_name> = ^d(aKeyValue(segPos:<SEGMENT_LENGTH>))
       <ELSE USER>
     <structureName>.<segment_name> = aKeyValue(segPos:<SEGMENT_LENGTH>)
-      </IF ALPHA>
+      </IF>
     segPos += <SEGMENT_LENGTH>
     </SEGMENT_LOOP>
   </UNIQUE_KEY>
@@ -1653,216 +1693,18 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Extract a key value from the segment fields in a record.
-; This function behaves like %KEYVAL but without requiring an open channel.
-; </summary>
-; <param name="aRecord">Record containing key data</param>
-; <param name="aKeyVal">Returned key value</param>
-; <param name="aKeyLen">Returned key length</param>
-; <returns>Always returns true</returns>
-
-function <StructureName>KeyVal, ^val
-    required in  aRecord, a
-    required out aKeyVal, a
-    required out aKeyLen, n
-
-    .align
-    stack record
-        pos,    int
-        len,    int
-        keyval, a255
-  <UNIQUE_KEY>
-    <IF LITERAL_SEGMENTS>
-        tmpval, string
-    </IF LITERAL_SEGMENTS>
-  </UNIQUE_KEY>
-    endrecord
-proc
-    clear keyval
-    pos = 1
-    len = 0
-
-  <UNIQUE_KEY>
-    <SEGMENT_LOOP>
-      <IF SEG_TYPE_FIELD>
-    ; Key segment <SEGMENT_NUMBER> (Field)
-    keyval(pos:<SEGMENT_LENGTH>) = aRecord(<SEGMENT_POSITION>:<SEGMENT_LENGTH>)
-        <IF MORE>
-    pos += <SEGMENT_LENGTH>
-        </IF MORE>
-    len += <SEGMENT_LENGTH>
-      <ELSE SEG_TYPE_LITERAL>
-    ; Key segment <SEGMENT_NUMBER> (Literal value)
-    tmpval = "<SEGMENT_LITVAL>"
-    keyval(pos:tmpval.Length) = tmpval
-        <IF MORE>
-    pos += tmpval.Length
-        </IF MORE>
-    len += tmpval.Length
-      <ELSE SEG_TYPE_RECNUM>
-    throw new ApplicationException("Key segments of type RECORD NUMBER are not supported by replication!")
-      <ELSE SEG_TYPE_EXTERNAL>
-    throw new ApplicationException("Key segments of type EXTERNAL VALUE are not supported by replication!")
-      </IF>
-
-    </SEGMENT_LOOP>
-  </UNIQUE_KEY>
-    aKeyVal = keyval(1,len)
-    aKeyLen = len
-
-    freturn true
-
-endfunction
-
-;*****************************************************************************
-; <summary>
-; Returns the key number of the first unique key.
-; </summary>
-; <returns>Returned key number.</returns>
-
-function <StructureName>KeyNum, ^val
-proc
-    freturn <UNIQUE_KEY><KEY_NUMBER></UNIQUE_KEY>
-endfunction
-
-</IF STRUCTURE_ISAM>
+;The following functions are identical to and therefor use the code from the
+;SQL Connection replication code in <StructureName>SqlIO.dbl
+;
+<IF STRUCTURE_ISAM>
+;   %<StructureName>KeyVal
+;   %<StructureName>KeyNum
+</IF>
 <IF STRUCTURE_MAPPED>
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="<mapped_structure>"></param>
-; <returns></returns>
-
-function <structure_name>_map, a
-    .include "<MAPPED_STRUCTURE>" repository, required in group="<mapped_structure>"
-
-    .include "<STRUCTURE_NAME>" repository, stack record="<structure_name>"
-proc
-    init <structure_name>
-    ;Store the record
-  <FIELD_LOOP>
-    <field_path> = <mapped_path_conv>
-  </FIELD_LOOP>
-    freturn <structure_name>
-endfunction
-
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="<structure_name>"></param>
-; <returns></returns>
-
-function <structure_name>_unmap, a
-    .include "<STRUCTURE_NAME>" repository, required in group="<structure_name>"
-
-    .include "<MAPPED_STRUCTURE>" repository, stack record="<mapped_structure>"
-proc
-    init <mapped_structure>
-    ;Store the record
-  <FIELD_LOOP>
-    <mapped_path> = <field_path_conv>
-  </FIELD_LOOP>
-    freturn <mapped_structure>
-endfunction
-
-</IF STRUCTURE_MAPPED>
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
-
-function <StructureName>Length ,^val
-proc
-    freturn <STRUCTURE_SIZE>
-endfunction
-
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="fileType"></param>
-; <returns></returns>
-
-function <StructureName>Type, ^val
-    required out fileType, a
-proc
-    fileType = "<FILE_TYPE>"
-    freturn true
-endfunction
-
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
-
-function <StructureName>Cols ,^val
-proc
-<COUNTER_1_RESET>
-<IF STRUCTURE_RELATIVE><COUNTER_1_INCREMENT></IF STRUCTURE_RELATIVE>
-<FIELD_LOOP>
-  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <IF DEFINED_ASA_TIREMAX>
-      <IF STRUCTURE_ISAM AND USER>
-        <COUNTER_1_INCREMENT>
-      <ELSE STRUCTURE_ISAM AND NOT USER>
-        <COUNTER_1_INCREMENT>
-      <ELSE STRUCTURE_RELATIVE AND USER>
-        <COUNTER_1_INCREMENT>
-      <ELSE STRUCTURE_RELATIVE AND NOT USER>
-        <COUNTER_1_INCREMENT>
-      </IF STRUCTURE_ISAM>
-    <ELSE>
-      <IF STRUCTURE_ISAM>
-        <COUNTER_1_INCREMENT>
-      <ELSE STRUCTURE_RELATIVE>
-        <COUNTER_1_INCREMENT>
-      </IF STRUCTURE_ISAM>
-    </IF DEFINED_ASA_TIREMAX>
-  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-</FIELD_LOOP>
-    freturn <COUNTER_1_VALUE>
-
-endfunction
-
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="fileType"></param>
-; <returns></returns>
-
-function <StructureName>Recs, ^val
-    required out recordCount, n
-    required out errorMessage, a
-    stack record
-        ok, boolean
-        ch, int
-    endrecord
-proc
-    try
-    begin
-        open(ch=0,<IF STRUCTURE_ISAM>i:i<ELSE STRUCTURE_RELATIVE>i:r</IF>,"<FILE_NAME>")
-        recordCount = %isinfo(ch,"NUMRECS")
-        errorMessage = ""
-        ok = true
-    end
-    catch (ex, @Exception)
-    begin
-        recordCount = -1
-        errorMessage = ex.Message
-        ok = false
-    end
-    finally
-    begin
-        if (ch && %chopen(ch))
-            close ch
-    end
-    endtry
-    freturn ok
-endfunction
-
+;   %<structure_name>_map
+;   %<structure_name>_unmap
+</IF>
+;   %<StructureName>Length
+;   %<StructureName>Type
+;   %<StructureName>Cols
+;   %<StructureName>Recs

@@ -138,16 +138,26 @@ function DepartmentInsert, ^val
         status, int
     endrecord
 
+    external common
+        chDepartment, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!chDepartment && !OpenDepartment(errorMessage))
+    begin
+        freturn 0
+    end
+
     init localData
     status = 1
     errorMessage = ""
 
     try
     begin
-        store(updateChannel,recordData)
+        store(chDepartment,recordData)
     end
-    catch (ex, @DuplicateKeyException)
+    catch (ex, @DuplicateException)
     begin
         status = 2
         errorMessage = "Record already exists!"
@@ -189,7 +199,17 @@ function DepartmentInsertRows, ^val
     .include "DEPARTMENT" repository, structure="inpbuf", nofields, end
     .include "DEPARTMENT" repository, static record="department", end
 
+    external common
+        chDepartment, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!chDepartment && !OpenDepartment(errorMessage))
+    begin
+        freturn false
+    end
+
     init localData
     ok = true
 
@@ -211,7 +231,7 @@ proc
             ;Insert the record into the file
             try
             begin
-                store(ch,department)
+                store(chDepartment,department)
             end
             catch (ex, @Exception)
             begin
@@ -272,7 +292,17 @@ function DepartmentUpdate, ^val
         DepartmentKeyNum, ^value
     endexternal
 
+    external common
+        chDepartment, int
+    endglobal
+
 proc
+    ;Make sure the channel is open
+    if (!chDepartment && !OpenDepartment(errorMessage))
+    begin
+        freturn false
+    end
+
     init localData
     recordsUpdated = 0
     ok = false
@@ -285,7 +315,7 @@ proc
 
     try
     begin
-        read(updateChannel,department,keyValue(1:keyLength),KEYNUM:%DepartmentKeyNum)
+        read(chDepartment,department,keyValue(1:keyLength),KEYNUM:%DepartmentKeyNum)
     end
     catch (ex, @Exception)
     begin
@@ -300,12 +330,13 @@ proc
         department = dataRecord
         try
         begin
-            write(updateChannel,department)
+            write(chDepartment,department)
             recordsUpdated = 1
             ok = true
         end
         catch (ex, @Exception)
         begin
+            unlock chDepartment
             errorMessage = "Failed to update record. Error was " + ex.Message
         end
         endtry
@@ -330,19 +361,29 @@ function DepartmentDelete, ^val
     external function
         DepartmentKeyNum, ^value
     endexternal
+    external common
+        chDepartment, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!chDepartment && !OpenDepartment(errorMessage))
+    begin
+        freturn false
+    end
+
     ;TODO: Needs to support relative files on OpenVMS
     try
     begin
-        read(updateChannel,department,keyValue,KEYNUM:%DepartmentKeyNum)
+        read(chDepartment,department,keyValue,KEYNUM:%DepartmentKeyNum)
         try
         begin
-            delete(updateChannel)
+            delete(chDepartment)
             errorMessage = ""
             freturn true
         end
         catch (ex, @Exception)
         begin
+            unlock chDepartment
             errorMessage = "Failed to delete record. Error was " + ex.Message
         end
         endtry
@@ -352,7 +393,9 @@ proc
         errorMessage = "Failed to read and lock record for delete. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
 ;*****************************************************************************
@@ -364,12 +407,26 @@ endfunction
 
 function DepartmentClear, ^val
     required out errorMessage, a
+    external common
+        chDepartment, int
+    endglobal
 proc
+    errorMessage = ""
+
+    ;If the file is open, close it
+
+    if (chDepartment)
+    begin
+        close chDepartment
+        chDepartment = 0
+    end
+
+    ;Clear the file
+
     try
     begin
-        data status, i4
-        xcall isclr("FILE_NAME",status)
-        errorMessage = ""
+        data ignored, i4
+        xcall isclr("FILE_NAME",ignored)
         freturn true
     end
     catch (ex, @Exception)
@@ -377,7 +434,9 @@ proc
         errorMessage = "Failed to clear file REPLICATOR_DATA:DEPARTMENT.ISM. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
 ;*****************************************************************************
@@ -389,13 +448,23 @@ endfunction
 
 function DepartmentDrop, ^val
     required out errorMessage, a
+    external common
+        chDepartment, int
+    endglobal
 proc
-    if (updateChannel)
-        close updateChannel
+    errorMessage = ""
+
+    ;If the file is open, close it
+
+    if (chDepartment)
+    begin
+        close chDepartment
+        chDepartment = 0
+    end
+
     try
     begin
         xcall delet("REPLICATOR_DATA:DEPARTMENT.ISM")
-        errorMessage = ""
         freturn true
     end
     catch (ex, @Exception)
@@ -403,7 +472,9 @@ proc
         errorMessage = "Failed to delete REPLICATOR_DATA:DEPARTMENT.ISM. Error was " + ex.Message
     end
     endtry
+
     freturn false
+
 endfunction
 
 ;*****************************************************************************
@@ -450,7 +521,16 @@ function DepartmentLoad, ^val
         timer       ,@Timer
     endrecord
 
+    external common
+        chDepartment, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!chDepartment && !OpenDepartment(errorMessage))
+    begin
+        freturn false
+    end
+
     init local_data
     ok = true
 
@@ -667,7 +747,15 @@ function DepartmentBulkLoad, ^val
         timer,                  @Timer
     endrecord
 
+    external common
+        chDepartment, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!chDepartment && !OpenDepartment(errorMessage))
+    begin
+        freturn false
+    end
 
     init local_data
     ok = true
@@ -1094,69 +1182,16 @@ endfunction
 ; </summary>
 
 subroutine DepartmentClose
-
-    .include "CONNECTDIR:ssql.def"
-
     external common
-        c1Department, i4
-        c2Department, i4
-        c3Department,  i4
-    endcommon
-
+        chDepartment, int
+    endglobal
 proc
+    ;If the file is open, close it
 
-    if (c1Department)
+    if (chDepartment)
     begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c1Department))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c1Department
-        end
-        endtry
-    end
-
-    if (c2Department)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c2Department))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c2Department
-        end
-        endtry
-    end
-
-    if (c3Department)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c3Department))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c3Department
-        end
-        endtry
+        close chDepartment
+        chDepartment = 0
     end
 
     xreturn
@@ -1204,7 +1239,16 @@ function DepartmentCsv, boolean
         timer,      @Timer  ;A timer
     endrecord
 
+    external common
+        chDepartment, int
+    endglobal
 proc
+    ;Make sure the channel is open
+    if (!chDepartment && !OpenDepartment(errorMessage))
+    begin
+        freturn false
+    end
+
     clear records, errtxt
     ok = true
     errorMessage = ""
@@ -1310,36 +1354,36 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Opens the REPLICATOR_DATA:DEPARTMENT.ISM for input.
+; Opens the REPLICATOR_DATA:DEPARTMENT.ISM for update.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
-function DepartmentOpenInput, ^val
+function OpenDepartment, ^val
     required out errorMessage, a  ;Returned error text
-
-    stack record
-        ch, int
-        errmsg, a128
-    endrecord
+    global common
+        chDepartment, int
+    endglobal
 proc
+    errorMessage = ""
 
-    try
+    if (chDepartment) then
+        freturn true
+    else
     begin
-        open(ch=0,i:i,"REPLICATOR_DATA:DEPARTMENT.ISM")
-        clear errmsg
+        try
+        begin
+            open(chDepartment=0,u:i,"REPLICATOR_DATA:DEPARTMENT.ISM")
+        end
+        catch (ex, @Exception)
+        begin
+            errorMessage = ex.Message
+            clear chDepartment
+            freturn false
+        end
+        endtry
     end
-    catch (ex, @Exception)
-    begin
-        errmsg = ex.Message
-        clear ch
-    end
-    endtry
-
-    errorMessage = errmsg
-
-    freturn ch
-
+    freturn true
 endfunction
 
 ;*****************************************************************************
