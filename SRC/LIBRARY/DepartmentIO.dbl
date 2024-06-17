@@ -1,6 +1,6 @@
 ;*****************************************************************************
 ;
-; File:        DepartmentSdmsIO.dbl
+; File:        DepartmentIO.dbl
 ;
 ; Description: Various functions that performs SDMS I/O for DEPARTMENT
 ;
@@ -30,7 +30,7 @@ import System.Text
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
 
-function DepartmentExists, ^val
+function DepartmentExists_, ^val
     required out errorMessage, a
     endparams
 
@@ -62,7 +62,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentCreate, ^val
+function DepartmentCreate_, ^val
     required out errorMessage, a
 
     .align
@@ -100,7 +100,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentIndex, ^val
+function DepartmentIndex_, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -114,7 +114,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentUnIndex, ^val
+function DepartmentUnIndex_, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -129,7 +129,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
-function DepartmentInsert, ^val
+function DepartmentInsert_, ^val
     required in  recordData,   a
     required out errorMessage, a
 
@@ -182,7 +182,7 @@ endfunction
 ; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentInsertRows, ^val
+function DepartmentInsertRows_, ^val
     required in  recordsHandle, D_HANDLE
     required out errorMessage, a
     required out exceptionRecordsHandle, D_HANDLE
@@ -272,7 +272,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentUpdate, ^val
+function DepartmentUpdate_, ^val
     required in  dataRecord, a
     required out recordsUpdated, i
     required out errorMessage, a
@@ -354,7 +354,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentDelete, ^val
+function DepartmentDelete_, ^val
     required in  keyValue, a
     required out errorMessage, a
     .include "DEPARTMENT" repository, stack record="department", nofields
@@ -405,7 +405,7 @@ endfunction
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentClear, ^val
+function DepartmentClear_, ^val
     required out errorMessage, a
     external common
         chDepartment, int
@@ -446,7 +446,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentDrop, ^val
+function DepartmentDrop_, ^val
     required out errorMessage, a
     external common
         chDepartment, int
@@ -487,7 +487,7 @@ endfunction
 ; <param name="a_errtxt">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentLoad, ^val
+function DepartmentLoad_, ^val
     required in  a_maxrows,       n
     required out a_added,         n
     required out a_failed,        n
@@ -714,7 +714,7 @@ endfunction
 ; <param name="a_errtxt">Error message (if return value is false)</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentBulkLoad, ^val
+function DepartmentBulkLoad_, ^val
     required in recordsToLoad, n
     required out a_records,    n
     required out a_exceptions, n
@@ -1181,7 +1181,7 @@ endfunction
 ; Close cursors associated with the Department table.
 ; </summary>
 
-subroutine DepartmentClose
+subroutine DepartmentClose_
     external common
         chDepartment, int
     endglobal
@@ -1208,7 +1208,7 @@ endsubroutine
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function DepartmentCsv, boolean
+function DepartmentCsv_, boolean
     required in  fileSpec, a
     required in  maxRecords, n
     required out recordCount, n
@@ -1359,7 +1359,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
-function OpenDepartment, ^val
+function OpenDepartment_, ^val
     required out errorMessage, a  ;Returned error text
     global common
         chDepartment, int
@@ -1393,7 +1393,7 @@ endfunction
 ; <param name="aKeyValue">Unique key value.</param>
 ; <returns>Returns a record containig only the unique key segment data.</returns>
 
-function DepartmentKeyToRecord, a
+function DepartmentKeyToRecord_, a
     required in aKeyValue, a
 
     .include "DEPARTMENT" repository, stack record="department", end
@@ -1415,125 +1415,12 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Extract a key value from the segment fields in a record.
-; This function behaves like %KEYVAL but without requiring an open channel.
-; </summary>
-; <param name="aRecord">Record containing key data</param>
-; <param name="aKeyVal">Returned key value</param>
-; <param name="aKeyLen">Returned key length</param>
-; <returns>Always returns true</returns>
-
-function DepartmentKeyVal, ^val
-    required in  aRecord, a
-    required out aKeyVal, a
-    required out aKeyLen, n
-
-    .align
-    stack record
-        pos,    int
-        len,    int
-        keyval, a255
-    endrecord
-proc
-    clear keyval
-    pos = 1
-    len = 0
-
-    ; Key segment 1 (Field)
-    keyval(pos:15) = aRecord(1:15)
-    len += 15
-
-    aKeyVal = keyval(1,len)
-    aKeyLen = len
-
-    freturn true
-
-endfunction
-
-;*****************************************************************************
-; <summary>
-; Returns the key number of the first unique key.
-; </summary>
-; <returns>Returned key number.</returns>
-
-function DepartmentKeyNum, ^val
-proc
-    freturn 0
-endfunction
-
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
-
-function DepartmentLength ,^val
-proc
-    freturn 100
-endfunction
-
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="fileType"></param>
-; <returns></returns>
-
-function DepartmentType, ^val
-    required out fileType, a
-proc
-    fileType = "DBL ISAM"
-    freturn true
-endfunction
-
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
-
-function DepartmentCols ,^val
-proc
-
-    freturn 3
-
-endfunction
-
-;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="fileType"></param>
-; <returns></returns>
-
-function DepartmentRecs, ^val
-    required out recordCount, n
-    required out errorMessage, a
-    stack record
-        ok, boolean
-        ch, int
-    endrecord
-proc
-    try
-    begin
-        open(ch=0,i:i,"REPLICATOR_DATA:DEPARTMENT.ISM")
-        recordCount = %isinfo(ch,"NUMRECS")
-        errorMessage = ""
-        ok = true
-    end
-    catch (ex, @Exception)
-    begin
-        recordCount = -1
-        errorMessage = ex.Message
-        ok = false
-    end
-    finally
-    begin
-        if (ch && %chopen(ch))
-            close ch
-    end
-    endtry
-    freturn ok
-endfunction
-
+;The following functions are identical to and therefor use the code from the
+;SQL Connection replication code in DepartmentSqlIO.dbl
+;
+;   %DepartmentKeyVal
+;   %DepartmentKeyNum
+;   %DepartmentLength
+;   %DepartmentType
+;   %DepartmentCols
+;   %DepartmentRecs

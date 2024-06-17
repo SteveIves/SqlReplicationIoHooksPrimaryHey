@@ -1,4 +1,4 @@
-<CODEGEN_FILENAME><StructureName>SdmsIO.dbl</CODEGEN_FILENAME>
+<CODEGEN_FILENAME><StructureName>IO.dbl</CODEGEN_FILENAME>
 <REQUIRES_CODEGEN_VERSION>6.0.2</REQUIRES_CODEGEN_VERSION>
 ;//****************************************************************************
 ;//
@@ -54,7 +54,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;//
 ;*****************************************************************************
 ;
-; File:        <StructureName>SdmsIO.dbl
+; File:        <StructureName>IO.dbl
 ;
 ; Description: Various functions that performs SDMS I/O for <STRUCTURE_NAME>
 ;
@@ -134,11 +134,11 @@ proc
 
     try
     begin
- <IF STRUCTURE_ISAM>
+<IF STRUCTURE_ISAM>
         xcall isamc("<FILE_ISAMC_SPEC>",<STRUCTURE_SIZE>,<STRUCTURE_KEYS>,
   <KEY_LOOP>
         & "<KEY_ISAMC_SPEC>"<,>
-<  /KEY_LOOP>
+  </KEY_LOOP>
         & )
 <ELSE STRUCTURE_RELATIVE>
         open(ch=0,o:r,"<FILE_NAME>",RECSIZ:<STRUCTURE_SIZE>)
@@ -1692,6 +1692,7 @@ proc
 
 endfunction
 
+</IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ;The following functions are identical to and therefor use the code from the
 ;SQL Connection replication code in <StructureName>SqlIO.dbl

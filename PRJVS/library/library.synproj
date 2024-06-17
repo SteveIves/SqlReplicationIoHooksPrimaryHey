@@ -132,8 +132,8 @@
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl">
       <Link>DataConversionTools.dbl</Link>
     </Compile>
-    <Compile Include="..\..\SRC\LIBRARY\DepartmentSdmsIO.dbl">
-      <Link>DepartmentSdmsIO.dbl</Link>
+    <Compile Include="..\..\SRC\LIBRARY\DepartmentIO.dbl">
+      <Link>DepartmentIO.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl">
       <Link>DepartmentSqlIO.dbl</Link>
@@ -141,8 +141,8 @@
     <Compile Include="..\..\SRC\LIBRARY\EmailSettings.dbl">
       <Link>EmailSettings.dbl</Link>
     </Compile>
-    <Compile Include="..\..\SRC\LIBRARY\EmployeeSdmsIO.dbl">
-      <Link>EmployeeSdmsIO.dbl</Link>
+    <Compile Include="..\..\SRC\LIBRARY\EmployeeIO.dbl">
+      <Link>EmployeeIO.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\EmployeeSqlIO.dbl">
       <Link>EmployeeSqlIO.dbl</Link>

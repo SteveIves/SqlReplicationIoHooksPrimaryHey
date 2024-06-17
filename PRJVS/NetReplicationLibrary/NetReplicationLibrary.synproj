@@ -63,12 +63,12 @@
     <Compile Include="..\..\SRC\LIBRARY\DatabaseTransform.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DataConversionTools.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DblNetConverter.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\DepartmentSdmsIO.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\DepartmentIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\DepartmentSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Department_SqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmailSettings.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\EmployeeIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmployeeLoadTester.dbl" />
-    <Compile Include="..\..\SRC\LIBRARY\EmployeeSdmsIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmployeeSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Employee_SqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\File.dbl" />
