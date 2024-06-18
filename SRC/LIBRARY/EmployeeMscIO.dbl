@@ -1,8 +1,9 @@
 ;*****************************************************************************
 ;
-; File:        DepartmentMsqIO.dbl
+; File:        EmployeeMscIO.dbl
 ;
-; Description: Various functions that performs SQL I/O for DEPARTMENT
+; Description: Various functions that performs SQL I/O for EMPLOYEE
+;              using Microsoft SQL Client.
 ;
 ;*****************************************************************************
 ; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
@@ -23,8 +24,8 @@ import System.IO
 import System.Text
 import System.Text.RegularExpressions
 
-.ifndef strDepartment
-.include "DEPARTMENT" repository, structure="strDepartment", end
+.ifndef strEmployee
+.include "EMPLOYEE" repository, structure="strEmployee", end
 .endc
 
 .define writelog(x) if (Settings.LogFileChannel && %chopen(Settings.LogFileChannel)) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
@@ -32,12 +33,12 @@ import System.Text.RegularExpressions
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Determines if the Department table exists in the database.
+;;; Determines if the Employee table exists in the database.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
-function Department_Exists, ^val
+function Employee_Exists, ^val
     required out aErrorMessage, a
 
     stack record
@@ -50,7 +51,7 @@ proc
 
     try
     begin
-        data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Department'"
+        data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Employee'"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
@@ -85,12 +86,12 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Creates the Department table in the database.
+;;; Creates the Employee table in the database.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Create, ^val
+function Employee_Create, ^val
     required out aErrorMessage, a
 
     stack record
@@ -99,13 +100,25 @@ function Department_Create, ^val
     endrecord
 
     literal
-        createTableCommand, string,"CREATE TABLE [Department] ("
-        & + "[DeptId] VARCHAR(15) NOT NULL,"
-        & + "[DeptName] VARCHAR(50) NOT NULL,"
-        & + "[DeptManager] DECIMAL(8) NOT NULL,"
-        & + "CONSTRAINT [PK_Department] PRIMARY KEY CLUSTERED([DeptId] ASC)"
+        createTableCommand, string,"CREATE TABLE [Employee] ("
+        & + "[EmpId] DECIMAL(8) NOT NULL,"
+        & + "[EmpFirstName] VARCHAR(20) NOT NULL,"
+        & + "[EmpLastName] VARCHAR(20) NOT NULL,"
+        & + "[EmpDept] VARCHAR(15) NOT NULL,"
+        & + "[EmpHireDate] DATE,"
+        & + "[EmpPhoneWork] VARCHAR(14),"
+        & + "[EmpPhoneCell] VARCHAR(14),"
+        & + "[EmpPaid] DECIMAL(1),"
+        & + "[EmpDateOfBirth] DATE,"
+        & + "[EmpHireTime] TIME(0),"
+        & + "[EmpEmail] VARCHAR(40),"
+        & + "[EmpAddressStreet] VARCHAR(30),"
+        & + "[EmpAddressCity] VARCHAR(20),"
+        & + "[EmpAddressState] VARCHAR(2),"
+        & + "[EmpAddressZip] DECIMAL(5),"
+        & + "CONSTRAINT [PK_Employee] PRIMARY KEY CLUSTERED([EmpId] ASC)"
         & + ")"
-        grantCommand, string, "GRANT ALL ON [Department] TO PUBLIC"
+        grantCommand, string, "GRANT ALL ON [Employee] TO PUBLIC"
     endliteral
 
     static record
@@ -203,12 +216,12 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Add alternate key indexes to the Department table if they do not exist.
+;;; Add alternate key indexes to the Employee table if they do not exist.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Index, ^val
+function Employee_Index, ^val
     required out aErrorMessage, a
 
     .align
@@ -232,11 +245,11 @@ proc
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    ;Create index 1 (Department manager)
+    ;Create index 1 (Department ID)
 
-    if (ok && !%Index_Exists("IX_Department_DeptManager"))
+    if (ok && !%Index_Exists("IX_Employee_EmpDept"))
     begin
-        data sql = "CREATE  INDEX [IX_Department_DeptManager] ON [Department]([DeptManager] ASC)"
+        data sql = "CREATE  INDEX [IX_Employee_EmpDept] ON [Employee]([EmpDept] ASC)"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -257,7 +270,7 @@ proc
         catch (ex, @SqlException)
         begin
             ok = false
-            errorMessage = "Failed to create index IX_Department_DeptManager. Error was: " + ex.Message
+            errorMessage = "Failed to create index IX_Employee_EmpDept. Error was: " + ex.Message
         end
         endtry 
 
@@ -265,7 +278,133 @@ proc
 
         if (ok) then
         begin
-            writelog(" - Added index IX_Department_DeptManager")
+            writelog(" - Added index IX_Employee_EmpDept")
+        end
+        else
+        begin
+            writelog(" - ERROR: " + errorMessage)
+            ok = true
+        end
+    end
+
+    ;Create index 2 (Last name)
+
+    if (ok && !%Index_Exists("IX_Employee_EmpLastName"))
+    begin
+        data sql = "CREATE  INDEX [IX_Employee_EmpLastName] ON [Employee]([EmpLastName] ASC)"
+
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Page),
+            sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
+        (DatabaseDataCompression.Row),
+            sql = sql + " WITH(DATA_COMPRESSION=ROW)"
+        endusing
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to create index IX_Employee_EmpLastName. Error was: " + ex.Message
+        end
+        endtry 
+
+        now = %datetime
+
+        if (ok) then
+        begin
+            writelog(" - Added index IX_Employee_EmpLastName")
+        end
+        else
+        begin
+            writelog(" - ERROR: " + errorMessage)
+            ok = true
+        end
+    end
+
+    ;Create index 3 (State)
+
+    if (ok && !%Index_Exists("IX_Employee_StateCode"))
+    begin
+        data sql = "CREATE  INDEX [IX_Employee_StateCode] ON [Employee]([EmpAddressState] ASC)"
+
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Page),
+            sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
+        (DatabaseDataCompression.Row),
+            sql = sql + " WITH(DATA_COMPRESSION=ROW)"
+        endusing
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to create index IX_Employee_StateCode. Error was: " + ex.Message
+        end
+        endtry 
+
+        now = %datetime
+
+        if (ok) then
+        begin
+            writelog(" - Added index IX_Employee_StateCode")
+        end
+        else
+        begin
+            writelog(" - ERROR: " + errorMessage)
+            ok = true
+        end
+    end
+
+    ;Create index 4 (Zip code)
+
+    if (ok && !%Index_Exists("IX_Employee_ZipCode"))
+    begin
+        data sql = "CREATE  INDEX [IX_Employee_ZipCode] ON [Employee]([EmpAddressZip] ASC)"
+
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Page),
+            sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
+        (DatabaseDataCompression.Row),
+            sql = sql + " WITH(DATA_COMPRESSION=ROW)"
+        endusing
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to create index IX_Employee_ZipCode. Error was: " + ex.Message
+        end
+        endtry 
+
+        now = %datetime
+
+        if (ok) then
+        begin
+            writelog(" - Added index IX_Employee_ZipCode")
         end
         else
         begin
@@ -306,12 +445,12 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Removes alternate key indexes from the Department table in the database.
+;;; Removes alternate key indexes from the Employee table in the database.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_UnIndex, ^val
+function Employee_UnIndex, ^val
     required out aErrorMessage, a
 
     .align
@@ -331,13 +470,13 @@ proc
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    ;Drop index 1 (Department manager)
+    ;Drop index 1 (Department ID)
 
     if (ok)
     begin
         try
         begin
-            data sql = "DROP INDEX IF EXISTS [IX_Department_DeptManager] ON [Department]"
+            data sql = "DROP INDEX IF EXISTS [IX_Employee_EmpDept] ON [Employee]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -348,7 +487,73 @@ proc
         catch (ex, @SqlException)
         begin
             ok = false
-            errorMessage = "Failed to drop index IX_Department_DeptManager. Error was: " + ex.Message
+            errorMessage = "Failed to drop index IX_Employee_EmpDept. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;Drop index 2 (Last name)
+
+    if (ok)
+    begin
+        try
+        begin
+            data sql = "DROP INDEX IF EXISTS [IX_Employee_EmpLastName] ON [Employee]"
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_Employee_EmpLastName. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;Drop index 3 (State)
+
+    if (ok)
+    begin
+        try
+        begin
+            data sql = "DROP INDEX IF EXISTS [IX_Employee_StateCode] ON [Employee]"
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_Employee_StateCode. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;Drop index 4 (Zip code)
+
+    if (ok)
+    begin
+        try
+        begin
+            data sql = "DROP INDEX IF EXISTS [IX_Employee_ZipCode] ON [Employee]"
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_Employee_ZipCode. Error was: " + ex.Message
         end
         endtry
     end
@@ -380,13 +585,13 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Insert a row into the Department table.
+;;; Insert a row into the Employee table.
 ;;; </summary>
 ;;; <param name="a_data">Record to be inserted.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
-function Department_Insert, ^val
+function Employee_Insert, ^val
     required in  a_data,   a
     required out aErrorMessage, a
 
@@ -398,20 +603,45 @@ function Department_Insert, ^val
     endrecord
 
     literal
-        sql, string, "INSERT INTO [Department] ("
-        & + "[DeptId],"
-        & + "[DeptName],"
-        & + "[DeptManager]"
+        sql, string, "INSERT INTO [Employee] ("
+        & + "[EmpId],"
+        & + "[EmpFirstName],"
+        & + "[EmpLastName],"
+        & + "[EmpDept],"
+        & + "[EmpHireDate],"
+        & + "[EmpPhoneWork],"
+        & + "[EmpPhoneCell],"
+        & + "[EmpPaid],"
+        & + "[EmpDateOfBirth],"
+        & + "[EmpHireTime],"
+        & + "[EmpEmail],"
+        & + "[EmpAddressStreet],"
+        & + "[EmpAddressCity],"
+        & + "[EmpAddressState],"
+        & + "[EmpAddressZip]"
         & + ") VALUES("
-        & + "@DeptId,"
-        & + "@DeptName,"
-        & + "@DeptManager"
+        & + "@EmpId,"
+        & + "@EmpFirstName,"
+        & + "@EmpLastName,"
+        & + "@EmpDept,"
+        & + "@EmpHireDate,"
+        & + "@EmpPhoneWork,"
+        & + "@EmpPhoneCell,"
+        & + "@EmpPaid,"
+        & + "@EmpDateOfBirth,"
+        & + "@EmpHireTime,"
+        & + "@EmpEmail,"
+        & + "@EmpAddressStreet,"
+        & + "@EmpAddressCity,"
+        & + "@EmpAddressState,"
+        & + "@EmpAddressZip"
         & + ")"
     endliteral
 
     static record
         command, @SqlCommand
-        department, strDepartment
+        employee, strEmployee
+        tmpEmpHireTime, a5      ;Storage for HH:MM time field
     endrecord
 
 proc
@@ -421,19 +651,44 @@ proc
 
     ;Load the data into the bound record
 
-    department = a_data
+    employee = a_data
 
     ;Clean up any alpha fields
 
-    department.dept_name = %atrim(department.dept_name)+%char(0)
+    employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
+    employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
+    employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
+    employee.emp_phone_work = %atrim(employee.emp_phone_work)+%char(0)
+    employee.emp_phone_cell = %atrim(employee.emp_phone_cell)+%char(0)
+    employee.emp_email = %atrim(employee.emp_email)+%char(0)
+    employee.emp_address_street = %atrim(employee.emp_address_street)+%char(0)
+    employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
+    employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
 
     ;Clean up any decimal fields
 
-    if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
-        clear department.dept_manager
+    if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
+        clear employee.emp_id
+    if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
+        clear employee.emp_paid
+    if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
+        clear employee.emp_address_zip
+
+    ;Clean up any date fields
+
+    if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
+        ^a(employee.emp_hire_date(1:1)) = %char(0)
+    if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
+        ^a(employee.emp_date_of_birth(1:1)) = %char(0)
+
+    ;Clean up any time fields
+
+    if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
+        ^a(employee.emp_hire_time(1:1))=%char(0)
 
     ;Assign data to any temporary time or user-defined timestamp fields
 
+    tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
 
     ;Assign values to temp fields for any fields with custom data types
 
@@ -450,9 +705,21 @@ proc
     if (Settings.SqlCommandReuse && command==^null)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.Add(new SqlParameter("@DeptId",DblNetConverter.AlphaToString(department.dept_id)))
-        command.Parameters.Add(new SqlParameter("@DeptName",DblNetConverter.AlphaToString(department.dept_name)))
-        command.Parameters.Add(new SqlParameter("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager)))
+        command.Parameters.Add(new SqlParameter("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id)))
+        command.Parameters.Add(new SqlParameter("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name)))
+        command.Parameters.Add(new SqlParameter("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name)))
+        command.Parameters.Add(new SqlParameter("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept)))
+        command.Parameters.Add(new SqlParameter("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell)))
+        command.Parameters.Add(new SqlParameter("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid)))
+        command.Parameters.Add(new SqlParameter("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)))
+        command.Parameters.Add(new SqlParameter("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time)))
+        command.Parameters.Add(new SqlParameter("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
     end
 
     ;If we're reusing the SqlCommand bind data to the existing parameters in the existing command
@@ -461,17 +728,41 @@ proc
     if (Settings.SqlCommandReuse) then
     begin
         ;Existing command and parameters
-        command.Parameters["@DeptId"].Value = DblNetConverter.AlphaToString(department.dept_id)
-        command.Parameters["@DeptName"].Value = DblNetConverter.AlphaToString(department.dept_name)
-        command.Parameters["@DeptManager"].Value = DblNetConverter.SmallDecimalToInt(department.dept_manager)
+        command.Parameters["@EmpId"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_id)
+        command.Parameters["@EmpFirstName"].Value = DblNetConverter.AlphaToString(employee.emp_first_name)
+        command.Parameters["@EmpLastName"].Value = DblNetConverter.AlphaToString(employee.emp_last_name)
+        command.Parameters["@EmpDept"].Value = DblNetConverter.AlphaToString(employee.emp_dept)
+        command.Parameters["@EmpHireDate"].Value = DblNetConverter.DateToNullableDateTime(employee.emp_hire_date)
+        command.Parameters["@EmpPhoneWork"].Value = DblNetConverter.AlphaToString(employee.emp_phone_work)
+        command.Parameters["@EmpPhoneCell"].Value = DblNetConverter.AlphaToString(employee.emp_phone_cell)
+        command.Parameters["@EmpPaid"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_paid)
+        command.Parameters["@EmpDateOfBirth"].Value = DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)
+        command.Parameters["@EmpHireTime"].Value = DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time)
+        command.Parameters["@EmpEmail"].Value = DblNetConverter.AlphaToString(employee.emp_email)
+        command.Parameters["@EmpAddressStreet"].Value = DblNetConverter.AlphaToString(employee.emp_address_street)
+        command.Parameters["@EmpAddressCity"].Value = DblNetConverter.AlphaToString(employee.emp_address_city)
+        command.Parameters["@EmpAddressState"].Value = DblNetConverter.AlphaToString(employee.emp_address_state)
+        command.Parameters["@EmpAddressZip"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_address_zip)
     end
     else
     begin
         ;New command and parameters
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
-        command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
-        command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+        command.Parameters.AddWithValue("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id))
+        command.Parameters.AddWithValue("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name))
+        command.Parameters.AddWithValue("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name))
+        command.Parameters.AddWithValue("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept))
+        command.Parameters.AddWithValue("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+        command.Parameters.AddWithValue("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work))
+        command.Parameters.AddWithValue("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell))
+        command.Parameters.AddWithValue("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid))
+        command.Parameters.AddWithValue("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+        command.Parameters.AddWithValue("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+        command.Parameters.AddWithValue("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email))
+        command.Parameters.AddWithValue("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street))
+        command.Parameters.AddWithValue("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city))
+        command.Parameters.AddWithValue("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state))
+        command.Parameters.AddWithValue("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip))
     end
 
     ;In manual commit mode, commit or rollback the transaction
@@ -499,7 +790,7 @@ proc
         end
         (),
         begin
-            errorMessage = "Failed to insert row into Department. Error was: " + ex.Message
+            errorMessage = "Failed to insert row into Employee. Error was: " + ex.Message
         end
         endusing
         xcall ThrowOnSqlClientError(errorMessage,ex)
@@ -541,14 +832,14 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Inserts multiple rows into the Department table.
+;;; Inserts multiple rows into the Employee table.
 ;;; </summary>
 ;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <param name="a_exception">Memory handle to load exception data records into.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_InsertRows, ^val
+function Employee_InsertRows, ^val
     required in  a_data, i
     required out aErrorMessage, a
     optional out a_exception, i
@@ -567,21 +858,46 @@ function Department_InsertRows, ^val
     endrecord
 
     literal
-        sql, string, "INSERT INTO [Department] ("
-        & + "[DeptId],"
-        & + "[DeptName],"
-        & + "[DeptManager]"
+        sql, string, "INSERT INTO [Employee] ("
+        & + "[EmpId],"
+        & + "[EmpFirstName],"
+        & + "[EmpLastName],"
+        & + "[EmpDept],"
+        & + "[EmpHireDate],"
+        & + "[EmpPhoneWork],"
+        & + "[EmpPhoneCell],"
+        & + "[EmpPaid],"
+        & + "[EmpDateOfBirth],"
+        & + "[EmpHireTime],"
+        & + "[EmpEmail],"
+        & + "[EmpAddressStreet],"
+        & + "[EmpAddressCity],"
+        & + "[EmpAddressState],"
+        & + "[EmpAddressZip]"
         & + ") VALUES("
-        & + "@DeptId,"
-        & + "@DeptName,"
-        & + "@DeptManager"
+        & + "@EmpId,"
+        & + "@EmpFirstName,"
+        & + "@EmpLastName,"
+        & + "@EmpDept,"
+        & + "@EmpHireDate,"
+        & + "@EmpPhoneWork,"
+        & + "@EmpPhoneCell,"
+        & + "@EmpPaid,"
+        & + "@EmpDateOfBirth,"
+        & + "@EmpHireTime,"
+        & + "@EmpEmail,"
+        & + "@EmpAddressStreet,"
+        & + "@EmpAddressCity,"
+        & + "@EmpAddressState,"
+        & + "@EmpAddressZip"
         & + ")"
     endliteral
 
-    .include "DEPARTMENT" repository, structure="inpbuf", nofields, end
-    .include "DEPARTMENT" repository, static record="department", end
+    .include "EMPLOYEE" repository, structure="inpbuf", nofields, end
+    .include "EMPLOYEE" repository, static record="employee", end
 
     static record
+        tmpEmpHireTime, a5       ;Storage for HH:MM time field
         , a1                        ;In case there are no user timestamp, date or JJJJJJ date fields
     endrecord
 proc
@@ -608,9 +924,21 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.Add(new SqlParameter("@DeptId",DblNetConverter.AlphaToString(department.dept_id)))
-        command.Parameters.Add(new SqlParameter("@DeptName",DblNetConverter.AlphaToString(department.dept_name)))
-        command.Parameters.Add(new SqlParameter("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager)))
+        command.Parameters.Add(new SqlParameter("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id)))
+        command.Parameters.Add(new SqlParameter("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name)))
+        command.Parameters.Add(new SqlParameter("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name)))
+        command.Parameters.Add(new SqlParameter("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept)))
+        command.Parameters.Add(new SqlParameter("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work)))
+        command.Parameters.Add(new SqlParameter("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell)))
+        command.Parameters.Add(new SqlParameter("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid)))
+        command.Parameters.Add(new SqlParameter("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)))
+        command.Parameters.Add(new SqlParameter("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time)))
+        command.Parameters.Add(new SqlParameter("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state)))
+        command.Parameters.Add(new SqlParameter("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip)))
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
@@ -625,33 +953,80 @@ proc
         for cnt from 1 thru rows
         begin
             ;Load data into bound record
-            department = ^m(inpbuf[cnt],a_data)
+            employee = ^m(inpbuf[cnt],a_data)
 
             ;Clean up alpha variables
-            department.dept_name = %atrim(department.dept_name)+%char(0)
+            employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
+            employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
+            employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
+            employee.emp_phone_work = %atrim(employee.emp_phone_work)+%char(0)
+            employee.emp_phone_cell = %atrim(employee.emp_phone_cell)+%char(0)
+            employee.emp_email = %atrim(employee.emp_email)+%char(0)
+            employee.emp_address_street = %atrim(employee.emp_address_street)+%char(0)
+            employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
+            employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
 
             ;Clean up decimal variables
-            if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
-                clear department.dept_manager
+            if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
+                clear employee.emp_id
+            if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
+                clear employee.emp_paid
+            if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
+                clear employee.emp_address_zip
+
+            ;Clean up date variables
+            if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
+                ^a(employee.emp_hire_date(1:1))=%char(0)
+            if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
+                ^a(employee.emp_date_of_birth(1:1))=%char(0)
+
+            ;Clean up time variables
+            if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
+                ^a(employee.emp_hire_time(1:1))=%char(0)
 
             ;Assign any time or user-defined timestamp fields
+            tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
 
             ;Assign values to temp fields for any fields with custom data types
 
             if (Settings.SqlCommandReuse) then
             begin
                 ;Bind data for the current record to the existing command parameters
-                command.Parameters["@DeptId"].Value = DblNetConverter.AlphaToString(department.dept_id)
-                command.Parameters["@DeptName"].Value = DblNetConverter.AlphaToString(department.dept_name)
-                command.Parameters["@DeptManager"].Value = DblNetConverter.SmallDecimalToInt(department.dept_manager)
+                command.Parameters["@EmpId"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_id)
+                command.Parameters["@EmpFirstName"].Value = DblNetConverter.AlphaToString(employee.emp_first_name)
+                command.Parameters["@EmpLastName"].Value = DblNetConverter.AlphaToString(employee.emp_last_name)
+                command.Parameters["@EmpDept"].Value = DblNetConverter.AlphaToString(employee.emp_dept)
+                command.Parameters["@EmpHireDate"].Value = DblNetConverter.DateToNullableDateTime(employee.emp_hire_date)
+                command.Parameters["@EmpPhoneWork"].Value = DblNetConverter.AlphaToString(employee.emp_phone_work)
+                command.Parameters["@EmpPhoneCell"].Value = DblNetConverter.AlphaToString(employee.emp_phone_cell)
+                command.Parameters["@EmpPaid"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_paid)
+                command.Parameters["@EmpDateOfBirth"].Value = DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth)
+                command.Parameters["@EmpHireTime"].Value = DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time)
+                command.Parameters["@EmpEmail"].Value = DblNetConverter.AlphaToString(employee.emp_email)
+                command.Parameters["@EmpAddressStreet"].Value = DblNetConverter.AlphaToString(employee.emp_address_street)
+                command.Parameters["@EmpAddressCity"].Value = DblNetConverter.AlphaToString(employee.emp_address_city)
+                command.Parameters["@EmpAddressState"].Value = DblNetConverter.AlphaToString(employee.emp_address_state)
+                command.Parameters["@EmpAddressZip"].Value = DblNetConverter.SmallDecimalToInt(employee.emp_address_zip)
             end
             else
             begin
                 ;Create the SqlCommand, add parameters and bind the data for the current record
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-                command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
-                command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
-                command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+                command.Parameters.AddWithValue("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id))
+                command.Parameters.AddWithValue("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name))
+                command.Parameters.AddWithValue("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name))
+                command.Parameters.AddWithValue("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept))
+                command.Parameters.AddWithValue("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+                command.Parameters.AddWithValue("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work))
+                command.Parameters.AddWithValue("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell))
+                command.Parameters.AddWithValue("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid))
+                command.Parameters.AddWithValue("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+                command.Parameters.AddWithValue("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+                command.Parameters.AddWithValue("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email))
+                command.Parameters.AddWithValue("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street))
+                command.Parameters.AddWithValue("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city))
+                command.Parameters.AddWithValue("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state))
+                command.Parameters.AddWithValue("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip))
                 if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
                 begin
                     command.Transaction = Settings.CurrentTransaction
@@ -689,7 +1064,7 @@ proc
                         else
                             a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),a_exception)
                     end
-                    ^m(inpbuf[ex_mc+=1],a_exception)=department
+                    ^m(inpbuf[ex_mc+=1],a_exception)=employee
                     continue=1
                 end
 
@@ -753,14 +1128,14 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Updates a row in the Department table.
+;;; Updates a row in the Employee table.
 ;;; </summary>
 ;;; <param name="a_data">Record containing data to update.</param>
 ;;; <param name="a_rows">Returned number of rows affected.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Update, ^val
+function Employee_Update, ^val
     required in  a_data,   a
     optional out a_rows,   i
     required out aErrorMessage, a
@@ -773,15 +1148,28 @@ function Department_Update, ^val
     endrecord
 
     literal
-        sql, string, "UPDATE [Department] SET "
-        & + "[DeptId]=@DeptId,"
-        & + "[DeptName]=@DeptName,"
-        & + "[DeptManager]=@DeptManager"
-        & + " WHERE [DeptId]=@DeptId  "
+        sql, string, "UPDATE [Employee] SET "
+        & + "[EmpId]=@EmpId,"
+        & + "[EmpFirstName]=@EmpFirstName,"
+        & + "[EmpLastName]=@EmpLastName,"
+        & + "[EmpDept]=@EmpDept,"
+        & + "[EmpHireDate]=@EmpHireDate,"
+        & + "[EmpPhoneWork]=@EmpPhoneWork,"
+        & + "[EmpPhoneCell]=@EmpPhoneCell,"
+        & + "[EmpPaid]=@EmpPaid,"
+        & + "[EmpDateOfBirth]=@EmpDateOfBirth,"
+        & + "[EmpHireTime]=@EmpHireTime,"
+        & + "[EmpEmail]=@EmpEmail,"
+        & + "[EmpAddressStreet]=@EmpAddressStreet,"
+        & + "[EmpAddressCity]=@EmpAddressCity,"
+        & + "[EmpAddressState]=@EmpAddressState,"
+        & + "[EmpAddressZip]=@EmpAddressZip"
+        & + " WHERE [EmpId]=@EmpId  "
     endliteral
 
     static record
-        department, strDepartment
+        employee, strEmployee
+        tmpEmpHireTime, a5      ;Storage for HH:MM time field
     endrecord
 
 proc
@@ -793,16 +1181,39 @@ proc
         clear a_rows
 
     ;Load the data into the bound record
-    department = a_data
+    employee = a_data
 
     ;Clean up alpha fields
-    department.dept_name = %atrim(department.dept_name)+%char(0)
+    employee.emp_first_name = %atrim(employee.emp_first_name)+%char(0)
+    employee.emp_last_name = %atrim(employee.emp_last_name)+%char(0)
+    employee.emp_dept = %atrim(employee.emp_dept)+%char(0)
+    employee.emp_phone_work = %atrim(employee.emp_phone_work)+%char(0)
+    employee.emp_phone_cell = %atrim(employee.emp_phone_cell)+%char(0)
+    employee.emp_email = %atrim(employee.emp_email)+%char(0)
+    employee.emp_address_street = %atrim(employee.emp_address_street)+%char(0)
+    employee.emp_address_city = %atrim(employee.emp_address_city)+%char(0)
+    employee.emp_address_state = %atrim(employee.emp_address_state)+%char(0)
 
     ;Clean up decimal fields
-    if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
-        clear department.dept_manager
+    if ((!employee.emp_id)||(!%IsDecimalNoNegatives(employee.emp_id)))
+        clear employee.emp_id
+    if ((!employee.emp_paid)||(!%IsDecimalNoNegatives(employee.emp_paid)))
+        clear employee.emp_paid
+    if ((!employee.emp_address_zip)||(!%IsDecimalNoNegatives(employee.emp_address_zip)))
+        clear employee.emp_address_zip
+
+    ;Clean up date fields
+    if ((!employee.emp_hire_date)||(!%IsDate(^a(employee.emp_hire_date))))
+        ^a(employee.emp_hire_date(1:1)) = %char(0)
+    if ((!employee.emp_date_of_birth)||(!%IsDate(^a(employee.emp_date_of_birth))))
+        ^a(employee.emp_date_of_birth(1:1)) = %char(0)
+
+    ;Clean up time fields
+    if ((!employee.emp_hire_time)||(!%IsTime(^a(employee.emp_hire_time))))
+        ^a(employee.emp_hire_time(1:1)) = %char(0)
 
     ;Assign time and user-defined timestamp fields
+    tmpEmpHireTime = %string(employee.emp_hire_time,"XX:XX")
 
     ;Assign values to temp fields for any fields with custom data types
 
@@ -824,9 +1235,21 @@ proc
             end
 
             ;Bind the host variables for data to be updated
-            command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
-            command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
-            command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+            command.Parameters.AddWithValue("@EmpId",DblNetConverter.SmallDecimalToInt(employee.emp_id))
+            command.Parameters.AddWithValue("@EmpFirstName",DblNetConverter.AlphaToString(employee.emp_first_name))
+            command.Parameters.AddWithValue("@EmpLastName",DblNetConverter.AlphaToString(employee.emp_last_name))
+            command.Parameters.AddWithValue("@EmpDept",DblNetConverter.AlphaToString(employee.emp_dept))
+            command.Parameters.AddWithValue("@EmpHireDate",DblNetConverter.DateToNullableDateTime(employee.emp_hire_date))
+            command.Parameters.AddWithValue("@EmpPhoneWork",DblNetConverter.AlphaToString(employee.emp_phone_work))
+            command.Parameters.AddWithValue("@EmpPhoneCell",DblNetConverter.AlphaToString(employee.emp_phone_cell))
+            command.Parameters.AddWithValue("@EmpPaid",DblNetConverter.SmallDecimalToInt(employee.emp_paid))
+            command.Parameters.AddWithValue("@EmpDateOfBirth",DblNetConverter.DateToNullableDateTime(employee.emp_date_of_birth))
+            command.Parameters.AddWithValue("@EmpHireTime",DblNetConverter.HHMMToTimeSpan(employee.emp_hire_time))
+            command.Parameters.AddWithValue("@EmpEmail",DblNetConverter.AlphaToString(employee.emp_email))
+            command.Parameters.AddWithValue("@EmpAddressStreet",DblNetConverter.AlphaToString(employee.emp_address_street))
+            command.Parameters.AddWithValue("@EmpAddressCity",DblNetConverter.AlphaToString(employee.emp_address_city))
+            command.Parameters.AddWithValue("@EmpAddressState",DblNetConverter.AlphaToString(employee.emp_address_state))
+            command.Parameters.AddWithValue("@EmpAddressZip",DblNetConverter.SmallDecimalToInt(employee.emp_address_zip))
 
             rows = command.ExecuteNonQuery()
 
@@ -869,20 +1292,20 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Deletes a row from the Department table.
+;;; Deletes a row from the Employee table.
 ;;; </summary>
 ;;; <param name="a_key">Unique key of row to be deleted.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Delete, ^val
+function Employee_Delete, ^val
     required in  a_key,    a
     required out aErrorMessage, a
 
-    .include "DEPARTMENT" repository, stack record="department"
+    .include "EMPLOYEE" repository, stack record="employee"
 
     external function
-        DepartmentKeyToRecord, a
+        EmployeeKeyToRecord, a
     endexternal
 
     .align
@@ -898,7 +1321,7 @@ proc
     errorMessage = String.Empty
 
     ;Put the unique key value into the record
-    department = %DepartmentKeyToRecord(a_key)
+    employee = %EmployeeKeyToRecord(a_key)
 
     ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
@@ -909,8 +1332,8 @@ proc
     ;;Delete the row
     if (ok)
     begin
-        sql = "DELETE FROM [Department] WHERE"
-        & + " [DeptId]='" + %atrim(department.dept_id) + "' "
+        sql = "DELETE FROM [Employee] WHERE"
+        &    + " [EmpId]='" + %string(employee.emp_id) + "' "
 
         try
         begin
@@ -957,12 +1380,12 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Deletes all rows from the Department table.
+;;; Deletes all rows from the Employee table.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Clear, ^val
+function Employee_Clear, ^val
     required out aErrorMessage, a
 
     .align
@@ -972,7 +1395,7 @@ function Department_Clear, ^val
     endrecord
 
     literal
-        sql, string, "TRUNCATE TABLE [Department]"
+        sql, string, "TRUNCATE TABLE [Employee]"
     endliteral
 
 proc
@@ -1033,12 +1456,12 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Deletes the Department table from the database.
+;;; Deletes the Employee table from the database.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Drop, ^val
+function Employee_Drop, ^val
     required out aErrorMessage, a
 
     stack record
@@ -1047,7 +1470,7 @@ function Department_Drop, ^val
     endrecord
 
     literal
-        sql, string, "DROP TABLE [Department]"
+        sql, string, "DROP TABLE [Employee]"
     endliteral
 
 proc
@@ -1073,7 +1496,7 @@ proc
     catch (ex, @SqlException)
     begin
         using ex.Number select
-        (3701), ;Cannot drop the table 'Department', because it does not exist or you do not have permission.
+        (3701), ;Cannot drop the table 'Employee', because it does not exist or you do not have permission.
             nop
         (),
         begin
@@ -1112,21 +1535,21 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Load all data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table.
+;;; Load all data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <param name="a_added">Total number of successful inserts.</param>
 ;;; <param name="a_failed">Total number of failed inserts.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Load, ^val
+function Employee_Load, ^val
     required in  a_maxrows, n
     required out a_added, n
     required out a_failed, n
     required out aErrorMessage, a
 
-    .include "DEPARTMENT" repository, structure="inpbuf", end
-    .include "DEPARTMENT" repository, stack record="tmprec", end
+    .include "EMPLOYEE" repository, structure="inpbuf", end
+    .include "EMPLOYEE" repository, stack record="tmprec", end
 
     .define BUFFER_ROWS     1000
     .define EXCEPTION_BUFSZ 100
@@ -1163,11 +1586,11 @@ proc
     ;If we are logging exceptions, delete any existing exceptions file.
     if (Settings.LogBulkLoadExceptions)
     begin
-        xcall delet("REPLICATOR_LOGDIR:department_data_exceptions.log")
+        xcall delet("REPLICATOR_LOGDIR:employee_data_exceptions.log")
     end
 
     ;Open the data file associated with the structure
-    if (!(filechn = %DepartmentOpenInput(tmperrmsg)))
+    if (!(filechn = %EmployeeOpenInput(tmperrmsg)))
     begin
         errorMessage = "Failed to open data file! Error was " + %atrimtostring(tmperrmsg)
         ok = false
@@ -1273,7 +1696,7 @@ insert_data,
 
     attempted = (%mem_proc(DM_GETSIZE,mh)/^size(inpbuf))
 
-    if (!%Department_InsertRows(mh,tmperrmsg,ex_mh)) then
+    if (!%Employee_InsertRows(mh,tmperrmsg,ex_mh)) then
     begin
         errorMessage = %atrimtostring(tmperrmsg)
     end
@@ -1297,7 +1720,7 @@ insert_data,
                 ;Open the log file
                 if (!ex_ch)
                 begin
-                    open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:department_data_exceptions.log")
+                    open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:employee_data_exceptions.log")
                 end
 
                 ;Log the exceptions
@@ -1309,7 +1732,7 @@ insert_data,
                 ;And maybe show them on the terminal
                 if (Settings.TerminalChannel)
                 begin
-                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:department_data_exceptions.log")
+                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:employee_data_exceptions.log")
                 end
             end
             else
@@ -1340,7 +1763,7 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Bulk load data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a delimited text file.
+;;; Bulk load data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
@@ -1348,7 +1771,7 @@ endfunction
 ;;; <param name="aErrorMessage">Error message (if return value is false)</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_BulkLoad, ^val
+function Employee_BulkLoad, ^val
     required in recordsToLoad,  n
     required out a_records,     n
     required out a_exceptions,  n
@@ -1407,13 +1830,13 @@ proc
 
     if (ok)
     begin
-        localCsvFile = Path.Combine(Settings.LocalExportPath,"Department.csv")
+        localCsvFile = Path.Combine(Settings.LocalExportPath,"Employee.csv")
         localExceptionsFile = String.Format("{0}_err",localCsvFile)
         localExceptionsLog = String.Format("{0}.Error.Txt",localExceptionsFile)
 
         if (remoteBulkLoad)
         begin
-            remoteCsvFile = "Department.csv"
+            remoteCsvFile = "Employee.csv"
             remoteExceptionsFile = String.Format("{0}_err",remoteCsvFile)
             remoteExceptionsLog = String.Format("{0}.Error.Txt",remoteExceptionsFile)
         end
@@ -1487,7 +1910,7 @@ proc
         data exportTimer = new Timer()
         exportTimer.Start()
 
-        ok = %Department_Csv(localCsvFile,0,recordCount,errtxt)
+        ok = %EmployeeCsv(localCsvFile,0,recordCount,errtxt)
 
         errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
 
@@ -1536,7 +1959,7 @@ proc
 
     if (ok)
     begin
-        data sql = String.Format("BULK INSERT [Department] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
+        data sql = String.Format("BULK INSERT [Employee] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
 
         if (Settings.BulkLoadBatchSize > 0)
         begin
@@ -1830,132 +2253,7 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Exports REPLICATOR_DATA:DEPARTMENT.ISM to a CSV file.
-;;; </summary>
-;;; <param name="fileSpec">File to create</param>
-;;; <param name="maxRecords">Mumber of records to export.</param>
-;;; <param name="recordCount">Returned number of records exported.</param>
-;;; <param name="errorMessage">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
-
-function Department_Csv, boolean
-    required in  fileSpec, a
-    required in  maxRecords, n
-    required out recordCount, n
-    required out errorMessage, a
-
-    .include "DEPARTMENT" repository, record="department", end
-
-    .define EXCEPTION_BUFSZ 100
-
-    external function
-        IsDecimalNo, boolean
-        MakeDecimalForCsvNegatives, a
-        MakeDecimalForCsvNoNegatives, a
-        MakeTimeForCsv, a
-    endexternal
-
-    .align
-    stack record local_data
-        ok,         boolean ;Return status
-        filechn,    int     ;Data file channel
-        outchn,     int     ;CSV file channel
-        outrec,     @StringBuilder  ;A CSV file record
-        records,    int     ;Number of records exported
-        errtxt,     a512    ;Error message text
-        now,        a20     ;The time now
-    endrecord
-
-proc
-    init local_data
-    ok = true
-    recordCount = 0
-    errorMessage = ""
-
-    ;;Open the data file associated with the structure
-
-    if (!(filechn=%DepartmentOpenInput(errtxt)))
-    begin
-        errtxt = "Failed to open data file! Error was: " + errtxt
-        ok = false
-    end
-
-    ;;Create the local CSV file
-
-    if (ok)
-    begin
-.ifdef OS_WINDOWS7
-        open(outchn=0,o:s,fileSpec)
-.endc
-.ifdef OS_UNIX
-        open(outchn=0,o,fileSpec)
-.endc
-
-        ;;Add a row of column headers
-.ifdef OS_WINDOWS7
-        writes(outchn,"DeptId|DeptName|DeptManager")
-.else
-        puts(outchn,"DeptId|DeptName|DeptManager" + %char(13) + %char(10))
-.endc
-
-        ;;Read and add data file records
-        foreach department in new Select(new From(filechn,Q_NO_GRFA,0,department))
-        begin
-            ;;Make sure there are no | characters in the data
-            data pos, int
-            while (pos = %instr(1,department,"|"))
-            begin
-                clear department(pos:1)
-            end
-
-            incr records
-
-            if (maxRecords && (records > maxRecords))
-            begin
-                decr records
-                exitloop
-            end
-
-            outrec = new StringBuilder()
-            outrec.Append(department.dept_id ? %atrim(department.dept_id) + "|" : "|")
-            outrec.Append(department.dept_name ? %atrim(department.dept_name) + "|" : "|")
-            outrec.Append(department.dept_manager ? %MakeDecimalForCsvNoNegatives(department.dept_manager) : "")
-
-            .ifdef OS_WINDOWS7
-            writes(outchn,outrec.ToString())
-            .else
-            puts(outchn,outrec.ToString() + %char(13) + %char(10))
-            .endc
-        end
-    end
-
-eof,
-
-    ;Close the file
-    if (filechn && %chopen(filechn))
-    begin
-        close filechn
-    end
-
-    ;Close the CSV file
-    if (outchn && %chopen(outchn))
-    begin
-        close outchn
-    end
-
-    ;Return the record count
-    recordCount = records
-
-    ;Return any error message to the calling routine
-    errorMessage = %atrim(errtxt)
-
-    freturn ok
-
-endfunction
-
-;*****************************************************************************
-;;; <summary>
-;;; Bulk copy data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a delimited text file.
+;;; Bulk copy data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
@@ -1963,7 +2261,7 @@ endfunction
 ;;; <param name="aErrorMessage">Error message (if return value is false)</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_BulkCopy, ^val
+function Employee_BulkCopy, ^val
     required in recordsToLoad,  n
     required out a_records,     n
     required out a_exceptions,  n
@@ -1993,7 +2291,7 @@ proc
 
     if (ok)
     begin
-        localCsvFile = Path.Combine(Settings.LocalExportPath,"Department.csv")
+        localCsvFile = Path.Combine(Settings.LocalExportPath,"Employee.csv")
 
         now = %datetime
         writelog("Deleting local temp files")
@@ -2025,7 +2323,7 @@ proc
         data exportTimer = new Timer()
         exportTimer.Start()
 
-        ok = %Department_Csv(localCsvFile,0,recordCount,errtxt)
+        ok = %EmployeeCsv(localCsvFile,0,recordCount,errtxt)
 
         errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
 
@@ -2039,7 +2337,7 @@ proc
 
     if (ok)
     begin
-        data bcpCommand = String.Format('bcp {1}.Department in {2} -S {3} -U {4} -P {5} -d {0} -c -F 1 -t "|" -b {6} -a {7}',
+        data bcpCommand = String.Format('bcp {1}.Employee in {2} -S {3} -U {4} -P {5} -d {0} -c -F 1 -t "|" -b {6} -a {7}',
         &   Settings.DatabaseName,
         &   Settings.DatabaseSchema,
         &   localCsvFile,

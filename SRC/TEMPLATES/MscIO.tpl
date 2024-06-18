@@ -1,8 +1,67 @@
+<CODEGEN_FILENAME><StructureName>MscIO.dbl</CODEGEN_FILENAME>
+<REQUIRES_CODEGEN_VERSION>6.0.3</REQUIRES_CODEGEN_VERSION>
+;//****************************************************************************
+;//
+;// Guard against REPLICATOR_EXCLUDE being used on key segments
+;//
+<COUNTER_1_RESET>
+<FIELD_LOOP>
+  <IF CUSTOM_REPLICATOR_EXCLUDE AND KEYSEGMENT>
+    <COUNTER_1_INCREMENT>
+    <IF COUNTER_1_EQ_1>
+*****************************************************************************
+CODE GENERATION EXCEPTIONS:
+
+    </IF COUNTER_1_EQ_1>
+Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a key segment!
+
+  </IF CUSTOM_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+;//
+;//*****************************************************************************
+;//
+;// Title:       MscIO.tpl
+;//
+;// Description: Template to generate a collection of Synergy functions which
+;//              create and interact with a table in a SQL Server database
+;//              whose columns match the fields defined in a Synergy
+;//              repository structure.
+;//
+;//              The code uses the Microsoft.Data.SqlClient classes
+;//
+;// Author:      Steve Ives, Synergex Professional Services Group
+;//
+;// Copyright    (c) 2024 Synergex International Corporation.
+;//              All rights reserved.
+;//
+;// Redistribution and use in source and binary forms, with or without
+;// modification, are permitted provided that the following conditions are met:
+;//
+;// * Redistributions of source code must retain the above copyright notice,
+;//   this list of conditions and the following disclaimer.
+;//
+;// * Redistributions in binary form must reproduce the above copyright notice,
+;//   this list of conditions and the following disclaimer in the documentation
+;//   and/or other materials provided with the distribution.
+;//
+;// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+;// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+;// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+;// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+;// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+;// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+;// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+;// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+;// POSSIBILITY OF SUCH DAMAGE.
+;//
 ;*****************************************************************************
 ;
-; File:        Department_SqlIO.dbl
+; File:        <StructureName>MscIO.dbl
 ;
-; Description: Various functions that performs SQL I/O for DEPARTMENT
+; Description: Various functions that performs SQL I/O for <STRUCTURE_NAME>
+;              using Microsoft SQL Client.
 ;
 ;*****************************************************************************
 ; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
@@ -23,8 +82,8 @@ import System.IO
 import System.Text
 import System.Text.RegularExpressions
 
-.ifndef strDepartment
-.include "DEPARTMENT" repository, structure="strDepartment", end
+.ifndef str<StructureName>
+.include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
 .endc
 
 .define writelog(x) if (Settings.LogFileChannel && %chopen(Settings.LogFileChannel)) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
@@ -32,12 +91,12 @@ import System.Text.RegularExpressions
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Determines if the Department table exists in the database.
+;;; Determines if the <StructureName> table exists in the database.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
-function Department_Exists, ^val
+function <StructureName>_Exists, ^val
     required out aErrorMessage, a
 
     stack record
@@ -50,7 +109,7 @@ proc
 
     try
     begin
-        data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Department'"
+        data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>'"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
@@ -85,12 +144,12 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Creates the Department table in the database.
+;;; Creates the <StructureName> table in the database.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Create, ^val
+function <StructureName>_Create, ^val
     required out aErrorMessage, a
 
     stack record
@@ -99,13 +158,38 @@ function Department_Create, ^val
     endrecord
 
     literal
-        createTableCommand, string,"CREATE TABLE [Department] ("
-        & + "[DeptId] VARCHAR(15) NOT NULL,"
-        & + "[DeptName] VARCHAR(50) NOT NULL,"
-        & + "[DeptManager] DECIMAL(8) NOT NULL,"
-        & + "CONSTRAINT [PK_Department] PRIMARY KEY CLUSTERED([DeptId] ASC)"
+        createTableCommand, string,"CREATE TABLE [<StructureName>] ("
+<IF STRUCTURE_RELATIVE>
+        & + "[RecordNumber] INT NOT NULL,"
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF DEFINED_ASA_TIREMAX>
+      <IF STRUCTURE_ISAM AND USER>
+        & + "[<FieldSqlName>] DATE<IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>"
+      <ELSE STRUCTURE_ISAM AND NOT USER>
+        & + "[<FieldSqlName>] <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>"
+      <ELSE STRUCTURE_RELATIVE AND USER>
+        & + "[<FieldSqlName>] DATE<IF REQUIRED> NOT NULL</IF><,>"
+      <ELSE STRUCTURE_RELATIVE AND NOT USER>
+        & + "[<FieldSqlName>] <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><,>"
+      </IF STRUCTURE_ISAM>
+    <ELSE>
+      <IF STRUCTURE_ISAM>
+        & + "[<FieldSqlName>] <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><IF LAST><IF STRUCTURE_HAS_UNIQUE_PK>,</IF STRUCTURE_HAS_UNIQUE_PK><ELSE>,</IF LAST>"
+      <ELSE STRUCTURE_RELATIVE>
+        & + "[<FieldSqlName>] <FIELD_CUSTOM_SQL_TYPE><IF REQUIRED> NOT NULL</IF><,>"
+      </IF STRUCTURE_ISAM>
+    </IF DEFINED_ASA_TIREMAX>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+<IF STRUCTURE_ISAM AND STRUCTURE_HAS_UNIQUE_PK>
+        & + "CONSTRAINT [PK_<StructureName>] PRIMARY KEY CLUSTERED(<PRIMARY_KEY><SEGMENT_LOOP>[<FieldSqlName>] <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>)"
+<ELSE STRUCTURE_RELATIVE>
+        & + "CONSTRAINT [PK_<StructureName>] PRIMARY KEY CLUSTERED([RecordNumber] ASC)"
+</IF STRUCTURE_ISAM>
         & + ")"
-        grantCommand, string, "GRANT ALL ON [Department] TO PUBLIC"
+        grantCommand, string, "GRANT ALL ON [<StructureName>] TO PUBLIC"
     endliteral
 
     static record
@@ -201,14 +285,15 @@ proc
 
 endfunction
 
+<IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ;;; <summary>
-;;; Add alternate key indexes to the Department table if they do not exist.
+;;; Add alternate key indexes to the <StructureName> table if they do not exist.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Index, ^val
+function <StructureName>_Index, ^val
     required out aErrorMessage, a
 
     .align
@@ -232,11 +317,12 @@ proc
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    ;Create index 1 (Department manager)
-
-    if (ok && !%Index_Exists("IX_Department_DeptManager"))
+  <IF NOT STRUCTURE_HAS_UNIQUE_PK>
+;   ;The structure has no unique primary key, so no primary key constraint was added to the table. Create an index instead.
+;
+    if (ok && !%Index_Exists("IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>"))
     begin
-        data sql = "CREATE  INDEX [IX_Department_DeptManager] ON [Department]([DeptManager] ASC)"
+        data sql = "<PRIMARY_KEY>CREATE INDEX [IX_<StructureName>_<KeyName>] ON [<StructureName>](<SEGMENT_LOOP>[<FieldSqlName>] <SEGMENT_ORDER><,></SEGMENT_LOOP>)</PRIMARY_KEY>"
 
         using Settings.DataCompressionMode select
         (DatabaseDataCompression.Page),
@@ -257,7 +343,50 @@ proc
         catch (ex, @SqlException)
         begin
             ok = false
-            errorMessage = "Failed to create index IX_Department_DeptManager. Error was: " + ex.Message
+            errorMessage = "Failed to create index. Error was: " + ex.Message
+        end
+        endtry 
+
+        now = %datetime
+        if (ok) then
+        begin
+            writelog(" - Added index IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>")
+        end
+        else
+        begin
+            writelog(" - ERROR: Failed to add index IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>")
+            ok = true
+        end
+    end
+
+  </IF STRUCTURE_HAS_UNIQUE_PK>
+  <ALTERNATE_KEY_LOOP>
+    ;Create index <KEY_NUMBER> (<KEY_DESCRIPTION>)
+
+    if (ok && !%Index_Exists("IX_<StructureName>_<KeyName>"))
+    begin
+        data sql = "CREATE <IF FIRST_UNIQUE_KEY>CLUSTERED<ELSE><KEY_UNIQUE></IF FIRST_UNIQUE_KEY> INDEX [IX_<StructureName>_<KeyName>] ON [<StructureName>](<SEGMENT_LOOP>[<FieldSqlName>] <SEGMENT_ORDER><,></SEGMENT_LOOP>)"
+
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Page),
+            sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
+        (DatabaseDataCompression.Row),
+            sql = sql + " WITH(DATA_COMPRESSION=ROW)"
+        endusing
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to create index IX_<StructureName>_<KeyName>. Error was: " + ex.Message
         end
         endtry 
 
@@ -265,7 +394,7 @@ proc
 
         if (ok) then
         begin
-            writelog(" - Added index IX_Department_DeptManager")
+            writelog(" - Added index IX_<StructureName>_<KeyName>")
         end
         else
         begin
@@ -274,6 +403,7 @@ proc
         end
     end
 
+  </ALTERNATE_KEY_LOOP>
     ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
@@ -306,12 +436,12 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Removes alternate key indexes from the Department table in the database.
+;;; Removes alternate key indexes from the <StructureName> table in the database.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_UnIndex, ^val
+function <StructureName>_UnIndex, ^val
     required out aErrorMessage, a
 
     .align
@@ -331,13 +461,12 @@ proc
         Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
     end
 
-    ;Drop index 1 (Department manager)
-
+  <IF NOT STRUCTURE_HAS_UNIQUE_PK>
     if (ok)
     begin
         try
         begin
-            data sql = "DROP INDEX IF EXISTS [IX_Department_DeptManager] ON [Department]"
+            data sql = "<PRIMARY_KEY>DROP INDEX IF EXISTS [IX_<StructureName>_<KeyName>]</PRIMARY_KEY> ON [<StructureName>]"
             disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
@@ -348,11 +477,36 @@ proc
         catch (ex, @SqlException)
         begin
             ok = false
-            errorMessage = "Failed to drop index IX_Department_DeptManager. Error was: " + ex.Message
+            errorMessage = "Failed to drop index IX_<PRIMARY_KEY><StructureName>_<KeyName></PRIMARY_KEY>. Error was: " + ex.Message
         end
         endtry
     end
 
+  </IF STRUCTURE_HAS_UNIQUE_PK>
+  <ALTERNATE_KEY_LOOP>
+    ;Drop index <KEY_NUMBER> (<KEY_DESCRIPTION>)
+
+    if (ok)
+    begin
+        try
+        begin
+            data sql = "DROP INDEX IF EXISTS [IX_<StructureName>_<KeyName>] ON [<StructureName>]"
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_<StructureName>_<KeyName>. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+  </ALTERNATE_KEY_LOOP>
     ;In manual commit mode, commit or rollback the transaction
 
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
@@ -378,65 +532,186 @@ proc
 
 endfunction
 
+</IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ;;; <summary>
-;;; Insert a row into the Department table.
+;;; Insert a row into the <StructureName> table.
 ;;; </summary>
+<IF STRUCTURE_RELATIVE>
+;;; <param name="a_recnum">Relative record number to be inserted.</param>
+</IF STRUCTURE_RELATIVE>
 ;;; <param name="a_data">Record to be inserted.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
-function Department_Insert, ^val
+function <StructureName>_Insert, ^val
+<IF STRUCTURE_RELATIVE>
+    required in  a_recnum, n
+</IF STRUCTURE_RELATIVE>
     required in  a_data,   a
     required out aErrorMessage, a
 
+<IF DEFINED_ASA_TIREMAX>
+    external function
+        TmJulianToYYYYMMDD, a
+    endexternal
+
+</IF DEFINED_ASA_TIREMAX>
     .align
     stack record local_data
         ok,             boolean     ;OK to continue
         sts,            int         ;Return status
         errorMessage,   string      ;Error message text
+<IF STRUCTURE_RELATIVE>
+        recordNumber,   d28         ;Relative record number
+</IF STRUCTURE_RELATIVE>
     endrecord
 
     literal
-        sql, string, "INSERT INTO [Department] ("
-        & + "[DeptId],"
-        & + "[DeptName],"
-        & + "[DeptManager]"
+        sql, string, "INSERT INTO [<StructureName>] ("
+<IF STRUCTURE_RELATIVE>
+        & + "[RecordNumber],"
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        & + "[<FieldSqlName>]<,>"
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
         & + ") VALUES("
-        & + "@DeptId,"
-        & + "@DeptName,"
-        & + "@DeptManager"
+<IF STRUCTURE_RELATIVE>
+        & + "@RecordNumber,"
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+        & + "CONVERT(DATETIME2,@<FieldSqlName>,21)<,>"
+    <ELSE>
+        & + "@<FieldSqlName><,>"
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
         & + ")"
     endliteral
 
     static record
         command, @SqlCommand
-        department, strDepartment
+        <structure_name>, str<StructureName>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+        tmp<FieldSqlName>, a26     ;Storage for user-defined timestamp field
+    <ELSE>
+      <IF TIME_HHMM>
+        tmp<FieldSqlName>, a5      ;Storage for HH:MM time field
+      </IF TIME_HHMM>
+      <IF TIME_HHMMSS>
+        tmp<FieldSqlName>, a8      ;Storage for HH:MM:SS time field
+      </IF TIME_HHMMSS>
+      <IF DEFINED_ASA_TIREMAX>
+        <IF USER>
+        tmp<FieldSqlName>, a8      ;Storage for user defined JJJJJJ date field
+        </IF USER>
+      </IF DEFINED_ASA_TIREMAX>
+      <IF CUSTOM_DBL_TYPE>
+        tmp<FieldSqlName>, <FIELD_CUSTOM_DBL_TYPE>
+      </IF CUSTOM_DBL_TYPE>
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
     endrecord
 
 proc
     init local_data
     ok = true
     sts = 1
+<IF STRUCTURE_RELATIVE>
+    recordNumber = a_recnum
+</IF STRUCTURE_RELATIVE>
 
+<IF STRUCTURE_MAPPED>
+    ;Map the file data into the table data record
+
+    <structure_name> = %<structure_name>_map(a_data)
+<ELSE>
     ;Load the data into the bound record
 
-    department = a_data
+    <structure_name> = a_data
+</IF STRUCTURE_MAPPED>
 
+<IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
     ;Clean up any alpha fields
 
-    department.dept_name = %atrim(department.dept_name)+%char(0)
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        <IF NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
     ;Clean up any decimal fields
 
-    if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
-        clear department.dept_manager
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
+        clear <structure_name>.<field_original_name_modified>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
+    ;Clean up any date fields
+
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
+        <IF FIRST_UNIQUE_KEY_SEGMENT>
+        ^a(<structure_name>.<field_original_name_modified>) = "17530101"
+        <ELSE>
+        ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF DATE>
+    </FIELD_LOOP>
+
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
+    ;Clean up any time fields
+
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
+        ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
+      </IF TIME>
+    </FIELD_LOOP>
+
+  </IF STRUCTURE_TIME_FIELDS>
+</IF DEFINED_CLEAN_DATA>
     ;Assign data to any temporary time or user-defined timestamp fields
 
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+    tmp<FieldSqlName> = %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX")
+    <ELSE TIME_HHMM>
+    tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX")
+    <ELSE TIME_HHMMSS>
+    tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX:XX")
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+    tmp<FieldSqlName> = %TmJulianToYYYYMMDD(<field_path>)
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
 
     ;Assign values to temp fields for any fields with custom data types
 
+<FIELD_LOOP>
+  <IF CUSTOM_DBL_TYPE>
+    tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
+  </IF CUSTOM_DBL_TYPE>
+</FIELD_LOOP>
 
     ;In manual commit mode, start a transaction
 
@@ -450,9 +725,24 @@ proc
     if (Settings.SqlCommandReuse && command==^null)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.Add(new SqlParameter("@DeptId",DblNetConverter.AlphaToString(department.dept_id)))
-        command.Parameters.Add(new SqlParameter("@DeptName",DblNetConverter.AlphaToString(department.dept_name)))
-        command.Parameters.Add(new SqlParameter("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager)))
+<IF STRUCTURE_RELATIVE>
+        command.Parameters.Add(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+        command.Parameters.Add(new SqlParameter("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)))
+    <ELSE USER AND USERTIMESTAMP>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
     end
 
     ;If we're reusing the SqlCommand bind data to the existing parameters in the existing command
@@ -461,17 +751,47 @@ proc
     if (Settings.SqlCommandReuse) then
     begin
         ;Existing command and parameters
-        command.Parameters["@DeptId"].Value = DblNetConverter.AlphaToString(department.dept_id)
-        command.Parameters["@DeptName"].Value = DblNetConverter.AlphaToString(department.dept_name)
-        command.Parameters["@DeptManager"].Value = DblNetConverter.SmallDecimalToInt(department.dept_manager)
+<IF STRUCTURE_RELATIVE>
+        command.Parameters["@RecordNumber"].Value = DblToNetConverter.NumberToInt(recordNumber)
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+        command.Parameters["@<FieldSqlName>"].Value = <FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND USERTIMESTAMP>
+        command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+        command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+        command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
     end
     else
     begin
         ;New command and parameters
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
-        command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
-        command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+<IF STRUCTURE_RELATIVE>
+        command.Parameters.AddWithValue(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+        command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
+    <ELSE USER AND USERTIMESTAMP>
+        command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+        command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+        command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
     end
 
     ;In manual commit mode, commit or rollback the transaction
@@ -499,7 +819,7 @@ proc
         end
         (),
         begin
-            errorMessage = "Failed to insert row into Department. Error was: " + ex.Message
+            errorMessage = "Failed to insert row into <StructureName>. Error was: " + ex.Message
         end
         endusing
         xcall ThrowOnSqlClientError(errorMessage,ex)
@@ -541,18 +861,24 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Inserts multiple rows into the Department table.
+;;; Inserts multiple rows into the <StructureName> table.
 ;;; </summary>
 ;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <param name="a_exception">Memory handle to load exception data records into.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_InsertRows, ^val
+function <StructureName>_InsertRows, ^val
     required in  a_data, i
     required out aErrorMessage, a
     optional out a_exception, i
 
+<IF DEFINED_ASA_TIREMAX>
+    external function
+        TmJulianToYYYYMMDD, a
+    endexternal
+
+</IF DEFINED_ASA_TIREMAX>
     .define EXCEPTION_BUFSZ 100
 
     stack record local_data
@@ -564,24 +890,63 @@ function Department_InsertRows, ^val
         ex_mc,          int         ;Items in exception array
         continue,       int         ;Continue after an error
         errorMessage,   string      ;Error message text
+<IF STRUCTURE_RELATIVE>
+        recordNumber,d28
+</IF STRUCTURE_RELATIVE>
     endrecord
 
     literal
-        sql, string, "INSERT INTO [Department] ("
-        & + "[DeptId],"
-        & + "[DeptName],"
-        & + "[DeptManager]"
+        sql, string, "INSERT INTO [<StructureName>] ("
+<IF STRUCTURE_RELATIVE>
+        & + "[RecordNumber],"
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+        & + "[<FieldSqlName>]<,>"
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
         & + ") VALUES("
-        & + "@DeptId,"
-        & + "@DeptName,"
-        & + "@DeptManager"
+<IF STRUCTURE_RELATIVE>
+        & + "@RecordNumber,"
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+        & + "CONVERT(DATETIME2,@<FieldSqlName>,21)<,>"
+    <ELSE>
+        & + "@<FieldSqlName><,>"
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
         & + ")"
     endliteral
 
-    .include "DEPARTMENT" repository, structure="inpbuf", nofields, end
-    .include "DEPARTMENT" repository, static record="department", end
+<IF STRUCTURE_ISAM>
+    .include "<STRUCTURE_NOALIAS>" repository, structure="inpbuf", nofields, end
+<ELSE STRUCTURE_RELATIVE>
+    structure inpbuf
+        recnum, d28
+        .include "<STRUCTURE_NOALIAS>" repository, group="inprec", nofields
+    endstructure
+</IF STRUCTURE_ISAM>
+    .include "<STRUCTURE_NOALIAS>" repository, static record="<structure_name>", end
 
     static record
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        tmp<FieldSqlName>, <FIELD_CUSTOM_DBL_TYPE>
+    <ELSE USERTIMESTAMP>
+        tmp<FieldSqlName>, a26      ;Storage for user-defined timestamp field
+    <ELSE TIME_HHMM>
+        tmp<FieldSqlName>, a5       ;Storage for HH:MM time field
+    <ELSE TIME_HHMMSS>
+        tmp<FieldSqlName>, a8       ;Storage for HH:MM:SS time field
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+        tmp<FieldSqlName>, a8       ;Storage for user defined JJJJJJ date field
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
         , a1                        ;In case there are no user timestamp, date or JJJJJJ date fields
     endrecord
 proc
@@ -608,9 +973,24 @@ proc
     if (ok && Settings.SqlCommandReuse)
     begin
         command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-        command.Parameters.Add(new SqlParameter("@DeptId",DblNetConverter.AlphaToString(department.dept_id)))
-        command.Parameters.Add(new SqlParameter("@DeptName",DblNetConverter.AlphaToString(department.dept_name)))
-        command.Parameters.Add(new SqlParameter("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager)))
+<IF STRUCTURE_RELATIVE>
+        command.Parameters.Add(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+        command.Parameters.Add(new SqlParameter("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)))
+    <ELSE USER AND USERTIMESTAMP>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+        command.Parameters.Add("@<FieldSqlName>")
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
@@ -625,33 +1005,129 @@ proc
         for cnt from 1 thru rows
         begin
             ;Load data into bound record
-            department = ^m(inpbuf[cnt],a_data)
+<IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
+            <structure_name> = %<structure_name>_map(^m(inpbuf[cnt],a_data))
+<ELSE STRUCTURE_ISAM AND NOT STRUCTURE_MAPPED>
+            <structure_name> = ^m(inpbuf[cnt],a_data)
+<ELSE STRUCTURE_RELATIVE AND STRUCTURE_MAPPED>
+            recordNumber = ^m(inpbuf[cnt].recnum,a_data)
+            <structure_name> = %<structure_name>_map(^m(inpbuf[cnt].inprec,a_data))
+<ELSE STRUCTURE_RELATIVE AND NOT STRUCTURE_MAPPED>
+            recordNumber = ^m(inpbuf[cnt].recnum,a_data)
+            <structure_name> = ^m(inpbuf[cnt].inprec,a_data)
+</IF STRUCTURE_ISAM>
 
+<IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
             ;Clean up alpha variables
-            department.dept_name = %atrim(department.dept_name)+%char(0)
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
+            <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
             ;Clean up decimal variables
-            if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
-                clear department.dept_manager
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+            if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
+                clear <structure_name>.<field_original_name_modified>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
+            ;Clean up date variables
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+            if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
+        <IF FIRST_UNIQUE_KEY_SEGMENT>
+                ^a(<structure_name>.<field_original_name_modified>) = "17530101"
+        <ELSE>
+                ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF DATE>
+    </FIELD_LOOP>
+
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
+            ;Clean up time variables
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+            if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
+                ^a(<structure_name>.<field_original_name_modified>(1:1))=%char(0)
+      </IF TIME>
+    </FIELD_LOOP>
+
+  </IF STRUCTURE_TIME_FIELDS>
+</IF DEFINED_CLEAN_DATA>
             ;Assign any time or user-defined timestamp fields
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+            tmp<FieldSqlName> = %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX")
+    <ELSE TIME_HHMM>
+            tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX")
+    <ELSE TIME_HHMMSS>
+            tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX:XX")
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+            tmp<FieldSqlName> = %TmJulianToYYYYMMDD(<field_path>)
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
 
             ;Assign values to temp fields for any fields with custom data types
+<FIELD_LOOP>
+  <IF CUSTOM_DBL_TYPE>
+            tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
+  </IF CUSTOM_DBL_TYPE>
+</FIELD_LOOP>
 
             if (Settings.SqlCommandReuse) then
             begin
                 ;Bind data for the current record to the existing command parameters
-                command.Parameters["@DeptId"].Value = DblNetConverter.AlphaToString(department.dept_id)
-                command.Parameters["@DeptName"].Value = DblNetConverter.AlphaToString(department.dept_name)
-                command.Parameters["@DeptManager"].Value = DblNetConverter.SmallDecimalToInt(department.dept_manager)
+<IF STRUCTURE_RELATIVE>
+                command.Parameters["@RecordNumber"].Value = DblToNetConverter.NumberToInt(recordNumber)
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+                command.Parameters["@<FieldSqlName>"].Value = <FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND USERTIMESTAMP>
+                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+                command.Parameters["@<FieldSqlName>"].Value = <structure_name>.<field_original_name_modified>
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+                command.Parameters["@<FieldSqlName>"].Value = tmp<FieldSqlName>
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
             end
             else
             begin
                 ;Create the SqlCommand, add parameters and bind the data for the current record
                 command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
-                command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
-                command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
-                command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+<IF STRUCTURE_RELATIVE>
+                command.Parameters.AddWithValue(new SqlParameter("@RecordNumber",DblToNetConverter.NumberToInt(recordNumber)))
+</IF STRUCTURE_RELATIVE>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+                command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+                command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
+    <ELSE USER AND USERTIMESTAMP>
+                command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+                command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+                command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
                 if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
                 begin
                     command.Transaction = Settings.CurrentTransaction
@@ -689,7 +1165,7 @@ proc
                         else
                             a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),a_exception)
                     end
-                    ^m(inpbuf[ex_mc+=1],a_exception)=department
+                    ^m(inpbuf[ex_mc+=1],a_exception)=<structure_name>
                     continue=1
                 end
 
@@ -753,18 +1229,30 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Updates a row in the Department table.
+;;; Updates a row in the <StructureName> table.
 ;;; </summary>
+<IF STRUCTURE_RELATIVE>
+;;; <param name="a_recnum">record number.</param>
+</IF STRUCTURE_RELATIVE>
 ;;; <param name="a_data">Record containing data to update.</param>
 ;;; <param name="a_rows">Returned number of rows affected.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Update, ^val
+function <StructureName>_Update, ^val
+<IF STRUCTURE_RELATIVE>
+    required in  a_recnum, n
+</IF STRUCTURE_RELATIVE>
     required in  a_data,   a
     optional out a_rows,   i
     required out aErrorMessage, a
 
+<IF DEFINED_ASA_TIREMAX>
+    external function
+        TmJulianToYYYYMMDD, a
+    endexternal
+
+</IF DEFINED_ASA_TIREMAX>
     stack record local_data
         ok,             boolean     ;OK to continue
         length,         int         ;Length of a string
@@ -773,15 +1261,40 @@ function Department_Update, ^val
     endrecord
 
     literal
-        sql, string, "UPDATE [Department] SET "
-        & + "[DeptId]=@DeptId,"
-        & + "[DeptName]=@DeptName,"
-        & + "[DeptManager]=@DeptManager"
-        & + " WHERE [DeptId]=@DeptId  "
+        sql, string, "UPDATE [<StructureName>] SET "
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+        & + "[<FieldSqlName>]=CONVERT(DATETIME2,@<FieldSqlName>,21)<,>"
+    <ELSE>
+        & + "[<FieldSqlName>]=@<FieldSqlName><,>"
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+<IF STRUCTURE_ISAM>
+        & + " WHERE <UNIQUE_KEY><SEGMENT_LOOP>[<FieldSqlName>]=@<FieldSqlName> <AND> </SEGMENT_LOOP></UNIQUE_KEY>"
+<ELSE STRUCTURE_RELATIVE>
+        & + " WHERE [RecordNumber]=@RecordNumber"
+</IF STRUCTURE_ISAM>
     endliteral
 
     static record
-        department, strDepartment
+        <structure_name>, str<StructureName>
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+        tmp<FieldSqlName>, <FIELD_CUSTOM_DBL_TYPE>
+    <ELSE USERTIMESTAMP>
+        tmp<FieldSqlName>, a26     ;Storage for user-defined timestamp field
+    <ELSE TIME_HHMM>
+        tmp<FieldSqlName>, a5      ;Storage for HH:MM time field
+    <ELSE TIME_HHMMSS>
+        tmp<FieldSqlName>, a8      ;Storage for HH:MM:SS time field
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+        tmp<FieldSqlName>, a8      ;Storage for user defined JJJJJJ date field
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
     endrecord
 
 proc
@@ -793,18 +1306,78 @@ proc
         clear a_rows
 
     ;Load the data into the bound record
-    department = a_data
+<IF STRUCTURE_MAPPED>
+    <structure_name> = %<structure_name>_map(a_data)
+<ELSE>
+    <structure_name> = a_data
+</IF STRUCTURE_MAPPED>
 
+<IF DEFINED_CLEAN_DATA>
+  <IF STRUCTURE_ALPHA_FIELDS>
     ;Clean up alpha fields
-    department.dept_name = %atrim(department.dept_name)+%char(0)
+    <FIELD_LOOP>
+      <IF ALPHA AND CUSTOM_NOT_REPLICATOR_EXCLUDE AND NOT FIRST_UNIQUE_KEY_SEGMENT>
+    <structure_name>.<field_original_name_modified> = %atrim(<structure_name>.<field_original_name_modified>)+%char(0)
+      </IF ALPHA>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_ALPHA_FIELDS>
+  <IF STRUCTURE_DECIMAL_FIELDS>
     ;Clean up decimal fields
-    if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
-        clear department.dept_manager
+    <FIELD_LOOP>
+      <IF DECIMAL AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!<IF NEGATIVE_ALLOWED>%IsDecimalNegatives<ELSE>%IsDecimalNoNegatives</IF NEGATIVE_ALLOWED>(<structure_name>.<field_original_name_modified>)))
+        clear <structure_name>.<field_original_name_modified>
+      </IF DECIMAL>
+    </FIELD_LOOP>
 
+  </IF STRUCTURE_DECIMAL_FIELDS>
+  <IF STRUCTURE_DATE_FIELDS>
+    ;Clean up date fields
+    <FIELD_LOOP>
+      <IF DATE AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!%IsDate(^a(<structure_name>.<field_original_name_modified>))))
+        <IF FIRST_UNIQUE_KEY_SEGMENT>
+        ^a(<structure_name>.<field_original_name_modified>) = "17530101"
+        <ELSE>
+        ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
+        </IF FIRST_UNIQUE_KEY_SEGMENT>
+      </IF DATE>
+    </FIELD_LOOP>
+
+  </IF STRUCTURE_DATE_FIELDS>
+  <IF STRUCTURE_TIME_FIELDS>
+    ;Clean up time fields
+    <FIELD_LOOP>
+      <IF TIME AND CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    if ((!<structure_name>.<field_original_name_modified>)||(!%IsTime(^a(<structure_name>.<field_original_name_modified>))))
+        ^a(<structure_name>.<field_original_name_modified>(1:1)) = %char(0)
+      </IF TIME>
+    </FIELD_LOOP>
+
+  </IF STRUCTURE_TIME_FIELDS>
+</IF DEFINED_CLEAN_DATA>
     ;Assign time and user-defined timestamp fields
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF USERTIMESTAMP>
+    tmp<FieldSqlName> = %string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX")
+    <ELSE TIME_HHMM>
+    tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX")
+    <ELSE TIME_HHMMSS>
+    tmp<FieldSqlName> = %string(<structure_name>.<field_original_name_modified>,"XX:XX:XX")
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+    tmp<FieldSqlName> = %TmJulianToYYYYMMDD(<field_path>)
+    </IF USERTIMESTAMP>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
 
     ;Assign values to temp fields for any fields with custom data types
+<FIELD_LOOP>
+  <IF CUSTOM_DBL_TYPE>
+    tmp<FieldSqlName> = %<FIELD_CUSTOM_CONVERT_FUNCTION>(<field_path>,<structure_name>)
+  </IF CUSTOM_DBL_TYPE>
+</FIELD_LOOP>
 
     ;In manual commit mode, start a transaction
 
@@ -824,9 +1397,24 @@ proc
             end
 
             ;Bind the host variables for data to be updated
-            command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
-            command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
-            command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+<FIELD_LOOP>
+  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+    <IF CUSTOM_DBL_TYPE>
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    <ELSE ALPHA OR DECIMAL OR INTEGER OR DATE OR TIME>
+            command.Parameters.AddWithValue("@<FieldSqlName>",<FIELD_DBL_NET_CONVERTER>(<structure_name>.<field_original_name_modified>))
+    <ELSE USER AND USERTIMESTAMP>
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>
+    <ELSE USER AND NOT USERTIMESTAMP AND NOT DEFINED_ASA_TIREMAX>
+            command.Parameters.AddWithValue("@<FieldSqlName>",<structure_name>.<field_original_name_modified>)
+    <ELSE USER AND NOT USERTIMESTAMP AND DEFINED_ASA_TIREMAX>
+            command.Parameters.AddWithValue("@<FieldSqlName>",tmp<FieldSqlName>)
+    </IF CUSTOM_DBL_TYPE>
+  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
+</FIELD_LOOP>
+<IF STRUCTURE_RELATIVE>
+            command.Parameters.AddWithValue("@RecordNumber",DblToNetConverter.NumberToInt(a_recnum))
+</IF STRUCTURE_ISAM>
 
             rows = command.ExecuteNonQuery()
 
@@ -867,22 +1455,26 @@ proc
 
 endfunction
 
+<IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ;;; <summary>
-;;; Deletes a row from the Department table.
+;;; Deletes a row from the <StructureName> table.
 ;;; </summary>
 ;;; <param name="a_key">Unique key of row to be deleted.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Delete, ^val
+function <StructureName>_Delete, ^val
     required in  a_key,    a
     required out aErrorMessage, a
 
-    .include "DEPARTMENT" repository, stack record="department"
+    .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>"
 
     external function
-        DepartmentKeyToRecord, a
+        <StructureName>KeyToRecord, a
+<IF DEFINED_ASA_TIREMAX>
+        TmJulianToYYYYMMDD, a
+</IF DEFINED_ASA_TIREMAX>
     endexternal
 
     .align
@@ -898,7 +1490,7 @@ proc
     errorMessage = String.Empty
 
     ;Put the unique key value into the record
-    department = %DepartmentKeyToRecord(a_key)
+    <structureName> = %<StructureName>KeyToRecord(a_key)
 
     ;In manual commit mode, start a transaction
     if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
@@ -909,8 +1501,20 @@ proc
     ;;Delete the row
     if (ok)
     begin
-        sql = "DELETE FROM [Department] WHERE"
-        & + " [DeptId]='" + %atrim(department.dept_id) + "' "
+        sql = "DELETE FROM [<StructureName>] WHERE"
+<UNIQUE_KEY>
+  <SEGMENT_LOOP>
+    <IF ALPHA>
+        & + " [<FieldSqlName>]='" + %atrim(<structureName>.<segment_name>) + "' <AND>"
+    <ELSE NOT DEFINED_ASA_TIREMAX>
+        &    + " [<FieldSqlName>]='" + %string(<structureName>.<segment_name>) + "' <AND>"
+    <ELSE DEFINED_ASA_TIREMAX AND USER>
+        &    + " [<SegmentName>]='" + %TmJulianToYYYYMMDD(<structureName>.<segment_name>) + "' <AND>"
+    <ELSE DEFINED_ASA_TIREMAX AND NOT USER>
+        &    + " [<FieldSqlName>]='" + %string(<structureName>.<segment_name>) + "' <AND>"
+    </IF>
+  </SEGMENT_LOOP>
+</UNIQUE_KEY>
 
         try
         begin
@@ -955,14 +1559,15 @@ proc
 
 endfunction
 
+</IF STRUCTURE_ISAM>
 ;*****************************************************************************
 ;;; <summary>
-;;; Deletes all rows from the Department table.
+;;; Deletes all rows from the <StructureName> table.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Clear, ^val
+function <StructureName>_Clear, ^val
     required out aErrorMessage, a
 
     .align
@@ -972,7 +1577,7 @@ function Department_Clear, ^val
     endrecord
 
     literal
-        sql, string, "TRUNCATE TABLE [Department]"
+        sql, string, "TRUNCATE TABLE [<StructureName>]"
     endliteral
 
 proc
@@ -1033,12 +1638,12 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Deletes the Department table from the database.
+;;; Deletes the <StructureName> table from the database.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Drop, ^val
+function <StructureName>_Drop, ^val
     required out aErrorMessage, a
 
     stack record
@@ -1047,7 +1652,7 @@ function Department_Drop, ^val
     endrecord
 
     literal
-        sql, string, "DROP TABLE [Department]"
+        sql, string, "DROP TABLE [<StructureName>]"
     endliteral
 
 proc
@@ -1073,7 +1678,7 @@ proc
     catch (ex, @SqlException)
     begin
         using ex.Number select
-        (3701), ;Cannot drop the table 'Department', because it does not exist or you do not have permission.
+        (3701), ;Cannot drop the table '<StructureName>', because it does not exist or you do not have permission.
             nop
         (),
         begin
@@ -1112,21 +1717,39 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Load all data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table.
+;;; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <param name="a_added">Total number of successful inserts.</param>
 ;;; <param name="a_failed">Total number of failed inserts.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_Load, ^val
+function <StructureName>_Load, ^val
     required in  a_maxrows, n
     required out a_added, n
     required out a_failed, n
     required out aErrorMessage, a
 
-    .include "DEPARTMENT" repository, structure="inpbuf", end
-    .include "DEPARTMENT" repository, stack record="tmprec", end
+<IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
+    .include "<MAPPED_STRUCTURE>" repository, structure="inpbuf", end
+<ELSE STRUCTURE_ISAM AND NOT STRUCTURE_MAPPED>
+    .include "<STRUCTURE_NOALIAS>" repository, structure="inpbuf", end
+<ELSE STRUCTURE_RELATIVE AND STRUCTURE_MAPPED>
+    structure inpbuf
+        recnum, d28
+        .include "<MAPPED_STRUCTURE>" repository, group="inprec"
+<ELSE STRUCTURE_RELATIVE AND NOT STRUCTURE_MAPPED>
+    structure inpbuf
+        recnum, d28
+        .include "<STRUCTURE_NOALIAS>" repository, group="inprec"
+    endstructure
+    .include "<STRUCTURE_NOALIAS>" repository, structure="<STRUCTURE_NAME>", end
+</IF STRUCTURE_ISAM>
+<IF STRUCTURE_MAPPED>
+    .include "<MAPPED_STRUCTURE>" repository, stack record="tmprec", end
+<ELSE>
+    .include "<STRUCTURE_NOALIAS>" repository, stack record="tmprec", end
+</IF STRUCTURE_MAPPED>
 
     .define BUFFER_ROWS     1000
     .define EXCEPTION_BUFSZ 100
@@ -1150,6 +1773,9 @@ function Department_Load, ^val
         tmperrmsg,      a512        ;Temporary error message
         errorMessage,   string      ;Error message text
         now,            a20        ;;Current date and time
+<IF STRUCTURE_RELATIVE>
+        recordNumber,   d28
+</IF STRUCTURE_RELATIVE>
     endrecord
 
 proc
@@ -1163,11 +1789,11 @@ proc
     ;If we are logging exceptions, delete any existing exceptions file.
     if (Settings.LogBulkLoadExceptions)
     begin
-        xcall delet("REPLICATOR_LOGDIR:department_data_exceptions.log")
+        xcall delet("REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
     end
 
     ;Open the data file associated with the structure
-    if (!(filechn = %DepartmentOpenInput(tmperrmsg)))
+    if (!(filechn = %<StructureName>OpenInput(tmperrmsg)))
     begin
         errorMessage = "Failed to open data file! Error was " + %atrimtostring(tmperrmsg)
         ok = false
@@ -1189,14 +1815,39 @@ proc
             ;Get the next record from the input file
             try
             begin
+;//
+;// First record processing
+;//
                 if (firstRecord) then
                 begin
+<IF STRUCTURE_TAGS>
+                    find(filechn,,^FIRST)
+                    repeat
+                    begin
+                        reads(filechn,tmprec)
+                        if (<TAG_LOOP><TAGLOOP_CONNECTOR_C>tmprec.<TAGLOOP_FIELD_NAME><TAGLOOP_OPERATOR_C><TAGLOOP_TAG_VALUE></TAG_LOOP>)
+                            exitloop
+                    end
+<ELSE>
                     read(filechn,tmprec,^FIRST)
+</IF STRUCTURE_TAGS>
                     firstRecord = false
                 end
+;//
+;// Subsequent record processing
+;//
                 else
                 begin
+<IF STRUCTURE_TAGS>
+                    repeat
+                    begin
+                        reads(filechn,tmprec)
+                        if (<TAG_LOOP><TAGLOOP_CONNECTOR_C>tmprec.<TAGLOOP_FIELD_NAME><TAGLOOP_OPERATOR_C><TAGLOOP_TAG_VALUE></TAG_LOOP>)
+                            exitloop
+                    end
+<ELSE>
                     reads(filechn,tmprec)
+</IF STRUCTURE_TAGS>
                 end
             end
             catch (ex, @EndOfFileException)
@@ -1212,7 +1863,12 @@ proc
             endtry
 
             ;Got one, load it into or buffer
+<IF STRUCTURE_ISAM>
             ^m(inpbuf[mc+=1],mh) = tmprec
+<ELSE STRUCTURE_RELATIVE>
+            ^m(inpbuf[mc+=1].recnum,mh) = recordNumber += 1
+            ^m(inpbuf[mc].inprec,mh) = tmprec
+</IF STRUCTURE_ISAM>
 
             incr done_records
 
@@ -1273,7 +1929,7 @@ insert_data,
 
     attempted = (%mem_proc(DM_GETSIZE,mh)/^size(inpbuf))
 
-    if (!%Department_InsertRows(mh,tmperrmsg,ex_mh)) then
+    if (!%<StructureName>_InsertRows(mh,tmperrmsg,ex_mh)) then
     begin
         errorMessage = %atrimtostring(tmperrmsg)
     end
@@ -1297,7 +1953,7 @@ insert_data,
                 ;Open the log file
                 if (!ex_ch)
                 begin
-                    open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:department_data_exceptions.log")
+                    open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
                 end
 
                 ;Log the exceptions
@@ -1309,7 +1965,7 @@ insert_data,
                 ;And maybe show them on the terminal
                 if (Settings.TerminalChannel)
                 begin
-                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:department_data_exceptions.log")
+                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:<structure_name>_data_exceptions.log")
                 end
             end
             else
@@ -1340,7 +1996,7 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Bulk load data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a delimited text file.
+;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
@@ -1348,7 +2004,7 @@ endfunction
 ;;; <param name="aErrorMessage">Error message (if return value is false)</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_BulkLoad, ^val
+function <StructureName>_BulkLoad, ^val
     required in recordsToLoad,  n
     required out a_records,     n
     required out a_exceptions,  n
@@ -1407,13 +2063,13 @@ proc
 
     if (ok)
     begin
-        localCsvFile = Path.Combine(Settings.LocalExportPath,"Department.csv")
+        localCsvFile = Path.Combine(Settings.LocalExportPath,"<StructureName>.csv")
         localExceptionsFile = String.Format("{0}_err",localCsvFile)
         localExceptionsLog = String.Format("{0}.Error.Txt",localExceptionsFile)
 
         if (remoteBulkLoad)
         begin
-            remoteCsvFile = "Department.csv"
+            remoteCsvFile = "<StructureName>.csv"
             remoteExceptionsFile = String.Format("{0}_err",remoteCsvFile)
             remoteExceptionsLog = String.Format("{0}.Error.Txt",remoteExceptionsFile)
         end
@@ -1487,7 +2143,7 @@ proc
         data exportTimer = new Timer()
         exportTimer.Start()
 
-        ok = %Department_Csv(localCsvFile,0,recordCount,errtxt)
+        ok = %<StructureName>Csv(localCsvFile,0,recordCount,errtxt)
 
         errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
 
@@ -1536,7 +2192,7 @@ proc
 
     if (ok)
     begin
-        data sql = String.Format("BULK INSERT [Department] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
+        data sql = String.Format("BULK INSERT [<StructureName>] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
 
         if (Settings.BulkLoadBatchSize > 0)
         begin
@@ -1830,132 +2486,7 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Exports REPLICATOR_DATA:DEPARTMENT.ISM to a CSV file.
-;;; </summary>
-;;; <param name="fileSpec">File to create</param>
-;;; <param name="maxRecords">Mumber of records to export.</param>
-;;; <param name="recordCount">Returned number of records exported.</param>
-;;; <param name="errorMessage">Returned error text.</param>
-;;; <returns>Returns true on success, otherwise false.</returns>
-
-function Department_Csv, boolean
-    required in  fileSpec, a
-    required in  maxRecords, n
-    required out recordCount, n
-    required out errorMessage, a
-
-    .include "DEPARTMENT" repository, record="department", end
-
-    .define EXCEPTION_BUFSZ 100
-
-    external function
-        IsDecimalNo, boolean
-        MakeDecimalForCsvNegatives, a
-        MakeDecimalForCsvNoNegatives, a
-        MakeTimeForCsv, a
-    endexternal
-
-    .align
-    stack record local_data
-        ok,         boolean ;Return status
-        filechn,    int     ;Data file channel
-        outchn,     int     ;CSV file channel
-        outrec,     @StringBuilder  ;A CSV file record
-        records,    int     ;Number of records exported
-        errtxt,     a512    ;Error message text
-        now,        a20     ;The time now
-    endrecord
-
-proc
-    init local_data
-    ok = true
-    recordCount = 0
-    errorMessage = ""
-
-    ;;Open the data file associated with the structure
-
-    if (!(filechn=%DepartmentOpenInput(errtxt)))
-    begin
-        errtxt = "Failed to open data file! Error was: " + errtxt
-        ok = false
-    end
-
-    ;;Create the local CSV file
-
-    if (ok)
-    begin
-.ifdef OS_WINDOWS7
-        open(outchn=0,o:s,fileSpec)
-.endc
-.ifdef OS_UNIX
-        open(outchn=0,o,fileSpec)
-.endc
-
-        ;;Add a row of column headers
-.ifdef OS_WINDOWS7
-        writes(outchn,"DeptId|DeptName|DeptManager")
-.else
-        puts(outchn,"DeptId|DeptName|DeptManager" + %char(13) + %char(10))
-.endc
-
-        ;;Read and add data file records
-        foreach department in new Select(new From(filechn,Q_NO_GRFA,0,department))
-        begin
-            ;;Make sure there are no | characters in the data
-            data pos, int
-            while (pos = %instr(1,department,"|"))
-            begin
-                clear department(pos:1)
-            end
-
-            incr records
-
-            if (maxRecords && (records > maxRecords))
-            begin
-                decr records
-                exitloop
-            end
-
-            outrec = new StringBuilder()
-            outrec.Append(department.dept_id ? %atrim(department.dept_id) + "|" : "|")
-            outrec.Append(department.dept_name ? %atrim(department.dept_name) + "|" : "|")
-            outrec.Append(department.dept_manager ? %MakeDecimalForCsvNoNegatives(department.dept_manager) : "")
-
-            .ifdef OS_WINDOWS7
-            writes(outchn,outrec.ToString())
-            .else
-            puts(outchn,outrec.ToString() + %char(13) + %char(10))
-            .endc
-        end
-    end
-
-eof,
-
-    ;Close the file
-    if (filechn && %chopen(filechn))
-    begin
-        close filechn
-    end
-
-    ;Close the CSV file
-    if (outchn && %chopen(outchn))
-    begin
-        close outchn
-    end
-
-    ;Return the record count
-    recordCount = records
-
-    ;Return any error message to the calling routine
-    errorMessage = %atrim(errtxt)
-
-    freturn ok
-
-endfunction
-
-;*****************************************************************************
-;;; <summary>
-;;; Bulk copy data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a delimited text file.
+;;; Bulk copy data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
@@ -1963,7 +2494,7 @@ endfunction
 ;;; <param name="aErrorMessage">Error message (if return value is false)</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department_BulkCopy, ^val
+function <StructureName>_BulkCopy, ^val
     required in recordsToLoad,  n
     required out a_records,     n
     required out a_exceptions,  n
@@ -1993,7 +2524,7 @@ proc
 
     if (ok)
     begin
-        localCsvFile = Path.Combine(Settings.LocalExportPath,"Department.csv")
+        localCsvFile = Path.Combine(Settings.LocalExportPath,"<StructureName>.csv")
 
         now = %datetime
         writelog("Deleting local temp files")
@@ -2025,7 +2556,7 @@ proc
         data exportTimer = new Timer()
         exportTimer.Start()
 
-        ok = %Department_Csv(localCsvFile,0,recordCount,errtxt)
+        ok = %<StructureName>Csv(localCsvFile,0,recordCount,errtxt)
 
         errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
 
@@ -2039,7 +2570,7 @@ proc
 
     if (ok)
     begin
-        data bcpCommand = String.Format('bcp {1}.Department in {2} -S {3} -U {4} -P {5} -d {0} -c -F 1 -t "|" -b {6} -a {7}',
+        data bcpCommand = String.Format('bcp {1}.<StructureName> in {2} -S {3} -U {4} -P {5} -d {0} -c -F 1 -t "|" -b {6} -a {7}',
         &   Settings.DatabaseName,
         &   Settings.DatabaseSchema,
         &   localCsvFile,

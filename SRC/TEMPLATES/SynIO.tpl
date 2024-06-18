@@ -57,6 +57,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ; File:        <StructureName>SynIO.dbl
 ;
 ; Description: Various functions that performs SDMS I/O for <STRUCTURE_NAME>
+;              to replicated SDMS data files.
 ;
 ;*****************************************************************************
 ;
@@ -83,6 +84,11 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
 ;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
 ;*****************************************************************************
+
+.ifndef DBLNET
+ ;This code was generated from the SqlClientIO template and can only be used
+ ;in .NET. For traditional DBL environments use the SqlIO template
+.else
 
 import ReplicationLibrary
 import Synergex.SynergyDE.Select
@@ -137,7 +143,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Create_, ^val
+function <StructureName>$Create, ^val
     required out errorMessage, a
 
     .align
@@ -236,15 +242,21 @@ function <StructureName>$Insert, ^val
         status, int
     endrecord
 
-    external common
+    global common
         ch<StructureName>, int
     endcommon
 
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
+
+    if (!ch<StructureName>)
     begin
-        freturn 0
+        ch<StructureName> = <StructureName>OpenUpdate(errorMessage)
+        if (!ch<StructureName>)
+        begin
+            errorMessage = "Failed to open <FILE_NAME>. Error was: " + %atrim(errorMessage)
+            freturn 0
+        end
     end
 
     init localData
@@ -317,9 +329,15 @@ function <StructureName>$InsertRows, ^val
 
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
+
+    if (!ch<StructureName>)
     begin
-        freturn false
+        ch<StructureName> = <StructureName>OpenUpdate(errorMessage)
+        if (!ch<StructureName>)
+        begin
+            errorMessage = "Failed to open <FILE_NAME>. Error was: " + %atrim(errorMessage)
+            freturn 0
+        end
     end
 
     init localData
@@ -430,9 +448,15 @@ function <StructureName>$Update, ^val
 
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
+
+    if (!ch<StructureName>)
     begin
-        freturn false
+        ch<StructureName> = <StructureName>OpenUpdate(errorMessage)
+        if (!ch<StructureName>)
+        begin
+            errorMessage = "Failed to open <FILE_NAME>. Error was: " + %atrim(errorMessage)
+            freturn 0
+        end
     end
 
     init localData
@@ -511,9 +535,15 @@ function <StructureName>$Delete, ^val
     endcommon
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
+
+    if (!ch<StructureName>)
     begin
-        freturn false
+        ch<StructureName> = <StructureName>OpenUpdate(errorMessage)
+        if (!ch<StructureName>)
+        begin
+            errorMessage = "Failed to open <FILE_NAME>. Error was: " + %atrim(errorMessage)
+            freturn 0
+        end
     end
 
     ;TODO: Needs to support relative files on OpenVMS
@@ -561,10 +591,14 @@ proc
 
     ;If the file is open, close it
 
-    if (ch<StructureName>)
+    if (!ch<StructureName>)
     begin
-        close ch<StructureName>
-        ch<StructureName> = 0
+        ch<StructureName> = <StructureName>OpenUpdate(errorMessage)
+        if (!ch<StructureName>)
+        begin
+            errorMessage = "Failed to open <FILE_NAME>. Error was: " + %atrim(errorMessage)
+            freturn 0
+        end
     end
 
     ;Clear the file
@@ -602,10 +636,14 @@ proc
 
     ;If the file is open, close it
 
-    if (ch<StructureName>)
+    if (!ch<StructureName>)
     begin
-        close ch<StructureName>
-        ch<StructureName> = 0
+        ch<StructureName> = <StructureName>OpenUpdate(errorMessage)
+        if (!ch<StructureName>)
+        begin
+            errorMessage = "Failed to open <FILE_NAME>. Error was: " + %atrim(errorMessage)
+            freturn 0
+        end
     end
 
     try
@@ -684,7 +722,7 @@ proc
     timer.Start()
 
 
-
+    ;AWSSDK.S3 - package for S3 
 
     ok = false
     errorMessage = "Load is not implemented yet!"
@@ -737,319 +775,4 @@ proc
 
 endsubroutine
 
-;*****************************************************************************
-; <summary>
-; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> to a CSV file.
-; </summary>
-; <param name="fileSpec">File to create</param>
-; <param name="maxRecords">Mumber of records to export.</param>
-; <param name="recordCount">Returned number of records exported.</param>
-; <param name="errorMessage">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
-
-function <StructureName>$Csv, boolean
-    required in  fileSpec, a
-    required in  maxRecords, n
-    required out recordCount, n
-    required out errorMessage, a
-
-    .include "<STRUCTURE_NOALIAS>" repository, record="<structure_name>", end
-
-    .define EXCEPTION_BUFSZ 100
-
-    external function
-        IsDecimalNo, boolean
-<IF NOT_DEFINED_DBLV11>
-        MakeDateForCsv, a
-</IF>
-        MakeDecimalForCsvNegatives, a
-        MakeDecimalForCsvNoNegatives, a
-        MakeTimeForCsv, a
-<IF DEFINED_ASA_TIREMAX>
-        TmJulianToYYYYMMDD, a
-        TmJulianToCsvDate, a
-</IF>
-    endexternal
-
-    .align
-    stack record local_data
-        ok,         boolean ;Return status
-        filechn,    int     ;Data file channel
-        outchn,     int     ;CSV file channel
-        outrec,     @StringBuilder  ;A CSV file record
-        records,    int     ;Number of records exported
-        pos,        int     ;Position in a string
-        recordsMax, int     ;Max # or records to export
-        errtxt,     a512    ;Error message text
-        now,        a20     ;The time now
-        timer,      @Timer  ;A timer
-    endrecord
-
-    external common
-        ch<StructureName>, int
-    endcommon
-proc
-    ;Make sure the channel is open
-    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
-    begin
-        freturn false
-    end
-
-    clear records, errtxt
-    ok = true
-    errorMessage = ""
-
-    timer = new Timer()
-    timer.Start()
-
-    ;Were we given a max # or records to export?
-
-    recordsMax = maxRecords > 0 ? maxRecords : 0
-
-    ;Open the data file associated with the structure
-
-    if (!(filechn=%<StructureName>OpenInput(errtxt)))
-    begin
-        errtxt = "Failed to open data file! Error was " + errtxt
-        ok = false
-    end
-
-    ;Create the local CSV file
-
-    if (ok)
-    begin
-.ifdef OS_WINDOWS7
-        open(outchn=0,o:s,fileSpec)
 .endc
-.ifdef OS_UNIX
-        open(outchn=0,o,fileSpec)
-.endc
-.ifdef OS_VMS
-        open(outchn=0,o,fileSpec,OPTIONS:"/stream")
-.endc
-
-        ;Add a row of column headers
-.ifdef OS_WINDOWS7
-        writes(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF></IF></FIELD_LOOP>")
-.else
-        puts(outchn,"<IF STRUCTURE_RELATIVE>RecordNumber|</IF><FIELD_LOOP><IF CUSTOM_NOT_REPLICATOR_EXCLUDE><FieldSqlName><IF MORE>|</IF></IF></FIELD_LOOP>" + %char(13) + %char(10))
-.endc
-
-        ;Read and add data file records
-        foreach <structure_name> in new Select(new From(filechn,Q_NO_GRFA,0,<structure_name>)<IF STRUCTURE_TAGS>,(Where)(<TAG_LOOP><TAGLOOP_CONNECTOR_C>(<structure_name>.<tagloop_field_name><TAGLOOP_OPERATOR_DBL><TAGLOOP_TAG_VALUE>)</TAG_LOOP>)</IF>)
-        begin
-            ;Make sure there are no | characters in the data
-            while (pos = %instr(1,<structure_name>,"|"))
-            begin
-                clear <structure_name>(pos:1)
-            end
-
-            incr records
-
-            if (recordsmax && (records > recordsMax))
-            begin
-                decr records
-                exitloop
-            end
-
-            outrec = new StringBuilder()
-<FIELD_LOOP>
-  <IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-    <IF STRUCTURE_RELATIVE>
-            outrec.Append(%string(records) + "|")
-    </IF>
-    <IF CUSTOM_DBL_TYPE>
-;//
-;// CUSTOM FIELDS
-;//
-            outrec.Append(%<FIELD_CUSTOM_STRING_FUNCTION>(<structure_name>.<field_original_name_modified>,<structure_name>) + "<IF MORE>|</IF MORE>")
-;//
-;// ALPHA
-;//
-    <ELSE ALPHA>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? %atrim(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(%atrim(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// DECIMAL
-;//
-    <ELSE DECIMAL>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? <IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>0|</IF>")
-      <ELSE>
-            outrec.Append(<IF NEGATIVE_ALLOWED>%MakeDecimalForCsvNegatives<ELSE>%MakeDecimalForCsvNoNegatives</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// DATE
-;//
-    <ELSE DATE>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? %string(<structure_name>.<field_original_name_modified>,"XXXX-XX-XX")<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(%MakeDateForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// DATE_YYMMDD
-;//
-    <ELSE DATE_YYMMDD>
-            outrec.Append(%atrim(^a(<structure_name>.<field_original_name_modified>)) + "<IF MORE>|</IF>")
-;//
-;// TIME_HHMM
-;//
-    <ELSE TIME_HHMM>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(%MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// TIME_HHMMSS
-;//
-    <ELSE TIME_HHMMSS>
-      <IF DEFINED_DBLV11>
-            outrec.Append(<structure_name>.<field_original_name_modified> ? %MakeTimeForCsv(<structure_name>.<field_original_name_modified>)<IF MORE> + "|"</IF> : "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(%MakeTimeForCsv(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;// USER-DEFINED
-;//
-    <ELSE USER>
-      <IF USERTIMESTAMP>
-            outrec.Append(%string(^d(<structure_name>.<field_original_name_modified>),"XXXX-XX-XX XX:XX:XX.XXXXXX") + "<IF MORE>|</IF>")
-      <ELSE>
-            outrec.Append(<IF DEFINED_ASA_TIREMAX>%TmJulianToCsvDate<ELSE>%atrim</IF>(<structure_name>.<field_original_name_modified>) + "<IF MORE>|</IF>")
-      </IF>
-;//
-;//
-;//
-    </IF CUSTOM_DBL_TYPE>
-  </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
-</FIELD_LOOP>
-
-            .ifdef OS_WINDOWS7
-            writes(outchn,outrec.ToString())
-            .else
-            puts(outchn,outrec.ToString() + %char(13) + %char(10))
-            .endc
-        end
-    end
-
-<IF NOT STRUCTURE_TAGS>
-eof,
-</IF>
-
-    ;Close the file
-    if (filechn && %chopen(filechn))
-    begin
-        close filechn
-    end
-
-    ;Close the CSV file
-    if (outchn && %chopen(outchn))
-    begin
-        close outchn
-    end
-
-    ;Return the record count
-    recordCount = records
-
-    ;Return any error text
-    errorMessage = errtxt
-
-    timer.Stop()
-    now = %datetime
-
-    if (ok)
-    begin
-        writelog("Export took " + timer.ElapsedTimeString)
-        writett("Export took " + timer.ElapsedTimeString)
-    end
-
-    freturn ok
-
-endfunction
-
-;*****************************************************************************
-; <summary>
-; Opens the <FILE_NAME> for update.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns the channel number, or 0 if an error occured.</returns>
-
-function Open$<StructureName>, ^val
-    required out errorMessage, a  ;Returned error text
-    global common
-        ch<StructureName>, int
-    endcommon
-proc
-    errorMessage = ""
-
-    if (ch<StructureName>) then
-        freturn true
-    else
-    begin
-        try
-        begin
-            open(ch<StructureName>=0,<IF STRUCTURE_ISAM>u:i<ELSE STRUCTURE_RELATIVE>u:r</IF>,"<FILE_NAME>")
-        end
-        catch (ex, @Exception)
-        begin
-            errorMessage = ex.Message
-            clear ch<StructureName>
-            freturn false
-        end
-        endtry
-    end
-    freturn true
-endfunction
-
-<IF STRUCTURE_ISAM>
-;*****************************************************************************
-; <summary>
-; Loads a unique key value into the respective fields in a record.
-; </summary>
-; <param name="aKeyValue">Unique key value.</param>
-; <returns>Returns a record containig only the unique key segment data.</returns>
-
-function <StructureName>$KeyToRecord, a
-    required in aKeyValue, a
-
-    .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>", end
-
-    stack record
-        segPos, int
-    endrecord
-
-proc
-
-    clear <structureName>
-    segPos = 1
-
-  <UNIQUE_KEY>
-    <SEGMENT_LOOP>
-      <IF ALPHA>
-    <structureName>.<segment_name> = aKeyValue(segPos:<SEGMENT_LENGTH>)
-      <ELSE DECIMAL>
-    <structureName>.<segment_name> = ^d(aKeyValue(segPos:<SEGMENT_LENGTH>))
-      <ELSE DATE>
-    if ((!^d(aKeyValue(segPos:<SEGMENT_LENGTH>)))||(!%IsDate(^a(^d(aKeyValue(segPos:<SEGMENT_LENGTH>)))))) then
-        ^a(<structureName>.<segment_name>) = "17530101"
-    else
-        <structureName>.<segment_name> = ^d(aKeyValue(segPos:<SEGMENT_LENGTH>))
-      <ELSE TIME>
-    <structureName>.<segment_name> = ^d(aKeyValue(segPos:<SEGMENT_LENGTH>))
-      <ELSE USER>
-    <structureName>.<segment_name> = aKeyValue(segPos:<SEGMENT_LENGTH>)
-      </IF>
-    segPos += <SEGMENT_LENGTH>
-    </SEGMENT_LOOP>
-  </UNIQUE_KEY>
-
-    freturn <structureName>
-
-endfunction
-
-</IF STRUCTURE_ISAM>

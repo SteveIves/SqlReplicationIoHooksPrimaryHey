@@ -4,7 +4,7 @@ setlocal
 rem ---------------------------------------------------------------------------
 rem set code generation options
 
-set STRUCTURES=EMPLOYEE DEPARTMENT
+set STRUCTURES=DEPARTMENT EMPLOYEE
 
 set DBLV11=-define DBLV11
 set ENABLE_CLEAN_DATA=-define CLEAN_DATA
@@ -23,10 +23,6 @@ rem ---------------------------------------------------------------------------
 rem Generate code
 
 rem Generate SQL I/O routines for the structures being replicated
-codegen -s %STRUCTURES% -t SqlIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
-
-codegen -s %STRUCTURES% -t MsqIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
-
-codegen -s %STRUCTURES% -t SynIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
+codegen -s %STRUCTURES% -t SqlIO MscIO SynIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
 
 endlocal

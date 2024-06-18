@@ -972,8 +972,11 @@ proc
         end
     end
 
-    ;Close the database
-    xcall DatabaseDisconnect
+    if (Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS)
+    begin
+        ;Close the database
+        xcall DatabaseDisconnect
+    end
 
     ;Release the namespace
     if (Settings.ChannelInfo)
@@ -2199,14 +2202,7 @@ DoCreateCsv,
 
     Logger.Log(" - Export starting at " + %TimeNow)
 
-    using Settings.DatabaseConnectMode select
-    (DatabaseConnectionMode.SqlConnection),
-        functionName = %atrim(instruction.structure_name) + "Csv"
-    (DatabaseConnectionMode.SqlClient),
-        functionName = %atrim(instruction.structure_name) + "_Csv"
-    (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "$Csv"
-    endusing
+    functionName = %atrim(instruction.structure_name) + "Csv"
 
     try
     begin

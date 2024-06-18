@@ -61,6 +61,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ; File:        <StructureName>SqlIO.dbl
 ;
 ; Description: Various functions that performs SQL I/O for <STRUCTURE_NAME>
+;              using Synergy SQL Connection.
 ;
 ;*****************************************************************************
 ; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
@@ -2768,85 +2769,6 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Close cursors associated with the <StructureName> table.
-; </summary>
-
-subroutine <StructureName>Close
-
-    .include "CONNECTDIR:ssql.def"
-
-    external common
-<IF STRUCTURE_ISAM>
-        c1<StructureName>, i4
-        c2<StructureName>, i4
-</IF STRUCTURE_ISAM>
-        c3<StructureName>,  i4
-    endcommon
-
-proc
-
-<IF STRUCTURE_ISAM>
-    if (c1<StructureName>)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c1<StructureName>))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c1<StructureName>
-        end
-        endtry
-    end
-
-    if (c2<StructureName>)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c2<StructureName>))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c2<StructureName>
-        end
-        endtry
-    end
-
-</IF STRUCTURE_ISAM>
-    if (c3<StructureName>)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c3<StructureName>))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c3<StructureName>
-        end
-        endtry
-    end
-
-    xreturn
-
-endsubroutine
-
-;*****************************************************************************
-; <summary>
 ; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> to a CSV file.
 ; </summary>
 ; <param name="fileSpec">File to create</param>
@@ -3073,6 +2995,89 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
+; Close cursors associated with the <StructureName> table.
+; This routine is called at the following times;
+; 1. If the table is about to be dropped
+; 2. Before a database disconnect/reconnect
+; 3. Before a replicator shutdown.
+; </summary>
+
+subroutine <StructureName>Close
+
+    .include "CONNECTDIR:ssql.def"
+
+    external common
+<IF STRUCTURE_ISAM>
+        c1<StructureName>, i4
+        c2<StructureName>, i4
+</IF STRUCTURE_ISAM>
+        c3<StructureName>,  i4
+    endcommon
+
+proc
+
+<IF STRUCTURE_ISAM>
+    if (c1<StructureName>)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c1<StructureName>))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c1<StructureName>
+        end
+        endtry
+    end
+
+    if (c2<StructureName>)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c2<StructureName>))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c2<StructureName>
+        end
+        endtry
+    end
+
+</IF STRUCTURE_ISAM>
+    if (c3<StructureName>)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c3<StructureName>))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c3<StructureName>
+        end
+        endtry
+    end
+
+    xreturn
+
+endsubroutine
+
+;*****************************************************************************
+; <summary>
 ; Opens the <FILE_NAME> for input.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
@@ -3080,29 +3085,49 @@ endfunction
 
 function <StructureName>OpenInput, ^val
     required out errorMessage, a  ;Returned error text
-
     stack record
         ch, int
-        errmsg, a128
     endrecord
 proc
-
     try
     begin
         open(ch=0,<IF STRUCTURE_ISAM>i:i<ELSE STRUCTURE_RELATIVE>i:r</IF>,"<FILE_NAME>")
-        clear errmsg
+        errorMessage = ""
     end
     catch (ex, @Exception)
     begin
-        errmsg = ex.Message
+        errorMessage = ex.Message
         clear ch
     end
     endtry
-
-    errorMessage = errmsg
-
     freturn ch
+endfunction
 
+;*****************************************************************************
+; <summary>
+; Opens the <FILE_NAME> for update.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns the channel number, or 0 if an error occured.</returns>
+
+function <StructureName>OpenUpdate, ^val
+    required out errorMessage, a  ;Returned error text
+    stack record
+        ch, int
+    endrecord
+proc
+    try
+    begin
+        open(ch=0,<IF STRUCTURE_ISAM>u:i<ELSE STRUCTURE_RELATIVE>u:r</IF>,"<FILE_NAME>")
+        errorMessage = ""
+    end
+    catch (ex, @Exception)
+    begin
+        errorMessage = ex.Message
+        clear ch
+    end
+    endtry
+    freturn ch
 endfunction
 
 <IF STRUCTURE_ISAM>

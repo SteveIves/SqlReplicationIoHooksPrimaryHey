@@ -3,6 +3,7 @@
 ; File:        EmployeeSqlIO.dbl
 ;
 ; Description: Various functions that performs SQL I/O for EMPLOYEE
+;              using Synergy SQL Connection.
 ;
 ;*****************************************************************************
 ; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
@@ -2402,81 +2403,6 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Close cursors associated with the Employee table.
-; </summary>
-
-subroutine EmployeeClose
-
-    .include "CONNECTDIR:ssql.def"
-
-    external common
-        c1Employee, i4
-        c2Employee, i4
-        c3Employee,  i4
-    endcommon
-
-proc
-
-    if (c1Employee)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c1Employee))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c1Employee
-        end
-        endtry
-    end
-
-    if (c2Employee)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c2Employee))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c2Employee
-        end
-        endtry
-    end
-
-    if (c3Employee)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c3Employee))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c3Employee
-        end
-        endtry
-    end
-
-    xreturn
-
-endsubroutine
-
-;*****************************************************************************
-; <summary>
 ; Exports REPLICATOR_DATA:EMPLOYEE.ISM to a CSV file.
 ; </summary>
 ; <param name="fileSpec">File to create</param>
@@ -2634,6 +2560,85 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
+; Close cursors associated with the Employee table.
+; This routine is called at the following times;
+; 1. If the table is about to be dropped
+; 2. Before a database disconnect/reconnect
+; 3. Before a replicator shutdown.
+; </summary>
+
+subroutine EmployeeClose
+
+    .include "CONNECTDIR:ssql.def"
+
+    external common
+        c1Employee, i4
+        c2Employee, i4
+        c3Employee,  i4
+    endcommon
+
+proc
+
+    if (c1Employee)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c1Employee))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c1Employee
+        end
+        endtry
+    end
+
+    if (c2Employee)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c2Employee))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c2Employee
+        end
+        endtry
+    end
+
+    if (c3Employee)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c3Employee))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c3Employee
+        end
+        endtry
+    end
+
+    xreturn
+
+endsubroutine
+
+;*****************************************************************************
+; <summary>
 ; Opens the REPLICATOR_DATA:EMPLOYEE.ISM for input.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
@@ -2641,29 +2646,49 @@ endfunction
 
 function EmployeeOpenInput, ^val
     required out errorMessage, a  ;Returned error text
-
     stack record
         ch, int
-        errmsg, a128
     endrecord
 proc
-
     try
     begin
         open(ch=0,i:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
-        clear errmsg
+        errorMessage = ""
     end
     catch (ex, @Exception)
     begin
-        errmsg = ex.Message
+        errorMessage = ex.Message
         clear ch
     end
     endtry
-
-    errorMessage = errmsg
-
     freturn ch
+endfunction
 
+;*****************************************************************************
+; <summary>
+; Opens the REPLICATOR_DATA:EMPLOYEE.ISM for update.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns the channel number, or 0 if an error occured.</returns>
+
+function EmployeeOpenUpdate, ^val
+    required out errorMessage, a  ;Returned error text
+    stack record
+        ch, int
+    endrecord
+proc
+    try
+    begin
+        open(ch=0,u:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
+        errorMessage = ""
+    end
+    catch (ex, @Exception)
+    begin
+        errorMessage = ex.Message
+        clear ch
+    end
+    endtry
+    freturn ch
 endfunction
 
 ;*****************************************************************************

@@ -3,6 +3,7 @@
 ; File:        DepartmentSqlIO.dbl
 ;
 ; Description: Various functions that performs SQL I/O for DEPARTMENT
+;              using Synergy SQL Connection.
 ;
 ;*****************************************************************************
 ; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
@@ -2093,81 +2094,6 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Close cursors associated with the Department table.
-; </summary>
-
-subroutine DepartmentClose
-
-    .include "CONNECTDIR:ssql.def"
-
-    external common
-        c1Department, i4
-        c2Department, i4
-        c3Department,  i4
-    endcommon
-
-proc
-
-    if (c1Department)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c1Department))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c1Department
-        end
-        endtry
-    end
-
-    if (c2Department)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c2Department))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c2Department
-        end
-        endtry
-    end
-
-    if (c3Department)
-    begin
-        try
-        begin
-            if (%ssc_close(Settings.DatabaseChannel,c3Department))
-                nop
-        end
-        catch (ex, @Exception)
-        begin
-            nop
-        end
-        finally
-        begin
-            clear c3Department
-        end
-        endtry
-    end
-
-    xreturn
-
-endsubroutine
-
-;*****************************************************************************
-; <summary>
 ; Exports REPLICATOR_DATA:DEPARTMENT.ISM to a CSV file.
 ; </summary>
 ; <param name="fileSpec">File to create</param>
@@ -2313,6 +2239,85 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
+; Close cursors associated with the Department table.
+; This routine is called at the following times;
+; 1. If the table is about to be dropped
+; 2. Before a database disconnect/reconnect
+; 3. Before a replicator shutdown.
+; </summary>
+
+subroutine DepartmentClose
+
+    .include "CONNECTDIR:ssql.def"
+
+    external common
+        c1Department, i4
+        c2Department, i4
+        c3Department,  i4
+    endcommon
+
+proc
+
+    if (c1Department)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c1Department))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c1Department
+        end
+        endtry
+    end
+
+    if (c2Department)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c2Department))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c2Department
+        end
+        endtry
+    end
+
+    if (c3Department)
+    begin
+        try
+        begin
+            if (%ssc_close(Settings.DatabaseChannel,c3Department))
+                nop
+        end
+        catch (ex, @Exception)
+        begin
+            nop
+        end
+        finally
+        begin
+            clear c3Department
+        end
+        endtry
+    end
+
+    xreturn
+
+endsubroutine
+
+;*****************************************************************************
+; <summary>
 ; Opens the REPLICATOR_DATA:DEPARTMENT.ISM for input.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
@@ -2320,29 +2325,49 @@ endfunction
 
 function DepartmentOpenInput, ^val
     required out errorMessage, a  ;Returned error text
-
     stack record
         ch, int
-        errmsg, a128
     endrecord
 proc
-
     try
     begin
         open(ch=0,i:i,"REPLICATOR_DATA:DEPARTMENT.ISM")
-        clear errmsg
+        errorMessage = ""
     end
     catch (ex, @Exception)
     begin
-        errmsg = ex.Message
+        errorMessage = ex.Message
         clear ch
     end
     endtry
-
-    errorMessage = errmsg
-
     freturn ch
+endfunction
 
+;*****************************************************************************
+; <summary>
+; Opens the REPLICATOR_DATA:DEPARTMENT.ISM for update.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns the channel number, or 0 if an error occured.</returns>
+
+function DepartmentOpenUpdate, ^val
+    required out errorMessage, a  ;Returned error text
+    stack record
+        ch, int
+    endrecord
+proc
+    try
+    begin
+        open(ch=0,u:i,"REPLICATOR_DATA:DEPARTMENT.ISM")
+        errorMessage = ""
+    end
+    catch (ex, @Exception)
+    begin
+        errorMessage = ex.Message
+        clear ch
+    end
+    endtry
+    freturn ch
 endfunction
 
 ;*****************************************************************************
