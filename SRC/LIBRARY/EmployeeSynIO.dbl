@@ -1,0 +1,817 @@
+;*****************************************************************************
+;
+; File:        EmployeeSynIO.dbl
+;
+; Description: Various functions that performs SDMS I/O for EMPLOYEE
+;
+;*****************************************************************************
+;
+; The following functions are identical to and therefor use the code from the
+; SQL Connection replication code in EmployeeSqlIO.dbl
+;
+;   %EmployeeKeyVal
+;   %EmployeeKeyNum
+;   %EmployeeLength
+;   %EmployeeType
+;   %EmployeeCols
+;   %EmployeeRecs
+;
+; In addition, there is no concept of load vs bulk load for SDMS replication,
+; so the replicator calls %Employee$Load for both operations.
+;
+;*****************************************************************************
+; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
+;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
+;*****************************************************************************
+
+import ReplicationLibrary
+import Synergex.SynergyDE.Select
+.ifdef DBLNET
+import System.IO
+.endc
+import System.Text
+
+.ifndef strEmployee
+.include "EMPLOYEE" repository, structure="strEmployee", end
+.endc
+
+.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
+.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
+
+;*****************************************************************************
+; <summary>
+; Determines if REPLICATOR_DATA:EMPLOYEE.ISM exists in the replicated data set.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
+
+function Employee$Exists, ^val
+    required out errorMessage, a
+    endparams
+
+    .align
+    stack record localData
+        status,  int    ;Returned status
+    endrecord
+
+proc
+    init localData
+    errorMessage = ""
+
+    if (ReplicationLibrary.File.Exists("REPLICATOR_DATA:EMPLOYEE.ISM")) then
+        status = 1
+    else
+    begin
+        status = 0
+        errorMessage = "File REPLICATOR_DATA:EMPLOYEE.ISM does not exist!"
+    end
+
+    freturn status
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Creates REPLICATOR_DATA:EMPLOYEE.ISM in the replicated data set.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function EmployeeCreate_, ^val
+    required out errorMessage, a
+
+    .align
+    stack record localData
+        ok,     boolean    ;Return status
+    endrecord
+
+proc
+    init localData
+    ok = true
+    errorMessage = ""
+
+    try
+    begin
+        xcall isamc("REPLICATOR_DATA:EMPLOYEE.ISM,FIXED,COMPRESS,DENSITY=50,PAGE=1024",300,5,
+        & "START=1,LENGTH=8,NAME=EMP_ID,TYPE=ALPHA,ASCEND,DENSITY=50,DUPS,NOATEND,NOMODIFY",
+        & "START=49,LENGTH=15,NAME=EMP_DEPT,ASCEND,DENSITY=50,NODUPS,MODIFY",
+        & "START=29,LENGTH=20,NAME=EMP_LAST_NAME,TYPE=NOCASE,ORDER=A,DENSITY=50,NODUPS,MODIFY",
+        & "START=218,LENGTH=2,NAME=STATE_CODE,TYPE=ALPHA,ORDER=A,DENSITY=50,NODUPS,MODIFY",
+        & "START=220,LENGTH=5,NAME=ZIP_CODE,TYPE=ALPHA,ORDER=A,DENSITY=50,NODUPS,MODIFY"
+        & )
+    end
+    catch (ex, @Exception)
+    begin
+        ok = false
+        errorMessage = "Failed to create REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
+    end
+    endtry
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Not used in the SDMS replication use case.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$Index, ^val
+    required out errorMessage, a
+proc
+    errorMessage = ""
+    freturn true
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Not used in the SDMS replication use case.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$UnIndex, ^val
+    required out errorMessage, a
+proc
+    errorMessage = ""
+    freturn true
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Insert a record into REPLICATOR_DATA:EMPLOYEE.ISM.
+; </summary>
+; <param name="recordData">Record to be inserted.</param>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
+
+function Employee$Insert, ^val
+    required in  recordData,   a
+    required out errorMessage, a
+
+    .align
+    stack record localData
+        status, int
+    endrecord
+
+    external common
+        chEmployee, int
+    endcommon
+
+proc
+    ;Make sure the channel is open
+    if (!chEmployee && !Open$Employee(errorMessage))
+    begin
+        freturn 0
+    end
+
+    init localData
+    status = 1
+    errorMessage = ""
+
+    try
+    begin
+        store(chEmployee,recordData)
+    end
+    catch (ex, @DuplicateException)
+    begin
+        status = 2
+        errorMessage = "Record already exists!"
+    end
+    catch (ex, @Exception)
+    begin
+        status = 0
+        errorMessage = "Failed to insert record. Error was " + ex.Message
+    end
+    endtry
+
+    freturn status
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Inserts multiple records into REPLICATOR_DATA:EMPLOYEE.ISM.
+; </summary>
+; <param name="recordsHandle">Memory handle containing one or more rows to insert.</param>
+; <param name="errorMessage">Returned error text.</param>
+; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$InsertRows, ^val
+    required in  recordsHandle, D_HANDLE
+    required out errorMessage, a
+    required out exceptionRecordsHandle, D_HANDLE
+
+    .define EXCEPTION_BUFSZ 100
+
+    stack record localData
+        ok          ,boolean    ;Return status
+        rows        ,int        ;Number of rows to insert
+        ex_ms       ,int        ;Size of exception array
+        ex_mc       ,int        ;Items in exception array
+    endrecord
+
+    .include "EMPLOYEE" repository, structure="inpbuf", nofields, end
+    .include "EMPLOYEE" repository, static record="employee", end
+
+    external common
+        chEmployee, int
+    endcommon
+
+proc
+    ;Make sure the channel is open
+    if (!chEmployee && !Open$Employee(errorMessage))
+    begin
+        freturn false
+    end
+
+    init localData
+    ok = true
+
+    ;Figure out how many records to insert
+
+    rows = (%mem_proc(DM_GETSIZE,recordsHandle)/^size(inpbuf))
+
+    ;Insert the records into the database
+
+    if (ok)
+    begin
+        data cnt, int
+        for cnt from 1 thru rows
+        begin
+            ;Load data into bound record
+
+            employee = ^m(inpbuf[cnt],recordsHandle)
+
+            ;Insert the record into the file
+            try
+            begin
+                store(chEmployee,employee)
+            end
+            catch (ex, @Exception)
+            begin
+                ;If the insert failed, record the exception in the exceptions buffer
+                ex_mc += 1
+                if (ex_mc == 0) then
+                begin
+                    exceptionRecordsHandle = %mem_proc(DM_ALLOC,^size(inpbuf)*EXCEPTION_BUFSZ)
+                end
+                else if (ex_mc >= ex_ms)
+                begin
+                    exceptionRecordsHandle = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),exceptionRecordsHandle)
+                end
+                ^m(inpbuf[ex_mc],exceptionRecordsHandle) = employee
+            end
+            endtry
+        end
+    end
+
+    ;Resize the returned exceptions buffer to the correct size
+
+    if (ex_mc)
+    begin
+        exceptionRecordsHandle = %mem_proc(DM_RESIZ,^size(inpbuf)*ex_mc,exceptionRecordsHandle)
+        errorMessage = "Failed to insert " + %string(ex_mc) + " records"
+    end
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Updates a record in REPLICATOR_DATA:EMPLOYEE.ISM.
+; </summary>
+; <param name="dataRecord">Record containing data to update.</param>
+; <param name="recordsUpdated">Returned number of rows affected.</param>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$Update, ^val
+    required in  dataRecord, a
+    required out recordsUpdated, i
+    required out errorMessage, a
+
+    stack record localData
+        ok, boolean
+        keyValue, a255
+        keyLength, i4
+    endrecord
+
+    static record
+        employee, strEmployee
+    endrecord
+
+    external function
+        EmployeeKeyVal, ^val
+        EmployeeKeyNum, ^val
+    endexternal
+
+    external common
+        chEmployee, int
+    endcommon
+
+proc
+    ;Make sure the channel is open
+    if (!chEmployee && !Open$Employee(errorMessage))
+    begin
+        freturn false
+    end
+
+    init localData
+    recordsUpdated = 0
+    ok = false
+
+    ;Extract the key value from the RECORD
+
+    xcall EmployeeKeyVal(dataRecord,keyValue,keyLength)
+
+    ;Read the record to lock it
+
+    try
+    begin
+        read(chEmployee,employee,keyValue(1:keyLength),KEYNUM:%EmployeeKeyNum)
+    end
+    catch (ex, @Exception)
+    begin
+        errorMessage = "Failed to update record. Error was " + ex.Message
+    end
+    endtry
+
+    ;Update the record in the file
+
+    if (ok)
+    begin
+        employee = dataRecord
+        try
+        begin
+            write(chEmployee,employee)
+            recordsUpdated = 1
+            ok = true
+        end
+        catch (ex, @Exception)
+        begin
+            unlock chEmployee
+            errorMessage = "Failed to update record. Error was " + ex.Message
+        end
+        endtry
+    end
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Deletes a record from REPLICATOR_DATA:EMPLOYEE.ISM
+; </summary>
+; <param name="keyValue">Unique key of record to be deleted.</param>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$Delete, ^val
+    required in  keyValue, a
+    required out errorMessage, a
+    .include "EMPLOYEE" repository, stack record="employee", nofields
+    external function
+        EmployeeKeyNum, ^val
+    endexternal
+    external common
+        chEmployee, int
+    endcommon
+proc
+    ;Make sure the channel is open
+    if (!chEmployee && !Open$Employee(errorMessage))
+    begin
+        freturn false
+    end
+
+    ;TODO: Needs to support relative files on OpenVMS
+    try
+    begin
+        read(chEmployee,employee,keyValue,KEYNUM:%EmployeeKeyNum)
+        try
+        begin
+            delete(chEmployee)
+            errorMessage = ""
+            freturn true
+        end
+        catch (ex, @Exception)
+        begin
+            unlock chEmployee
+            errorMessage = "Failed to delete record. Error was " + ex.Message
+        end
+        endtry
+    end
+    catch (ex, @Exception)
+    begin
+        errorMessage = "Failed to read and lock record for delete. Error was " + ex.Message
+    end
+    endtry
+
+    freturn false
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Deletes all rows from the Employee table.
+; </summary>
+; <param name="errorMessage">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$Clear, ^val
+    required out errorMessage, a
+    external common
+        chEmployee, int
+    endcommon
+proc
+    errorMessage = ""
+
+    ;If the file is open, close it
+
+    if (chEmployee)
+    begin
+        close chEmployee
+        chEmployee = 0
+    end
+
+    ;Clear the file
+
+    try
+    begin
+        data ignored, i4
+        xcall isclr("FILE_NAME",ignored)
+        freturn true
+    end
+    catch (ex, @Exception)
+    begin
+        errorMessage = "Failed to clear file REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
+    end
+    endtry
+
+    freturn false
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Deletes the Employee table from the database.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$Drop, ^val
+    required out errorMessage, a
+    external common
+        chEmployee, int
+    endcommon
+proc
+    errorMessage = ""
+
+    ;If the file is open, close it
+
+    if (chEmployee)
+    begin
+        close chEmployee
+        chEmployee = 0
+    end
+
+    try
+    begin
+        xcall delet("REPLICATOR_DATA:EMPLOYEE.ISM")
+        freturn true
+    end
+    catch (ex, @Exception)
+    begin
+        errorMessage = "Failed to delete REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
+    end
+    endtry
+
+    freturn false
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Load all data from the original file into REPLICATOR_DATA:EMPLOYEE.ISM
+; </summary>
+; <param name="a_maxrows">Maximum number of rows to load.</param>
+; <param name="a_added">Number of successful inserts.</param>
+; <param name="a_failed">Number of failed inserts.</param>
+; <param name="errorMessage">Returned error message (if return value is false).</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$Load, ^val
+    required in  a_maxrows, n
+    required out a_added, n
+    required out a_failed, n
+    required out errorMessage, a
+
+    ;.include "EMPLOYEE" repository, structure="inpbuf", end
+    ;.include "EMPLOYEE" repository, stack record="tmprec", end
+
+    stack record local_data
+        ok          ,boolean    ;Return status
+        now         ,a20        ;Current date and time
+        timer       ,@Timer
+    endrecord
+
+    external common
+        chEmployee, int
+    endcommon
+proc
+    init local_data
+    ok = true
+    a_added = 0
+    a_failed = 0
+    errorMessage = ""
+
+    timer = new Timer()
+    timer.Start()
+
+
+
+
+    ok = false
+    errorMessage = "Load is not implemented yet!"
+
+
+
+
+
+    ;Return totals
+    ;a_added = ?
+    ;a_failed = ?
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog("Load COMPLETE after " + timer.ElapsedTimeString)
+        writett("Load COMPLETE after " + timer.ElapsedTimeString)
+    end
+    else
+    begin
+        writelog("Load FAILED after " + timer.ElapsedTimeString)
+        writett("Load FAILED after " + timer.ElapsedTimeString)
+    end
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Close cursors associated with the Employee table.
+; </summary>
+
+subroutine Employee$Close
+    external common
+        chEmployee, int
+    endcommon
+proc
+    ;If the file is open, close it
+
+    if (chEmployee)
+    begin
+        close chEmployee
+        chEmployee = 0
+    end
+
+    xreturn
+
+endsubroutine
+
+;*****************************************************************************
+; <summary>
+; Exports REPLICATOR_DATA:EMPLOYEE.ISM to a CSV file.
+; </summary>
+; <param name="fileSpec">File to create</param>
+; <param name="maxRecords">Mumber of records to export.</param>
+; <param name="recordCount">Returned number of records exported.</param>
+; <param name="errorMessage">Returned error text.</param>
+; <returns>Returns true on success, otherwise false.</returns>
+
+function Employee$Csv, boolean
+    required in  fileSpec, a
+    required in  maxRecords, n
+    required out recordCount, n
+    required out errorMessage, a
+
+    .include "EMPLOYEE" repository, record="employee", end
+
+    .define EXCEPTION_BUFSZ 100
+
+    external function
+        IsDecimalNo, boolean
+        MakeDecimalForCsvNegatives, a
+        MakeDecimalForCsvNoNegatives, a
+        MakeTimeForCsv, a
+    endexternal
+
+    .align
+    stack record local_data
+        ok,         boolean ;Return status
+        filechn,    int     ;Data file channel
+        outchn,     int     ;CSV file channel
+        outrec,     @StringBuilder  ;A CSV file record
+        records,    int     ;Number of records exported
+        pos,        int     ;Position in a string
+        recordsMax, int     ;Max # or records to export
+        errtxt,     a512    ;Error message text
+        now,        a20     ;The time now
+        timer,      @Timer  ;A timer
+    endrecord
+
+    external common
+        chEmployee, int
+    endcommon
+proc
+    ;Make sure the channel is open
+    if (!chEmployee && !Open$Employee(errorMessage))
+    begin
+        freturn false
+    end
+
+    clear records, errtxt
+    ok = true
+    errorMessage = ""
+
+    timer = new Timer()
+    timer.Start()
+
+    ;Were we given a max # or records to export?
+
+    recordsMax = maxRecords > 0 ? maxRecords : 0
+
+    ;Open the data file associated with the structure
+
+    if (!(filechn=%EmployeeOpenInput(errtxt)))
+    begin
+        errtxt = "Failed to open data file! Error was " + errtxt
+        ok = false
+    end
+
+    ;Create the local CSV file
+
+    if (ok)
+    begin
+.ifdef OS_WINDOWS7
+        open(outchn=0,o:s,fileSpec)
+.endc
+.ifdef OS_UNIX
+        open(outchn=0,o,fileSpec)
+.endc
+.ifdef OS_VMS
+        open(outchn=0,o,fileSpec,OPTIONS:"/stream")
+.endc
+
+        ;Add a row of column headers
+.ifdef OS_WINDOWS7
+        writes(outchn,"EmpId|EmpFirstName|EmpLastName|EmpDept|EmpHireDate|EmpPhoneWork|EmpPhoneCell|EmpPaid|EmpDateOfBirth|EmpHireTime|EmpEmail|EmpAddressStreet|EmpAddressCity|EmpAddressState|EmpAddressZip")
+.else
+        puts(outchn,"EmpId|EmpFirstName|EmpLastName|EmpDept|EmpHireDate|EmpPhoneWork|EmpPhoneCell|EmpPaid|EmpDateOfBirth|EmpHireTime|EmpEmail|EmpAddressStreet|EmpAddressCity|EmpAddressState|EmpAddressZip" + %char(13) + %char(10))
+.endc
+
+        ;Read and add data file records
+        foreach employee in new Select(new From(filechn,Q_NO_GRFA,0,employee))
+        begin
+            ;Make sure there are no | characters in the data
+            while (pos = %instr(1,employee,"|"))
+            begin
+                clear employee(pos:1)
+            end
+
+            incr records
+
+            if (recordsmax && (records > recordsMax))
+            begin
+                decr records
+                exitloop
+            end
+
+            outrec = new StringBuilder()
+            outrec.Append(employee.emp_id ? %MakeDecimalForCsvNoNegatives(employee.emp_id) + "|" : "0|")
+            outrec.Append(employee.emp_first_name ? %atrim(employee.emp_first_name) + "|" : "|")
+            outrec.Append(employee.emp_last_name ? %atrim(employee.emp_last_name) + "|" : "|")
+            outrec.Append(employee.emp_dept ? %atrim(employee.emp_dept) + "|" : "|")
+            outrec.Append(employee.emp_hire_date ? %string(employee.emp_hire_date,"XXXX-XX-XX") + "|" : "|")
+            outrec.Append(employee.emp_phone_work ? %atrim(employee.emp_phone_work) + "|" : "|")
+            outrec.Append(employee.emp_phone_cell ? %atrim(employee.emp_phone_cell) + "|" : "|")
+            outrec.Append(employee.emp_paid ? %MakeDecimalForCsvNoNegatives(employee.emp_paid) + "|" : "0|")
+            outrec.Append(employee.emp_date_of_birth ? %string(employee.emp_date_of_birth,"XXXX-XX-XX") + "|" : "|")
+            outrec.Append(employee.emp_hire_time ? %MakeTimeForCsv(employee.emp_hire_time) + "|" : "|")
+            outrec.Append(employee.emp_email ? %atrim(employee.emp_email) + "|" : "|")
+            outrec.Append(employee.emp_address_street ? %atrim(employee.emp_address_street) + "|" : "|")
+            outrec.Append(employee.emp_address_city ? %atrim(employee.emp_address_city) + "|" : "|")
+            outrec.Append(employee.emp_address_state ? %atrim(employee.emp_address_state) + "|" : "|")
+            outrec.Append(employee.emp_address_zip ? %MakeDecimalForCsvNoNegatives(employee.emp_address_zip) : "")
+
+            .ifdef OS_WINDOWS7
+            writes(outchn,outrec.ToString())
+            .else
+            puts(outchn,outrec.ToString() + %char(13) + %char(10))
+            .endc
+        end
+    end
+
+eof,
+
+    ;Close the file
+    if (filechn && %chopen(filechn))
+    begin
+        close filechn
+    end
+
+    ;Close the CSV file
+    if (outchn && %chopen(outchn))
+    begin
+        close outchn
+    end
+
+    ;Return the record count
+    recordCount = records
+
+    ;Return any error text
+    errorMessage = errtxt
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok)
+    begin
+        writelog("Export took " + timer.ElapsedTimeString)
+        writett("Export took " + timer.ElapsedTimeString)
+    end
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Opens the REPLICATOR_DATA:EMPLOYEE.ISM for update.
+; </summary>
+; <param name="errorMessage">Returned error message.</param>
+; <returns>Returns the channel number, or 0 if an error occured.</returns>
+
+function Open$Employee, ^val
+    required out errorMessage, a  ;Returned error text
+    global common
+        chEmployee, int
+    endcommon
+proc
+    errorMessage = ""
+
+    if (chEmployee) then
+        freturn true
+    else
+    begin
+        try
+        begin
+            open(chEmployee=0,u:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
+        end
+        catch (ex, @Exception)
+        begin
+            errorMessage = ex.Message
+            clear chEmployee
+            freturn false
+        end
+        endtry
+    end
+    freturn true
+endfunction
+
+;*****************************************************************************
+; <summary>
+; Loads a unique key value into the respective fields in a record.
+; </summary>
+; <param name="aKeyValue">Unique key value.</param>
+; <returns>Returns a record containig only the unique key segment data.</returns>
+
+function Employee$KeyToRecord, a
+    required in aKeyValue, a
+
+    .include "EMPLOYEE" repository, stack record="employee", end
+
+    stack record
+        segPos, int
+    endrecord
+
+proc
+
+    clear employee
+    segPos = 1
+
+    employee.emp_id = ^d(aKeyValue(segPos:8))
+    segPos += 8
+
+    freturn employee
+
+endfunction
+

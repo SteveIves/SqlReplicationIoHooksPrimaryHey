@@ -1,0 +1,2179 @@
+;*****************************************************************************
+;
+; File:        DepartmentMsqIO.dbl
+;
+; Description: Various functions that performs SQL I/O for DEPARTMENT
+;
+;*****************************************************************************
+; WARNING: THIS CODE WAS CODE GENERATED AND WILL BE OVERWRITTEN IF CODE
+;          GENERATION IS RE-EXECUTED FOR THIS PROJECT.
+;*****************************************************************************
+
+.ifndef DBLNET
+ ;This code was generated from the SqlClientIO template and can only be used
+ ;in .NET. For traditional DBL environments use the SqlIO template
+.else
+
+import ReplicationLibrary
+import Synergex.SynergyDE.Select
+import System.Collections.Generic
+import Microsoft.Data.SqlClient
+import System.Diagnostics
+import System.IO
+import System.Text
+import System.Text.RegularExpressions
+
+.ifndef strDepartment
+.include "DEPARTMENT" repository, structure="strDepartment", end
+.endc
+
+.define writelog(x) if (Settings.LogFileChannel && %chopen(Settings.LogFileChannel)) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
+.define writett(x)  if (Settings.TerminalChannel) writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
+
+;*****************************************************************************
+;;; <summary>
+;;; Determines if the Department table exists in the database.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
+
+function Department_Exists, ^val
+    required out aErrorMessage, a
+
+    stack record
+        error, int
+        errorMessage, string
+    endrecord
+proc
+    error = 0
+    errorMessage = String.Empty
+
+    try
+    begin
+        data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Department'"
+        disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
+        disposable data reader = command.ExecuteReader()
+        if (reader.Read()) then
+        begin
+            ;Table exists
+            error = 1
+        end
+        else
+        begin
+            errorMessage = "Table not found"
+            error = 0
+        end
+    end
+    catch (ex, @SqlException)
+    begin
+        errorMessage = ex.Message
+        error = -1
+        xcall ThrowOnSqlClientError(errorMessage,ex)
+    end
+    endtry
+
+    ;Return any error message to the calling routine
+    aErrorMessage = error == 1 ? String.Empty : errorMessage
+
+    freturn error
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Creates the Department table in the database.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Create, ^val
+    required out aErrorMessage, a
+
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+    literal
+        createTableCommand, string,"CREATE TABLE [Department] ("
+        & + "[DeptId] VARCHAR(15) NOT NULL,"
+        & + "[DeptName] VARCHAR(50) NOT NULL,"
+        & + "[DeptManager] DECIMAL(8) NOT NULL,"
+        & + "CONSTRAINT [PK_Department] PRIMARY KEY CLUSTERED([DeptId] ASC)"
+        & + ")"
+        grantCommand, string, "GRANT ALL ON [Department] TO PUBLIC"
+    endliteral
+
+    static record
+        finalCreateTableCommand, string
+    endrecord
+
+proc
+    ok = true
+    errorMessage = String.Empty
+
+    ;In manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ;Define the final CREATE TABLE statement
+
+    if (finalCreateTableCommand == ^null)
+    begin
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Page),
+            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=PAGE)",createTableCommand)
+        (DatabaseDataCompression.Row),
+            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=ROW)",createTableCommand)
+        (),
+            finalCreateTableCommand = createTableCommand
+        endusing
+    end
+
+    ;Create the database table and primary key constraint
+
+    try
+    begin
+        disposable data command = new SqlCommand(finalCreateTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
+        command.ExecuteNonQuery()
+    end
+    catch (ex, @SqlException)
+    begin
+        ok = false
+        errorMessage = "Failed to create table. Error was: " + ex.Message
+    end
+    endtry 
+
+    ;Grant access permissions
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand(grantCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to grant table permissions. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;Commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Add alternate key indexes to the Department table if they do not exist.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Index, ^val
+    required out aErrorMessage, a
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+        now, a20
+    endrecord
+
+proc
+    ok = true
+    errorMessage = String.Empty
+
+    data timer = new Timer()
+    timer.Start()
+
+    ;In manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ;Create index 1 (Department manager)
+
+    if (ok && !%Index_Exists("IX_Department_DeptManager"))
+    begin
+        data sql = "CREATE  INDEX [IX_Department_DeptManager] ON [Department]([DeptManager] ASC)"
+
+        using Settings.DataCompressionMode select
+        (DatabaseDataCompression.Page),
+            sql = sql + " WITH(DATA_COMPRESSION=PAGE)"
+        (DatabaseDataCompression.Row),
+            sql = sql + " WITH(DATA_COMPRESSION=ROW)"
+        endusing
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to create index IX_Department_DeptManager. Error was: " + ex.Message
+        end
+        endtry 
+
+        now = %datetime
+
+        if (ok) then
+        begin
+            writelog(" - Added index IX_Department_DeptManager")
+        end
+        else
+        begin
+            writelog(" - ERROR: " + errorMessage)
+            ok = true
+        end
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    timer.Stop()
+    now = %datetime
+    writelog(String.Format("Adding indexes took {0} seconds",timer.Seconds))
+    writett(String.Format("Adding indexes took {0} seconds",timer.Seconds))
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Removes alternate key indexes from the Department table in the database.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_UnIndex, ^val
+    required out aErrorMessage, a
+
+    .align
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+proc
+    ok = true
+    errorMessage = String.Empty
+
+    ;In manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ;Drop index 1 (Department manager)
+
+    if (ok)
+    begin
+        try
+        begin
+            data sql = "DROP INDEX IF EXISTS [IX_Department_DeptManager] ON [Department]"
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            ok = false
+            errorMessage = "Failed to drop index IX_Department_DeptManager. Error was: " + ex.Message
+        end
+        endtry
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Insert a row into the Department table.
+;;; </summary>
+;;; <param name="a_data">Record to be inserted.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
+
+function Department_Insert, ^val
+    required in  a_data,   a
+    required out aErrorMessage, a
+
+    .align
+    stack record local_data
+        ok,             boolean     ;OK to continue
+        sts,            int         ;Return status
+        errorMessage,   string      ;Error message text
+    endrecord
+
+    literal
+        sql, string, "INSERT INTO [Department] ("
+        & + "[DeptId],"
+        & + "[DeptName],"
+        & + "[DeptManager]"
+        & + ") VALUES("
+        & + "@DeptId,"
+        & + "@DeptName,"
+        & + "@DeptManager"
+        & + ")"
+    endliteral
+
+    static record
+        command, @SqlCommand
+        department, strDepartment
+    endrecord
+
+proc
+    init local_data
+    ok = true
+    sts = 1
+
+    ;Load the data into the bound record
+
+    department = a_data
+
+    ;Clean up any alpha fields
+
+    department.dept_name = %atrim(department.dept_name)+%char(0)
+
+    ;Clean up any decimal fields
+
+    if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
+        clear department.dept_manager
+
+    ;Assign data to any temporary time or user-defined timestamp fields
+
+
+    ;Assign values to temp fields for any fields with custom data types
+
+
+    ;In manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ; If we're reusing the SqlCommand and it's our first time here, create the command and define the parameters
+
+    if (Settings.SqlCommandReuse && command==^null)
+    begin
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.Add(new SqlParameter("@DeptId",DblNetConverter.AlphaToString(department.dept_id)))
+        command.Parameters.Add(new SqlParameter("@DeptName",DblNetConverter.AlphaToString(department.dept_name)))
+        command.Parameters.Add(new SqlParameter("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager)))
+    end
+
+    ;If we're reusing the SqlCommand bind data to the existing parameters in the existing command
+    ;If not, create the command, define parameters, and bind data
+
+    if (Settings.SqlCommandReuse) then
+    begin
+        ;Existing command and parameters
+        command.Parameters["@DeptId"].Value = DblNetConverter.AlphaToString(department.dept_id)
+        command.Parameters["@DeptName"].Value = DblNetConverter.AlphaToString(department.dept_name)
+        command.Parameters["@DeptManager"].Value = DblNetConverter.SmallDecimalToInt(department.dept_manager)
+    end
+    else
+    begin
+        ;New command and parameters
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
+        command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
+        command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+    begin
+        command.Transaction = Settings.CurrentTransaction
+    end
+
+    ;Execute the SQL statement
+
+    try
+    begin
+        command.ExecuteNonQuery()
+    end
+    catch (ex, @SqlException)
+    begin
+        ok = false
+        sts = 0
+        using ex.Number Select
+        (-2627),
+        begin
+            errorMessage = "Violation of duplicate key constraint!"
+            sts = 2
+        end
+        (),
+        begin
+            errorMessage = "Failed to insert row into Department. Error was: " + ex.Message
+        end
+        endusing
+        xcall ThrowOnSqlClientError(errorMessage,ex)
+    end
+    finally
+    begin
+        if (!Settings.SqlCommandReuse)
+        begin
+            command.Dispose()
+            command = ^null
+        end
+    end
+    endtry
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    freturn sts
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Inserts multiple rows into the Department table.
+;;; </summary>
+;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <param name="a_exception">Memory handle to load exception data records into.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_InsertRows, ^val
+    required in  a_data, i
+    required out aErrorMessage, a
+    optional out a_exception, i
+
+    .define EXCEPTION_BUFSZ 100
+
+    stack record local_data
+        ok,             boolean     ;Return status
+        rows,           int         ;Number of rows to insert
+        command,        @SqlCommand ;Represtens the SQL command to execute
+        length,         int         ;Length of a string
+        ex_ms,          int         ;Size of exception array
+        ex_mc,          int         ;Items in exception array
+        continue,       int         ;Continue after an error
+        errorMessage,   string      ;Error message text
+    endrecord
+
+    literal
+        sql, string, "INSERT INTO [Department] ("
+        & + "[DeptId],"
+        & + "[DeptName],"
+        & + "[DeptManager]"
+        & + ") VALUES("
+        & + "@DeptId,"
+        & + "@DeptName,"
+        & + "@DeptManager"
+        & + ")"
+    endliteral
+
+    .include "DEPARTMENT" repository, structure="inpbuf", nofields, end
+    .include "DEPARTMENT" repository, static record="department", end
+
+    static record
+        , a1                        ;In case there are no user timestamp, date or JJJJJJ date fields
+    endrecord
+proc
+    init local_data
+    ok = true
+    errorMessage = String.Empty
+
+    if (^passed(a_exception) && a_exception)
+        clear a_exception
+
+    ;Figure out how many rows to insert
+
+    rows = (%mem_proc(DM_GETSIZE,a_data) / ^size(inpbuf))
+
+    ;In manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ; If we're binding once, create the SqlCommand object and define parameters
+
+    if (ok && Settings.SqlCommandReuse)
+    begin
+        command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        command.Parameters.Add(new SqlParameter("@DeptId",DblNetConverter.AlphaToString(department.dept_id)))
+        command.Parameters.Add(new SqlParameter("@DeptName",DblNetConverter.AlphaToString(department.dept_name)))
+        command.Parameters.Add(new SqlParameter("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager)))
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
+    end
+
+    ;Insert the rows into the database
+
+    if (ok)
+    begin
+        data cnt, int
+        for cnt from 1 thru rows
+        begin
+            ;Load data into bound record
+            department = ^m(inpbuf[cnt],a_data)
+
+            ;Clean up alpha variables
+            department.dept_name = %atrim(department.dept_name)+%char(0)
+
+            ;Clean up decimal variables
+            if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
+                clear department.dept_manager
+
+            ;Assign any time or user-defined timestamp fields
+
+            ;Assign values to temp fields for any fields with custom data types
+
+            if (Settings.SqlCommandReuse) then
+            begin
+                ;Bind data for the current record to the existing command parameters
+                command.Parameters["@DeptId"].Value = DblNetConverter.AlphaToString(department.dept_id)
+                command.Parameters["@DeptName"].Value = DblNetConverter.AlphaToString(department.dept_name)
+                command.Parameters["@DeptManager"].Value = DblNetConverter.SmallDecimalToInt(department.dept_manager)
+            end
+            else
+            begin
+                ;Create the SqlCommand, add parameters and bind the data for the current record
+                command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+                command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
+                command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
+                command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+                if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+                begin
+                    command.Transaction = Settings.CurrentTransaction
+                end
+            end
+
+            ; Execute the SQL statement
+
+            try
+            begin
+                command.ExecuteNonQuery()
+                errorMessage = ""
+            end
+            catch (ex, @SqlException)
+            begin
+                errorMessage = "Failed to insert row. Error was: " + ex.Message
+                xcall ThrowOnSqlClientError(errorMessage,ex)
+
+                clear continue
+
+                ;Are we logging errors?
+                if (Settings.TerminalChannel)
+                begin
+                    writes(Settings.TerminalChannel,errorMessage)
+                    continue=1
+                end
+
+                ;Are we processing exceptions?
+                if (^passed(a_exception))
+                begin
+                    if (ex_mc==ex_ms)
+                    begin
+                        if (!a_exception) then
+                            a_exception = %mem_proc(DM_ALLOC|DM_STATIC,^size(inpbuf)*(ex_ms=EXCEPTION_BUFSZ))
+                        else
+                            a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*(ex_ms+=EXCEPTION_BUFSZ),a_exception)
+                    end
+                    ^m(inpbuf[ex_mc+=1],a_exception)=department
+                    continue=1
+                end
+
+                if (continue) then
+                    nextloop
+                else
+                begin
+                    ok = false
+                    exitloop
+                end
+            end
+            finally
+            begin
+                if (!Settings.SqlCommandReuse)
+                begin
+                    command.Dispose()
+                    command = ^null
+                end
+            end
+            endtry
+        end
+    end
+
+    ;If we're binding once, dispose the SqlCommand
+
+    if (Settings.SqlCommandReuse && (command != ^null))
+    begin
+        command.Dispose()
+        command = ^null
+    end
+
+    ;Commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;If we're returning exceptions then resize the buffer to the correct size
+
+    if (^passed(a_exception) && a_exception)
+        a_exception = %mem_proc(DM_RESIZ,^size(inpbuf)*ex_mc,a_exception)
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Updates a row in the Department table.
+;;; </summary>
+;;; <param name="a_data">Record containing data to update.</param>
+;;; <param name="a_rows">Returned number of rows affected.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Update, ^val
+    required in  a_data,   a
+    optional out a_rows,   i
+    required out aErrorMessage, a
+
+    stack record local_data
+        ok,             boolean     ;OK to continue
+        length,         int         ;Length of a string
+        rows,           int         ;Number of rows updated
+        errorMessage,   string      ;Error message text
+    endrecord
+
+    literal
+        sql, string, "UPDATE [Department] SET "
+        & + "[DeptId]=@DeptId,"
+        & + "[DeptName]=@DeptName,"
+        & + "[DeptManager]=@DeptManager"
+        & + " WHERE [DeptId]=@DeptId  "
+    endliteral
+
+    static record
+        department, strDepartment
+    endrecord
+
+proc
+    init local_data
+    ok = true
+    errorMessage = String.Empty
+
+    if (^passed(a_rows))
+        clear a_rows
+
+    ;Load the data into the bound record
+    department = a_data
+
+    ;Clean up alpha fields
+    department.dept_name = %atrim(department.dept_name)+%char(0)
+
+    ;Clean up decimal fields
+    if ((!department.dept_manager)||(!%IsDecimalNoNegatives(department.dept_manager)))
+        clear department.dept_manager
+
+    ;Assign time and user-defined timestamp fields
+
+    ;Assign values to temp fields for any fields with custom data types
+
+    ;In manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+
+            ;Bind the host variables for data to be updated
+            command.Parameters.AddWithValue("@DeptId",DblNetConverter.AlphaToString(department.dept_id))
+            command.Parameters.AddWithValue("@DeptName",DblNetConverter.AlphaToString(department.dept_name))
+            command.Parameters.AddWithValue("@DeptManager",DblNetConverter.SmallDecimalToInt(department.dept_manager))
+
+            rows = command.ExecuteNonQuery()
+
+            if (^passed(a_rows))
+                a_rows = rows
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to update row. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Deletes a row from the Department table.
+;;; </summary>
+;;; <param name="a_key">Unique key of row to be deleted.</param>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Delete, ^val
+    required in  a_key,    a
+    required out aErrorMessage, a
+
+    .include "DEPARTMENT" repository, stack record="department"
+
+    external function
+        DepartmentKeyToRecord, a
+    endexternal
+
+    .align
+    stack record local_data
+        ok,             boolean     ;Return status
+        errorMessage,   string      ;Error message
+        sql,            string      ;SQL statement
+    endrecord
+
+proc
+    init local_data
+    ok = true
+    errorMessage = String.Empty
+
+    ;Put the unique key value into the record
+    department = %DepartmentKeyToRecord(a_key)
+
+    ;In manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ;;Delete the row
+    if (ok)
+    begin
+        sql = "DELETE FROM [Department] WHERE"
+        & + " [DeptId]='" + %atrim(department.dept_id) + "' "
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to delete row. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Deletes all rows from the Department table.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Clear, ^val
+    required out aErrorMessage, a
+
+    .align
+    stack record local_data
+        ok,             boolean ;Return status
+        errorMessage,   string  ;Returned error message text
+    endrecord
+
+    literal
+        sql, string, "TRUNCATE TABLE [Department]"
+    endliteral
+
+proc
+    init local_data
+    ok = true
+    errorMessage = String.Empty
+
+    ;In manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ;;Truncate the table
+    if (ok)
+    begin
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+            command.ExecuteNonQuery()
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "Failed to truncate table. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endtry
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Deletes the Department table from the database.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Drop, ^val
+    required out aErrorMessage, a
+
+    stack record
+        ok, boolean
+        errorMessage, string
+    endrecord
+
+    literal
+        sql, string, "DROP TABLE [Department]"
+    endliteral
+
+proc
+    ok = true
+    errorMessage = String.Empty
+
+    ;In manual commit mode, start a transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ;Drop the database table and primary key constraint
+    try
+    begin
+        disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+        begin
+            command.Transaction = Settings.CurrentTransaction
+        end
+        command.ExecuteNonQuery()
+    end
+    catch (ex, @SqlException)
+    begin
+        using ex.Number select
+        (3701), ;Cannot drop the table 'Department', because it does not exist or you do not have permission.
+            nop
+        (),
+        begin
+            errorMessage = "Failed to drop table. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+            ok = false
+        end
+        endusing
+    end
+    endtry 
+
+    ;Commit or rollback the transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Load all data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table.
+;;; </summary>
+;;; <param name="aErrorMessage">Returned error text.</param>
+;;; <param name="a_added">Total number of successful inserts.</param>
+;;; <param name="a_failed">Total number of failed inserts.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Load, ^val
+    required in  a_maxrows, n
+    required out a_added, n
+    required out a_failed, n
+    required out aErrorMessage, a
+
+    .include "DEPARTMENT" repository, structure="inpbuf", end
+    .include "DEPARTMENT" repository, stack record="tmprec", end
+
+    .define BUFFER_ROWS     1000
+    .define EXCEPTION_BUFSZ 100
+
+    stack record local_data
+        ok,             boolean     ;Return status
+        firstRecord,    boolean     ;Is this the first record?
+        filechn,        int         ;Data file channel
+        mh,             D_HANDLE    ;Memory handle containing data to insert
+        ms,             int         ;Size of memory buffer in rows
+        mc,             int         ;Memory buffer rows currently used
+        ex_mh,          D_HANDLE    ;Memory buffer for exception records
+        ex_mc,          int         ;Number of records in returned exception array
+        ex_ch,          int         ;Exception log file channel
+        attempted,      int         ;Rows being attempted
+        done_records,   int         ;Records loaded
+        max_records,    int         ;Maximum records to load
+        ttl_added,      int         ;Total rows added
+        ttl_failed,     int         ;Total failed inserts
+        errnum,         int         ;Error number
+        tmperrmsg,      a512        ;Temporary error message
+        errorMessage,   string      ;Error message text
+        now,            a20        ;;Current date and time
+    endrecord
+
+proc
+    init local_data
+    ok = true
+    errorMessage = String.Empty
+
+    data timer = new Timer()
+    timer.Start()
+
+    ;If we are logging exceptions, delete any existing exceptions file.
+    if (Settings.LogBulkLoadExceptions)
+    begin
+        xcall delet("REPLICATOR_LOGDIR:department_data_exceptions.log")
+    end
+
+    ;Open the data file associated with the structure
+    if (!(filechn = %DepartmentOpenInput(tmperrmsg)))
+    begin
+        errorMessage = "Failed to open data file! Error was " + %atrimtostring(tmperrmsg)
+        ok = false
+    end
+
+    if (ok)
+    begin
+        ;Were we passed a max # records to load
+        max_records = a_maxrows > 0 ? a_maxrows : 0
+        done_records = 0
+
+        ;Allocate memory buffer for the database rows
+        mh = %mem_proc(DM_ALLOC,^size(inpbuf)*(ms=BUFFER_ROWS))
+
+        ;Read records from the input file
+        firstRecord = true
+        repeat
+        begin
+            ;Get the next record from the input file
+            try
+            begin
+                if (firstRecord) then
+                begin
+                    read(filechn,tmprec,^FIRST)
+                    firstRecord = false
+                end
+                else
+                begin
+                    reads(filechn,tmprec)
+                end
+            end
+            catch (ex, @EndOfFileException)
+            begin
+                exitloop
+            end
+            catch (ex, @Exception)
+            begin
+                ok = false
+                errorMessage = "Unexpected error while reading data file: " + ex.Message
+                exitloop
+            end
+            endtry
+
+            ;Got one, load it into or buffer
+            ^m(inpbuf[mc+=1],mh) = tmprec
+
+            incr done_records
+
+            ;If the buffer is full, write it to the database
+            if (mc==ms)
+            begin
+                call insert_data
+            end
+
+            if (max_records && (done_records == max_records))
+            begin
+                exitloop
+            end
+        end
+
+        if (mc)
+        begin
+            mh = %mem_proc(DM_RESIZ,^size(inpbuf)*mc,mh)
+            call insert_data
+        end
+
+        ;;Deallocate memory buffer
+        mh = %mem_proc(DM_FREE,mh)
+    end
+
+    ;Close the file
+    if (filechn && %chopen(filechn))
+        close filechn
+
+    ;Close the exceptions log file
+    if (ex_ch && %chopen(ex_ch))
+        close ex_ch
+
+    ;Return totals
+    a_added = ttl_added
+    a_failed = ttl_failed
+
+    ;Return any error message to the calling routine
+    aErrorMessage = ok ? String.Empty : errorMessage
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog(String.Format("Load finished in {0} seconds",timer.Seconds))
+        writett(String.Format("Load finished in {0} seconds",timer.Seconds))
+    end
+    else
+    begin
+        writelog(String.Format("Load failed after {0} seconds",timer.Seconds))
+        writett(String.Format("Load failed after {0} seconds",timer.Seconds))
+    end
+
+    freturn ok
+
+insert_data,
+
+    attempted = (%mem_proc(DM_GETSIZE,mh)/^size(inpbuf))
+
+    if (!%Department_InsertRows(mh,tmperrmsg,ex_mh)) then
+    begin
+        errorMessage = %atrimtostring(tmperrmsg)
+    end
+    else
+    begin
+        ;;Any exceptions?
+        if (ex_mh) then
+        begin
+            ;How many exceptions to log?
+            ex_mc = %mem_proc(DM_GETSIZE,ex_mh) / ^size(inpbuf)
+
+            ;Update totals
+            ttl_failed += ex_mc
+            ttl_added += (attempted-ex_mc)
+
+            ;Are we logging exceptions?
+            if (Settings.LogBulkLoadExceptions) then
+            begin
+                data cnt, int
+
+                ;Open the log file
+                if (!ex_ch)
+                begin
+                    open(ex_ch=0,o:s,"REPLICATOR_LOGDIR:department_data_exceptions.log")
+                end
+
+                ;Log the exceptions
+                for cnt from 1 thru ex_mc
+                begin
+                    writes(ex_ch,^m(inpbuf[cnt],ex_mh))
+                end
+
+                ;And maybe show them on the terminal
+                if (Settings.TerminalChannel)
+                begin
+                    writes(Settings.TerminalChannel,"Exceptions were logged to REPLICATOR_LOGDIR:department_data_exceptions.log")
+                end
+            end
+            else
+            begin
+                ;No, report and error
+                ok = false
+            end
+
+            ;Release the exception buffer
+            ex_mh = %mem_proc(DM_FREE,ex_mh)
+        end
+        else
+        begin
+            ;No exceptions
+            ttl_added += attempted
+            if (Settings.TerminalChannel && Settings.LogLoadProgress)
+            begin
+                writes(Settings.TerminalChannel," - " + %string(ttl_added) + " rows inserted")
+            end
+        end
+    end
+
+    clear mc
+
+    return
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Bulk load data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a delimited text file.
+;;; </summary>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="a_records">Records loaded</param>
+;;; <param name="a_exceptions">Records failes</param>
+;;; <param name="aErrorMessage">Error message (if return value is false)</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_BulkLoad, ^val
+    required in recordsToLoad,  n
+    required out a_records,     n
+    required out a_exceptions,  n
+    required out aErrorMessage, a
+
+     stack record local_data
+        ok,                     boolean    ;;Return status
+        remoteBulkLoad,         boolean
+        localCsvFile,           string
+        localExceptionsFile,    string
+        localExceptionsLog,     string
+        remoteCsvFile,          string
+        remoteExceptionsFile,   string
+        remoteExceptionsLog,    string
+        fileToLoad,             string
+        length,                 int
+        dberror,                int
+        recordCount,            int	        ;# records loaded
+        exceptionCount,         int         ;# records failed
+        errtxt,                 a512        ;Temp error message
+        errorMessage,           string      ;Error message
+        fsc,                    @FileServiceClient
+        now,                    a20
+    endrecord
+
+proc
+    init local_data
+    ok = true
+
+    data timer = new Timer()
+    timer.Start()
+
+    ;If we're doing a remote bulk load, create an instance of the FileService client and verify that we can access the FileService server
+
+    remoteBulkLoad = Settings.CanBulkLoad() && Settings.DatabaseIsRemote()
+
+    if (remoteBulkLoad)
+    begin
+        fsc = new FileServiceClient(Settings.FileServiceHost,Settings.FileServicePort)
+
+        now = %datetime
+        writelog("Verifying FileService connection")
+        writett("Verifying FileService connection")
+
+        if (!fsc.Ping(errtxt))
+        begin
+            errorMessage = "No response from FileService, bulk load cancelled"
+            now = %datetime
+            writelog(errorMessage)
+            writett(errorMessage)
+            ok = false
+        end
+    end
+
+    ;Define temp file names and make sure there are no local temp files left over from a previous operation
+
+    if (ok)
+    begin
+        localCsvFile = Path.Combine(Settings.LocalExportPath,"Department.csv")
+        localExceptionsFile = String.Format("{0}_err",localCsvFile)
+        localExceptionsLog = String.Format("{0}.Error.Txt",localExceptionsFile)
+
+        if (remoteBulkLoad)
+        begin
+            remoteCsvFile = "Department.csv"
+            remoteExceptionsFile = String.Format("{0}_err",remoteCsvFile)
+            remoteExceptionsLog = String.Format("{0}.Error.Txt",remoteExceptionsFile)
+        end
+
+        now = %datetime
+        writelog("Deleting local temp files")
+        writett("Deleting local temp files")
+
+        if (File.Exists(localCsvFile))
+        begin
+            try
+            begin
+                File.Delete(localCsvFile)
+            end
+            catch (ex)
+            begin
+                nop
+            end
+            endtry
+        end
+
+        if (File.Exists(localExceptionsFile))
+        begin
+            try
+            begin
+                File.Delete(localExceptionsFile)
+            end
+            catch (ex)
+            begin
+                nop
+            end
+            endtry
+        end
+
+        if (File.Exists(localExceptionsLog))
+        begin
+            try
+            begin
+                File.Delete(localExceptionsLog)
+            end
+            catch (ex)
+            begin
+                nop
+            end
+            endtry
+        end
+
+        ;Delete remote files
+
+        if (remoteBulkLoad)
+        begin
+            now = %datetime
+            writelog("Deleting remote temp files")
+            writett("Deleting remote temp files")
+
+            fsc.Delete(remoteCsvFile)
+            fsc.Delete(remoteExceptionsFile)
+            fsc.Delete(remoteExceptionsLog)
+        end
+
+        ;Were we asked to load a specific number of records?
+
+        recordCount =  recordCount > 0 ? recordCount : 0
+
+        ;And export the data
+
+        now = %datetime
+        writelog("Exporting data")
+        writett("Exporting data")
+
+        data exportTimer = new Timer()
+        exportTimer.Start()
+
+        ok = %Department_Csv(localCsvFile,0,recordCount,errtxt)
+
+        errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
+
+        exportTimer.Stop()
+        now = %datetime
+        writelog(String.Format("Export took {0} seconds",exportTimer.Seconds))
+        writett(String.Format("Export took {0} seconds",exportTimer.Seconds))
+    end
+
+    ;If necessary, upload the exported file to the database server
+
+    if (ok)
+    begin
+        if (remoteBulkLoad) then
+        begin
+            now = %datetime
+            writelog("Uploading data to database server")
+            writett("Uploading data to database server")
+
+            data uploadTimer = new Timer()
+            uploadTimer.Start()
+
+            ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
+
+            errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
+
+            uploadTimer.Stop()
+            now = %datetime
+            writelog(String.Format("Upload took {0} seconds",uploadTimer.Seconds))
+            writett(String.Format("Upload took {0} seconds",uploadTimer.Seconds))
+        end
+        else
+        begin
+            fileToLoad  = localCsvFile
+        end
+    end
+
+    ;In manual commit mode, start a transaction
+
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        Settings.CurrentTransaction = Settings.DatabaseConnection.BeginTransaction()
+    end
+
+    ;Execute the BULK INSERT statement
+
+    if (ok)
+    begin
+        data sql = String.Format("BULK INSERT [Department] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
+
+        if (Settings.BulkLoadBatchSize > 0)
+        begin
+            sql = String.Format("{0},BATCHSIZE={1}",sql,Settings.BulkLoadBatchSize)
+        end
+
+        sql = String.Format("{0})",sql)
+
+        now = %datetime
+        writelog("Executing BULK INSERT")
+        writett("Executing BULK INSERT")
+
+        try
+        begin
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.BulkLoadTimeout }
+            if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
+            begin
+                command.Transaction = Settings.CurrentTransaction
+            end
+
+            data insertTimer = new Timer()
+            insertTimer.Start()
+
+            command.ExecuteNonQuery()
+
+            insertTimer.Stop()
+            now = %datetime
+            writelog(String.Format("Insert took {0} seconds",insertTimer.Seconds))
+            writett(String.Format("Insert took {0} seconds",insertTimer.Seconds))
+        end
+        catch (ex, @SqlException)
+        begin
+            errorMessage = "BULK INSERT failed. Error was: " + ex.Message
+            xcall ThrowOnSqlClientError(errorMessage,ex)
+
+            now = %datetime
+            writelog("Bulk insert failed. " + ex.Message)
+            writett("Bulk insert failed. " + ex.Message)
+
+            using ex.Number select
+            (-4864),
+            begin
+                ;Bulk load data conversion error
+                now = %datetime
+                writelog("Data conversion errors were reported")
+                writett("Data conversion errors were reported")
+                errorMessage = String.Empty
+
+                ;------------------------------------------------------------------------------------------------------------
+                ;This used to be an internal subroutine GetExceptionDetails but in .NET we can't call it from here! Sucks!
+
+                ;If we get here the bulk load reported one or more "data conversion error" issues and there should be two log files on the server
+
+                now = %datetime
+                writelog("Data conversion errors, processing exceptions")
+                writett("Data conversion errors, processing exceptions")
+
+                if (remoteBulkLoad) then
+                begin
+                    data fileExists, boolean
+                    data tmpmsg, string
+
+                    if (fsc.Exists(remoteExceptionsFile,fileExists,tmpmsg)) then
+                    begin
+                        if (fileExists) then
+                        begin
+                            ;Download the error file
+                            data exceptionRecords, [#]string
+                            data errorMessage, string
+
+                            now = %datetime
+                            writelog("Downloading remote exceptions data file")
+                            writett("Downloading remote exceptions data file")
+
+                            if (fsc.DownloadText(remoteExceptionsFile,exceptionRecords,errorMessage))
+                            begin
+                                data ex_ch, int
+                                data exceptionRecord, string
+
+                                open(ex_ch=0,o:s,localExceptionsFile)
+
+                                foreach exceptionRecord in exceptionRecords
+                                    writes(ex_ch,exceptionRecord)
+
+                                close ex_ch
+
+                                exceptionCount = exceptionRecords.Length
+
+                                now = %datetime
+                                writelog(%string(exceptionCount) + " items saved to " + localExceptionsFile)
+                                writett(%string(exceptionCount) + " items saved to " + localExceptionsFile)
+                            end
+                        end
+                        else
+                        begin
+                            ;Error file does not exist. This should not happen because we got here due to data conversion errors being reported
+                            now = %datetime
+                            writelog("Remote exceptions data file not found!")
+                            writett("Remote exceptions data file not found!")
+                        end
+                    end
+                    else
+                    begin
+                        ;Failed to determine if file exists
+                        now = %datetime
+                        writelog("Failed to determine if remote exceptions data file exists. Error was " + tmpmsg)
+                        writett("Failed to determine if remote exceptions data file exists. Error was " + tmpmsg)
+                    end
+
+                    ;Now check for and retrieve the associated exceptions log
+
+                    if (fsc.Exists(remoteExceptionsLog,fileExists,tmpmsg)) then
+                    begin
+                        if (fileExists) then
+                        begin
+                            ;Download the error file
+                            data exceptionRecords, [#]string
+                            data errorMessage, string
+
+                            now = %datetime
+                            writelog("Downloading remote exceptions log file")
+                            writett("Downloading remote exceptions log file")
+
+                            if (fsc.DownloadText(remoteExceptionsLog,exceptionRecords,errorMessage))
+                            begin
+                                data ex_ch, int
+                                data exceptionRecord, string
+
+                                open(ex_ch=0,o:s,localExceptionsLog)
+
+                                foreach exceptionRecord in exceptionRecords
+                                    writes(ex_ch,exceptionRecord)
+
+                                close ex_ch
+
+                                now = %datetime
+                                writelog(%string(exceptionRecords.Length) + " items saved to " + localExceptionsLog)
+                                writelog(" - " + %string(exceptionRecords.Length) + " items saved to " + localExceptionsLog)
+                            end
+                        end
+                        else
+                        begin
+                            ;Error file does not exist. This should not happen because we got here due to data conversion errors being reported
+                            now = %datetime
+                            writelog("Remote exceptions file not found!")
+                            writett("Remote exceptions file not found!")
+                        end
+                    end
+                    else
+                    begin
+                        ;Failed to determine if file exists
+                        now = %datetime
+                        writelog("Failed to determine if remote exceptions log file exists. Error was " + tmpmsg)
+                    end
+                end
+                else
+                begin
+                    ;Local bulk load
+
+                    if (File.Exists(localExceptionsFile)) then
+                    begin
+                        data ex_ch, int
+                        data tmprec, a65535
+                        open(ex_ch=0,i:s,localExceptionsFile)
+                        repeat
+                        begin
+                            reads(ex_ch,tmprec,eof)
+                            exceptionCount += 1
+                        end
+            eof,        close ex_ch
+                        now = %datetime
+                        writelog(%string(exceptionCount) + " exception items found in " + localExceptionsFile)
+                    end
+                    else
+                    begin
+                        ;Error file does not exist. This should not happen because we got here due to data conversion errors being reported
+                        now = %datetime
+                        writelog("Exceptions data file not found!")
+                    end
+                end
+
+                ;------------------------------------------------------------------------------------------------------------
+            end
+            (),
+            begin
+                errorMessage = String.Format("{0} {1}",ex.Number,errorMessage)
+                ok = false
+            end
+            endusing
+        end
+        endtry
+    end
+
+    ;Delete local temp files
+
+    now = %datetime
+    writelog("Deleting local temp files")
+    writett("Deleting local temp files")
+
+    if (File.Exists(localCsvFile))
+    begin
+        try
+        begin
+            File.Delete(localCsvFile)
+        end
+        catch (ex)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    if (File.Exists(localExceptionsFile))
+    begin
+        try
+        begin
+            File.Delete(localExceptionsFile)
+        end
+        catch (ex)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    if (File.Exists(localExceptionsLog))
+    begin
+        try
+        begin
+            File.Delete(localExceptionsLog)
+        end
+        catch (ex)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    ;Delete remote temp files
+
+    if (remoteBulkLoad)
+    begin
+        now = %datetime
+        writelog("Deleting remote temp files")
+        writett("Deleting remote temp files")
+
+        fsc.Delete(remoteCsvFile)
+        fsc.Delete(remoteExceptionsFile)
+        fsc.Delete(remoteExceptionsLog)
+    end
+
+    ;In manual commit mode, commit or rollback the transaction
+    if (Settings.DatabaseCommitMode == DatabaseCommitMode.Manual)
+    begin
+        if (ok) then
+        begin
+            ;Success, commit the transaction
+            Settings.CurrentTransaction.Commit()
+        end
+        else
+        begin
+            ;There was an error, rollback the transaction
+            Settings.CurrentTransaction.Rollback()
+        end
+        Settings.CurrentTransaction.Dispose()
+        Settings.CurrentTransaction = ^null
+    end
+
+    ;Return the record and exceptions count
+    a_records = recordCount
+    a_exceptions = exceptionCount
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog(String.Format("Bulk load finished in {0} seconds",timer.Seconds))
+        writett(String.Format("Bulk load finished in {0} seconds",timer.Seconds))
+    end
+    else
+    begin
+        aErrorMessage = errorMessage
+        writelog(String.Format("Bulk load failed after {0} seconds",timer.Seconds))
+        writett(String.Format("Bulk load failed after {0} seconds",timer.Seconds))
+    end
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Exports REPLICATOR_DATA:DEPARTMENT.ISM to a CSV file.
+;;; </summary>
+;;; <param name="fileSpec">File to create</param>
+;;; <param name="maxRecords">Mumber of records to export.</param>
+;;; <param name="recordCount">Returned number of records exported.</param>
+;;; <param name="errorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_Csv, boolean
+    required in  fileSpec, a
+    required in  maxRecords, n
+    required out recordCount, n
+    required out errorMessage, a
+
+    .include "DEPARTMENT" repository, record="department", end
+
+    .define EXCEPTION_BUFSZ 100
+
+    external function
+        IsDecimalNo, boolean
+        MakeDecimalForCsvNegatives, a
+        MakeDecimalForCsvNoNegatives, a
+        MakeTimeForCsv, a
+    endexternal
+
+    .align
+    stack record local_data
+        ok,         boolean ;Return status
+        filechn,    int     ;Data file channel
+        outchn,     int     ;CSV file channel
+        outrec,     @StringBuilder  ;A CSV file record
+        records,    int     ;Number of records exported
+        errtxt,     a512    ;Error message text
+        now,        a20     ;The time now
+    endrecord
+
+proc
+    init local_data
+    ok = true
+    recordCount = 0
+    errorMessage = ""
+
+    ;;Open the data file associated with the structure
+
+    if (!(filechn=%DepartmentOpenInput(errtxt)))
+    begin
+        errtxt = "Failed to open data file! Error was: " + errtxt
+        ok = false
+    end
+
+    ;;Create the local CSV file
+
+    if (ok)
+    begin
+.ifdef OS_WINDOWS7
+        open(outchn=0,o:s,fileSpec)
+.endc
+.ifdef OS_UNIX
+        open(outchn=0,o,fileSpec)
+.endc
+
+        ;;Add a row of column headers
+.ifdef OS_WINDOWS7
+        writes(outchn,"DeptId|DeptName|DeptManager")
+.else
+        puts(outchn,"DeptId|DeptName|DeptManager" + %char(13) + %char(10))
+.endc
+
+        ;;Read and add data file records
+        foreach department in new Select(new From(filechn,Q_NO_GRFA,0,department))
+        begin
+            ;;Make sure there are no | characters in the data
+            data pos, int
+            while (pos = %instr(1,department,"|"))
+            begin
+                clear department(pos:1)
+            end
+
+            incr records
+
+            if (maxRecords && (records > maxRecords))
+            begin
+                decr records
+                exitloop
+            end
+
+            outrec = new StringBuilder()
+            outrec.Append(department.dept_id ? %atrim(department.dept_id) + "|" : "|")
+            outrec.Append(department.dept_name ? %atrim(department.dept_name) + "|" : "|")
+            outrec.Append(department.dept_manager ? %MakeDecimalForCsvNoNegatives(department.dept_manager) : "")
+
+            .ifdef OS_WINDOWS7
+            writes(outchn,outrec.ToString())
+            .else
+            puts(outchn,outrec.ToString() + %char(13) + %char(10))
+            .endc
+        end
+    end
+
+eof,
+
+    ;Close the file
+    if (filechn && %chopen(filechn))
+    begin
+        close filechn
+    end
+
+    ;Close the CSV file
+    if (outchn && %chopen(outchn))
+    begin
+        close outchn
+    end
+
+    ;Return the record count
+    recordCount = records
+
+    ;Return any error message to the calling routine
+    errorMessage = %atrim(errtxt)
+
+    freturn ok
+
+endfunction
+
+;*****************************************************************************
+;;; <summary>
+;;; Bulk copy data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a delimited text file.
+;;; </summary>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="a_records">Records loaded</param>
+;;; <param name="a_exceptions">Records failes</param>
+;;; <param name="aErrorMessage">Error message (if return value is false)</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
+
+function Department_BulkCopy, ^val
+    required in recordsToLoad,  n
+    required out a_records,     n
+    required out a_exceptions,  n
+    required out aErrorMessage, a
+
+     stack record
+        ok,                     boolean    ;;Return status
+        remoteBulkLoad,         boolean
+        localCsvFile,           string
+        recordCount,            int	        ;# records loaded
+        exceptionCount,         int         ;# records failed
+        errtxt,                 a512        ;Temp error message
+        errorMessage,           string      ;Error message
+        now,                    a20
+    endrecord
+
+proc
+    ok = true
+    errorMessage = String.Empty
+
+    data timer = new Timer()
+    timer.Start()
+
+    remoteBulkLoad = Settings.CanBulkLoad() && Settings.DatabaseIsRemote()
+
+    ;Define temp file names and make sure there are no local temp files left over from a previous operation
+
+    if (ok)
+    begin
+        localCsvFile = Path.Combine(Settings.LocalExportPath,"Department.csv")
+
+        now = %datetime
+        writelog("Deleting local temp files")
+        writett("Deleting local temp files")
+
+        if (File.Exists(localCsvFile))
+        begin
+            try
+            begin
+                File.Delete(localCsvFile)
+            end
+            catch (ex)
+            begin
+                nop
+            end
+            endtry
+        end
+
+        ;Were we asked to load a specific number of records?
+
+        recordCount =  recordCount > 0 ? recordCount : 0
+
+        ;And export the data
+
+        now = %datetime
+        writelog("Exporting data")
+        writett("Exporting data")
+
+        data exportTimer = new Timer()
+        exportTimer.Start()
+
+        ok = %Department_Csv(localCsvFile,0,recordCount,errtxt)
+
+        errorMessage = ok ? String.Empty : %atrimtostring(errtxt)
+
+        exportTimer.Stop()
+        now = %datetime
+        writelog(String.Format("Export took {0} seconds",exportTimer.Seconds))
+        writett(String.Format("Export took {0} seconds",exportTimer.Seconds))
+    end
+
+    ;Execute the BCP command
+
+    if (ok)
+    begin
+        data bcpCommand = String.Format('bcp {1}.Department in {2} -S {3} -U {4} -P {5} -d {0} -c -F 1 -t "|" -b {6} -a {7}',
+        &   Settings.DatabaseName,
+        &   Settings.DatabaseSchema,
+        &   localCsvFile,
+        &   Settings.DatabaseServer,
+        &   Settings.DatabaseUser,
+        &   Settings.DatabasePassword,
+        &   Settings.DatabaseBcpBatchSize,
+        &   Settings.DatabaseBcpPacketSize)
+
+        data psi = new ProcessStartInfo() {
+        &   FileName = "cmd.exe",
+        &   RedirectStandardInput = true,
+        &   RedirectStandardOutput = true,
+        &   UseShellExecute = false,
+        &   CreateNoWindow = true
+        & }
+
+        disposable data prc = new Process() { StartInfo=psi }
+
+        data output = new List<string>()
+        data errors = new List<string>()
+
+        try
+        begin
+            ;Monitor the process output
+            lambda outputReceived(sender,args)
+            begin
+;NOT WORKING. NEVER GETS HERE!
+                output.Add(args.Data)
+                if (args.Data.Contains("rows copied")) then
+                begin
+                    ;1000000 rows copied.
+                    data regex = new Regex("^\d+")
+                    data match = regex.Match(args.data)
+                    if (match.Success)
+                    begin
+                        recordCount = int.Parse(match.Value)
+                    end
+                end
+                else if (args.Data.StartsWith("Network packet size")) then
+                begin
+                    ;Network packet size (bytes): 8000
+
+                end
+                else if (args.Data.StartsWith("Clock Time"))
+                begin
+                    ;Clock Time (ms.) Total     : 36484  Average : (27409.28 rows per sec.)
+
+                end
+            end
+            prc.OutputDataReceived += outputReceived
+
+            lambda errorReceived(sender,args)
+            begin
+;NOT WORKING. NEVER GETS HERE!
+                errors.Add(args.Data)
+            end
+            prc.ErrorDataReceived += errorReceived
+
+            ;Start the process
+            prc.Start()
+
+            now = %datetime
+            writelog("Inserting data")
+            writett("Inserting data")
+            data bcpTimer = new Timer()
+            bcpTimer.Start()
+
+            ;Send the bcp command to cmd.exe
+            prc.StandardInput.WriteLine(bcpCommand)
+            prc.StandardInput.Flush()
+            prc.StandardInput.Close()
+
+            ;Wait for the process to exit
+            prc.WaitForExit()
+
+            bcpTimer.Stop()
+            now = %datetime
+            writelog(String.Format("Insert took {0} seconds",bcpTimer.Seconds))
+            writett(String.Format("Insert took {0} seconds",bcpTimer.Seconds))
+
+            ;Check the exit status
+            if (prc.ExitCode != 0)
+            begin
+                errorMessage = "BCP process returned a fail exit status!"
+                ok = false
+            end
+        end
+        catch (ex, @Exception)
+        begin
+            errorMessage = "BCP load failed. Error was: " + ex.Message
+            ok = false
+        end
+        endtry
+    end
+
+    ;Delete local temp files
+
+    now = %datetime
+    writelog("Deleting local temp file")
+    writett("Deleting local temp file")
+
+    if (File.Exists(localCsvFile))
+    begin
+        try
+        begin
+            File.Delete(localCsvFile)
+        end
+        catch (ex)
+        begin
+            nop
+        end
+        endtry
+    end
+
+    ;Return the record and exceptions count
+    a_records = recordCount
+    a_exceptions = exceptionCount
+
+    timer.Stop()
+    now = %datetime
+
+    if (ok) then
+    begin
+        writelog(String.Format("Bulk load finished in {0} seconds",timer.Seconds))
+        writett(String.Format("Bulk load finished in {0} seconds",timer.Seconds))
+    end
+    else
+    begin
+        aErrorMessage = errorMessage
+        writelog(String.Format("Bulk load failed after {0} seconds",timer.Seconds))
+        writett(String.Format("Bulk load failed after {0} seconds",timer.Seconds))
+    end
+
+    freturn ok
+
+endfunction

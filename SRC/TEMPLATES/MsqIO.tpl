@@ -1,4 +1,4 @@
-<CODEGEN_FILENAME><StructureName>_SqlIO.dbl</CODEGEN_FILENAME>
+<CODEGEN_FILENAME><StructureName>MsqIO.dbl</CODEGEN_FILENAME>
 <REQUIRES_CODEGEN_VERSION>6.0.3</REQUIRES_CODEGEN_VERSION>
 ;//****************************************************************************
 ;//
@@ -20,7 +20,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;//
 ;//*****************************************************************************
 ;//
-;// Title:       SqlClientIO.tpl
+;// Title:       MsqIO.tpl
 ;//
 ;// Description: Template to generate a collection of Synergy functions which
 ;//              create and interact with a table in a SQL Server database
@@ -58,7 +58,7 @@ Field <FIELD_NAME> may not be excluded via REPLICATOR_EXCLUDE because it is a ke
 ;//
 ;*****************************************************************************
 ;
-; File:        <StructureName>_SqlIO.dbl
+; File:        <StructureName>MsqIO.dbl
 ;
 ; Description: Various functions that performs SQL I/O for <STRUCTURE_NAME>
 ;

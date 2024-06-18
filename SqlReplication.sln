@@ -13,9 +13,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Templates", "Templates", "{
 	ProjectSection(SolutionItems) = preProject
 		SRC\TEMPLATES\ExcludeKeyTest.json = SRC\TEMPLATES\ExcludeKeyTest.json
 		SRC\TEMPLATES\FileDataReport.tpl = SRC\TEMPLATES\FileDataReport.tpl
-		SRC\TEMPLATES\SqlClientIO.tpl = SRC\TEMPLATES\SqlClientIO.tpl
-		SRC\TEMPLATES\SdmsIO.tpl = SRC\TEMPLATES\SdmsIO.tpl
+		SRC\TEMPLATES\MsqIO.tpl = SRC\TEMPLATES\MsqIO.tpl
 		SRC\TEMPLATES\SqlIO.tpl = SRC\TEMPLATES\SqlIO.tpl
+		SRC\TEMPLATES\SynIO.tpl = SRC\TEMPLATES\SynIO.tpl
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}"
