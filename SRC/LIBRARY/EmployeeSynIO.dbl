@@ -46,7 +46,7 @@ import System.Text
 
 ;*****************************************************************************
 ; <summary>
-; Determines if REPLICATOR_DATA:EMPLOYEE.ISM exists in the replicated data set.
+; Determines if REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM exists in the replicated data set.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
@@ -64,12 +64,12 @@ proc
     init localData
     errorMessage = ""
 
-    if (ReplicationLibrary.File.Exists("REPLICATOR_DATA:EMPLOYEE.ISM")) then
+    if (ReplicationLibrary.File.Exists("REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM")) then
         status = 1
     else
     begin
         status = 0
-        errorMessage = "File REPLICATOR_DATA:EMPLOYEE.ISM does not exist!"
+        errorMessage = "File REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM does not exist!"
     end
 
     freturn status
@@ -78,7 +78,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Creates REPLICATOR_DATA:EMPLOYEE.ISM in the replicated data set.
+; Creates REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM in the replicated data set.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
@@ -98,7 +98,7 @@ proc
 
     try
     begin
-        xcall isamc("REPLICATOR_DATA:EMPLOYEE.ISM,FIXED,COMPRESS,DENSITY=50,PAGE=1024",300,5,
+        xcall isamc("REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM,FIXED,COMPRESS,DENSITY=50,PAGE=1024",300,5,
         & "START=1,LENGTH=8,NAME=EMP_ID,TYPE=ALPHA,ASCEND,DENSITY=50,DUPS,NOATEND,NOMODIFY",
         & "START=49,LENGTH=15,NAME=EMP_DEPT,ASCEND,DENSITY=50,NODUPS,MODIFY",
         & "START=29,LENGTH=20,NAME=EMP_LAST_NAME,TYPE=NOCASE,ORDER=A,DENSITY=50,NODUPS,MODIFY",
@@ -109,7 +109,7 @@ proc
     catch (ex, @Exception)
     begin
         ok = false
-        errorMessage = "Failed to create REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
+        errorMessage = "Failed to create REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was " + ex.Message
     end
     endtry
 
@@ -147,7 +147,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Insert a record into REPLICATOR_DATA:EMPLOYEE.ISM.
+; Insert a record into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
 ; </summary>
 ; <param name="recordData">Record to be inserted.</param>
 ; <param name="errorMessage">Returned error message.</param>
@@ -174,7 +174,7 @@ proc
         chEmployee = EmployeeOpenUpdate(errorMessage)
         if (!chEmployee)
         begin
-            errorMessage = "Failed to open REPLICATOR_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
             freturn 0
         end
     end
@@ -205,7 +205,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Inserts multiple records into REPLICATOR_DATA:EMPLOYEE.ISM.
+; Inserts multiple records into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
 ; </summary>
 ; <param name="recordsHandle">Memory handle containing one or more rows to insert.</param>
 ; <param name="errorMessage">Returned error text.</param>
@@ -241,7 +241,7 @@ proc
         chEmployee = EmployeeOpenUpdate(errorMessage)
         if (!chEmployee)
         begin
-            errorMessage = "Failed to open REPLICATOR_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
             freturn 0
         end
     end
@@ -301,7 +301,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Updates a record in REPLICATOR_DATA:EMPLOYEE.ISM.
+; Updates a record in REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
 ; </summary>
 ; <param name="dataRecord">Record containing data to update.</param>
 ; <param name="recordsUpdated">Returned number of rows affected.</param>
@@ -340,7 +340,7 @@ proc
         chEmployee = EmployeeOpenUpdate(errorMessage)
         if (!chEmployee)
         begin
-            errorMessage = "Failed to open REPLICATOR_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
             freturn 0
         end
     end
@@ -390,7 +390,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Deletes a record from REPLICATOR_DATA:EMPLOYEE.ISM
+; Deletes a record from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM
 ; </summary>
 ; <param name="keyValue">Unique key of record to be deleted.</param>
 ; <param name="errorMessage">Returned error message.</param>
@@ -414,7 +414,7 @@ proc
         chEmployee = EmployeeOpenUpdate(errorMessage)
         if (!chEmployee)
         begin
-            errorMessage = "Failed to open REPLICATOR_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
             freturn 0
         end
     end
@@ -468,7 +468,7 @@ proc
         chEmployee = EmployeeOpenUpdate(errorMessage)
         if (!chEmployee)
         begin
-            errorMessage = "Failed to open REPLICATOR_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
             freturn 0
         end
     end
@@ -483,7 +483,7 @@ proc
     end
     catch (ex, @Exception)
     begin
-        errorMessage = "Failed to clear file REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
+        errorMessage = "Failed to clear file REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was " + ex.Message
     end
     endtry
 
@@ -513,19 +513,19 @@ proc
         chEmployee = EmployeeOpenUpdate(errorMessage)
         if (!chEmployee)
         begin
-            errorMessage = "Failed to open REPLICATOR_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
             freturn 0
         end
     end
 
     try
     begin
-        xcall delet("REPLICATOR_DATA:EMPLOYEE.ISM")
+        xcall delet("REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM")
         freturn true
     end
     catch (ex, @Exception)
     begin
-        errorMessage = "Failed to delete REPLICATOR_DATA:EMPLOYEE.ISM. Error was " + ex.Message
+        errorMessage = "Failed to delete REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was " + ex.Message
     end
     endtry
 
@@ -535,7 +535,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Load all data from the original file into REPLICATOR_DATA:EMPLOYEE.ISM
+; Load all data from the original file into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM
 ; </summary>
 ; <param name="a_maxrows">Maximum number of rows to load.</param>
 ; <param name="a_added">Number of successful inserts.</param>

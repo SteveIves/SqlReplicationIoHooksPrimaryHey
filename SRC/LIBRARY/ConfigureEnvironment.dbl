@@ -88,30 +88,33 @@ proc
             Logger.Log("Database mode:      SDMS")
         endusing
 
-        using Settings.DatabaseCommitMode select
-        (DatabaseCommitMode.Automatic),
-            Logger.Log("Commit mode:        AUTOMATIC")
-        (DatabaseCommitMode.Batch),
+        if (Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS)
         begin
-            Logger.Log("Commit mode:        BATCH")
-            Logger.Log("Commit batch size:  " + %string(Settings.CommitBatchSize))
+            using Settings.DatabaseCommitMode select
+            (DatabaseCommitMode.Automatic),
+                Logger.Log("Commit mode:        AUTOMATIC")
+            (DatabaseCommitMode.Batch),
+            begin
+                Logger.Log("Commit mode:        BATCH")
+                Logger.Log("Commit batch size:  " + %string(Settings.CommitBatchSize))
+            end
+            (DatabaseCommitMode.Manual),
+                Logger.Log("Commit mode:        MANUAL")
+            endusing
+
+            Logger.Log("Database timeout:   " + %string(Settings.DatabaseTimeout))
+            Logger.Log("Bulk load timeout:  " + %string(Settings.BulkLoadTimeout))
+            Logger.Log("Bulk load batch:    " + %string(Settings.BulkLoadBatchSize))
+
+            using Settings.DataCompressionMode select
+            (DatabaseDataCompression.None),
+                Logger.Log("Compression:        NONE")
+            (DatabaseDataCompression.Row),
+                Logger.Log("Compression:        ROW")
+            (DatabaseDataCompression.Page),
+                Logger.Log("Compression:        PAGE")
+            endusing
         end
-        (DatabaseCommitMode.Manual),
-            Logger.Log("Commit mode:        MANUAL")
-        endusing
-
-        Logger.Log("Database timeout:   " + %string(Settings.DatabaseTimeout))
-        Logger.Log("Bulk load timeout:  " + %string(Settings.BulkLoadTimeout))
-        Logger.Log("Bulk load batch:    " + %string(Settings.BulkLoadBatchSize))
-
-        using Settings.DataCompressionMode select
-        (DatabaseDataCompression.None),
-            Logger.Log("Compression:        NONE")
-        (DatabaseDataCompression.Row),
-            Logger.Log("Compression:        ROW")
-        (DatabaseDataCompression.Page),
-            Logger.Log("Compression:        PAGE")
-        endusing
 
         Logger.Log("Sleep interval:     " + %string(Settings.SleepTime) + " seconds.")
     end
@@ -168,7 +171,7 @@ proc
         Logger.Log("")
     end
 
-    ;Open the queue file, creting it if it does not exist
+    ;Open the queue file, creating it if it does not exist
 
     if (ok)
     begin
@@ -276,7 +279,7 @@ proc
         ;If we're sending emails then let's record the server startup
         if (EmailSettings.CanSendEmail())
         begin
-            data subject = "SQL replicator " + Settings.InstanceName  + " was started."
+            data subject = "Replicator " + Settings.InstanceName  + " was started."
             data body = new string[13]
             data ix = 0
 
@@ -315,31 +318,34 @@ proc
             end
             endusing
 
-            body[ix+=1] = "Connect string:     " + Settings.DatabaseConnectString
+            if (Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS)
+            begin
+                body[ix+=1] = "Connect string:     " + Settings.DatabaseConnectString
 
-            body[ix+=1] = "Sleep interval:     " + %string(Settings.SleepTime) + " seconds."
-            body[ix+=1] = "Database timeout:   " + %string(Settings.DatabaseTimeout)
-            body[ix+=1] = "Bulk load timeout:  " + %string(Settings.BulkLoadTimeout)
+                body[ix+=1] = "Sleep interval:     " + %string(Settings.SleepTime) + " seconds."
+                body[ix+=1] = "Database timeout:   " + %string(Settings.DatabaseTimeout)
+                body[ix+=1] = "Bulk load timeout:  " + %string(Settings.BulkLoadTimeout)
 
-            using Settings.DatabaseCommitMode select
-            (DatabaseCommitMode.Automatic),
-                body[ix+=1] = "Commit mode:        AUTOMATIC"
-            (DatabaseCommitMode.Batch),
-                body[ix+=1] = "Commit mode:        BATCH"
-            (DatabaseCommitMode.Manual),
-                body[ix+=1] = "Commit mode:        MANUAL"
-            endusing
+                using Settings.DatabaseCommitMode select
+                (DatabaseCommitMode.Automatic),
+                    body[ix+=1] = "Commit mode:        AUTOMATIC"
+                (DatabaseCommitMode.Batch),
+                    body[ix+=1] = "Commit mode:        BATCH"
+                (DatabaseCommitMode.Manual),
+                    body[ix+=1] = "Commit mode:        MANUAL"
+                endusing
 
-            body[ix+=1] = "Bulk load batch:    " + %string(Settings.BulkLoadBatchSize)
+                body[ix+=1] = "Bulk load batch:    " + %string(Settings.BulkLoadBatchSize)
 
-            using Settings.DataCompressionMode select
-            (DatabaseDataCompression.None),
-                body[ix+=1] = "Compression mode:   NONE"
-            (DatabaseDataCompression.Row),
-                body[ix+=1] = "Compression mode:   ROW"
-            (DatabaseDataCompression.Page),
-                body[ix+=1] = "Compression mode:   PAGE"
-            endusing
+                using Settings.DataCompressionMode select
+                (DatabaseDataCompression.None),
+                    body[ix+=1] = "Compression mode:   NONE"
+                (DatabaseDataCompression.Row),
+                    body[ix+=1] = "Compression mode:   ROW"
+                (DatabaseDataCompression.Page),
+                    body[ix+=1] = "Compression mode:   PAGE"
+                endusing
+            end
 
             xcall SendEmail(subject,body,false)
         end
@@ -348,7 +354,7 @@ proc
         if (Settings.SystemLogging)
         begin
             data sb = new StringBuilder()
-            sb.AppendLine("SQL replicator " + Settings.InstanceName + " was started")
+            sb.AppendLine("Replicator " + Settings.InstanceName + " was started")
             sb.AppendLine("Database connect string is " + Settings.DatabaseConnectString)
             sb.AppendLine("Transaction file is " + Settings.QueueFileName)
             sb.AppendLine("Log file is " + Settings.LogFileName)

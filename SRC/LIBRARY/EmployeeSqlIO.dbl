@@ -1721,7 +1721,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Load all data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table.
+; Load all data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table.
 ; </summary>
 ; <param name="a_maxrows">Maximum number of rows to load.</param>
 ; <param name="a_added">Total number of successful inserts.</param>
@@ -1939,7 +1939,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Bulk load data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a CSV file.
+; Bulk load data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table via a CSV file.
 ; </summary>
 ; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ; <param name="a_records">Records loaded</param>
@@ -2403,7 +2403,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Exports REPLICATOR_DATA:EMPLOYEE.ISM to a CSV file.
+; Exports REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM to a CSV file.
 ; </summary>
 ; <param name="fileSpec">File to create</param>
 ; <param name="maxRecords">Mumber of records to export.</param>
@@ -2639,7 +2639,7 @@ endsubroutine
 
 ;*****************************************************************************
 ; <summary>
-; Opens the REPLICATOR_DATA:EMPLOYEE.ISM for input.
+; Opens the REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM for input.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
@@ -2652,7 +2652,7 @@ function EmployeeOpenInput, ^val
 proc
     try
     begin
-        open(ch=0,i:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
+        open(ch=0,i:i,"REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM")
         errorMessage = ""
     end
     catch (ex, @Exception)
@@ -2666,7 +2666,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Opens the REPLICATOR_DATA:EMPLOYEE.ISM for update.
+; Opens the REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM for update.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
@@ -2679,7 +2679,7 @@ function EmployeeOpenUpdate, ^val
 proc
     try
     begin
-        open(ch=0,u:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
+        open(ch=0,u:i,"REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM")
         errorMessage = ""
     end
     catch (ex, @Exception)
@@ -2822,7 +2822,7 @@ function EmployeeRecs, ^val
 proc
     try
     begin
-        open(ch=0,i:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
+        open(ch=0,i:i,"REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM")
         recordCount = %isinfo(ch,"NUMRECS")
         errorMessage = ""
         ok = true

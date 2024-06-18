@@ -2,10 +2,11 @@
 ;
 ; File:         replicator.dbl
 ;
-; Type:         Application (SQL Replicator)
+; Type:         Application
 ;
 ; Description:  Replicates Synergy data file changes that have been recorded
-;               in the replucation log file to a SQL Server database.
+;               in the replucation log file to a SQL Server database or to
+;               another set of SDMS data files.
 ;
 ;*****************************************************************************
 ;
@@ -346,12 +347,14 @@ proc
                             end
                             ("ADD_INDEXES"),
                             begin
+                                ;Not supported in SDMS mode, but the underlying handler does nothing.
                                 instruction.action = (i)REPLICATION_INSTRUCTION.ADD_INDEXES
                                 instruction.structure_name = msg.Value
                                 instruction.record = ""
                             end
                             ("DELETE_INDEXES"),
                             begin
+                                ;Not supported in SDMS mode, but the underlying handler does nothing.
                                 instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_INDEXES
                                 instruction.structure_name = msg.Value
                                 instruction.record = ""
@@ -382,6 +385,7 @@ proc
                             end
                             ("CREATE_CSV"),
                             begin
+                                ;Not supported in SDMS mode, but the handler code below does nothing.
                                 instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_CSV
                                 instruction.structure_name = msg.Value
                                 instruction.record = ""
@@ -447,10 +451,7 @@ proc
                     catch (ex, @ConsumeException)
                     begin
                         ;TODO: Figure out what to do here. Close and re-open the connection to the Kafka server?
-
                         sleep 0.05
-
-
                     end
                     endtry
                 end ;of inner repeat (get next instruction)

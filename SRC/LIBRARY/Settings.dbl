@@ -16,174 +16,174 @@ namespace ReplicationLibrary
 .ifdef D_VMS
     public class Settings
 .else
-    public static class Settings
+        public static class Settings
 .endc
-        ;;; <summary>
-        ;;; Configure default settings
-        ;;; Can't use a static constructor because VMS doesn't support them
-        ;;; </summary>
-        public static method Initialize, void
-        proc
-            ;Set defaults for internal properties
-            DatabaseChannel         = 1
-            InstructionChannel      = 0
-            LogFileChannel          = 0
-            RunningOnTerminal       = (%tnmbr >= 0)
-            TerminalChannel         = 0
+            ;;; <summary>
+            ;;; Configure default settings
+            ;;; Can't use a static constructor because VMS doesn't support them
+            ;;; </summary>
+            public static method Initialize, void
+            proc
+                ;Set defaults for internal properties
+                DatabaseChannel         = 1
+                InstructionChannel      = 0
+                LogFileChannel          = 0
+                RunningOnTerminal       = (%tnmbr >= 0)
+                TerminalChannel         = 0
 .ifdef DBLNET
             DatabaseConnection  = ^null
 .endc
-            ;If we're running on a terminal, open the terminal channel
-            if (RunningOnTerminal)
-            begin
-                data tmpchn, i4
-                open(tmpchn=0,o,"tt:")
-                Settings.TerminalChannel = tmpchn
-            end
+                ;If we're running on a terminal, open the terminal channel
+                if (RunningOnTerminal)
+                begin
+                    data tmpchn, i4
+                    open(tmpchn=0,o,"tt:")
+                    Settings.TerminalChannel = tmpchn
+                end
 
-            EmailSettings.Initialize()
+                EmailSettings.Initialize()
 
-        endmethod
-
-        ;---------------------------------------------------------------------------------------------------------
-        ;Main instance settings
-
-        private static mInstanceName, string
-
-        ;;; <summary>
-        ;;; The name of the replicator instance. The default instance name is DEFAULT. The instance name is used to
-        ;;; discriminate between multiple instances of the replicator that might be active, each processing different
-        ;;; data sets.
-        ;;; </summary>
-        public static property InstanceName, string
-            method get
-            proc
-                mreturn mInstanceName
             endmethod
-            method set
-                record
-                    now, a20
-                endrecord
-            proc
-                now = %datetime
-                mInstanceName = value.ToUpper()
-                QueueFileName = "REPLICATOR_DATA:REPLICATION_" + mInstanceName + ".ISM"
-                LogFileName = "REPLICATOR_LOGDIR:REPLICATION_" + mInstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
+
+            ;---------------------------------------------------------------------------------------------------------
+            ;Main instance settings
+
+            private static mInstanceName, string
+
+            ;;; <summary>
+            ;;; The name of the replicator instance. The default instance name is DEFAULT. The instance name is used to
+            ;;; discriminate between multiple instances of the replicator that might be active, each processing different
+            ;;; data sets.
+            ;;; </summary>
+            public static property InstanceName, string
+                method get
+                proc
+                    mreturn mInstanceName
+                endmethod
+                method set
+                    record
+                        now, a20
+                    endrecord
+                proc
+                    now = %datetime
+                    mInstanceName = value.ToUpper()
+                    QueueFileName = "REPLICATOR_DATA:REPLICATION_" + mInstanceName + ".ISM"
+                    LogFileName = "REPLICATOR_LOGDIR:REPLICATION_" + mInstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
 .ifdef DBLNET
                 KafkaClientId = "REPLICATOR_" + mInstanceName
                 KafkaTopicName = "REPLICATION_" + mInstanceName
                 KafkaConsumerGroupName = "REPLICATION_" + mInstanceName + "_CONSUMERS"
 .endc
-            endmethod
-        endproperty
+                endmethod
+            endproperty
 
-        ;---------------------------------------------------------------------------------------------------------
-        ;Instance configuration (set via ReplicatorConfig.json)
+            ;---------------------------------------------------------------------------------------------------------
+            ;Instance configuration (set via ReplicatorConfig.json)
 
-        ;;; <summary>
-        ;;; The batch size to be used with bulk load operations.
-        ;;; </summary>
-        public static readwrite property BulkLoadBatchSize, int
+            ;;; <summary>
+            ;;; The batch size to be used with bulk load operations.
+            ;;; </summary>
+            public static readwrite property BulkLoadBatchSize, int
 
-        ;;; <summary>
-        ;;; Database statement execution timeout for bulk load and indexing operations in seconds. The default value is 900 seconds (15 minutes).
-        ;;; </summary>
-        public static readwrite property BulkLoadTimeout, int
+            ;;; <summary>
+            ;;; Database statement execution timeout for bulk load and indexing operations in seconds. The default value is 900 seconds (15 minutes).
+            ;;; </summary>
+            public static readwrite property BulkLoadTimeout, int
 
-        ;;; <summary>
-        ;;; If the replicator is in batch commit mode, how many rows constitute a batch?
-        ;;; </summary>
-        public static readwrite property CommitBatchSize, int
+            ;;; <summary>
+            ;;; If the replicator is in batch commit mode, how many rows constitute a batch?
+            ;;; </summary>
+            public static readwrite property CommitBatchSize, int
 
-        ;;; <summary>
-        ;;; The batch size to use when loading a database table via BCP
-        ;;; </summary>
-        public static readwrite property DatabaseBcpBatchSize, int, 25000
+            ;;; <summary>
+            ;;; The batch size to use when loading a database table via BCP
+            ;;; </summary>
+            public static readwrite property DatabaseBcpBatchSize, int, 25000
 
-        ;;; <summary>
-        ;;; The network packet size to use when loading a database table via BCP
-        ;;; </summary>
-        public static readwrite property DatabaseBcpPacketSize, int, 8192
+            ;;; <summary>
+            ;;; The network packet size to use when loading a database table via BCP
+            ;;; </summary>
+            public static readwrite property DatabaseBcpPacketSize, int, 8192
 
-        ;;; <summary>
-        ;;; Database commit mode (Automatic, Manual or Batch).
-        ;;; </summary>
-        public static readwrite property DatabaseCommitMode, DatabaseCommitMode
+            ;;; <summary>
+            ;;; Database commit mode (Automatic, Manual or Batch).
+            ;;; </summary>
+            public static readwrite property DatabaseCommitMode, DatabaseCommitMode
 
-        ;;; <summary>
-        ;;; The name of the database connection to use
-        ;;; </summary>
-        public static readwrite property DatabaseConnectionName, string
+            ;;; <summary>
+            ;;; The name of the database connection to use
+            ;;; </summary>
+            public static readwrite property DatabaseConnectionName, string
 
-        ;;; <summary>
-        ;;; The name of the database within the SQL Server instance
-        ;;; </summary>
-        public static readwrite property DatabaseName, string ;,"SqlReplication"
+            ;;; <summary>
+            ;;; The name of the database within the SQL Server instance
+            ;;; </summary>
+            public static readwrite property DatabaseName, string ;,"SqlReplication"
 
-        ;;; <summary>
-        ;;; The password to be used to access the database
-        ;;; </summary>
-        public static readwrite property DatabasePassword, string
+            ;;; <summary>
+            ;;; The password to be used to access the database
+            ;;; </summary>
+            public static readwrite property DatabasePassword, string
 
-        ;;; <summary>
-        ;;; How many seconds should replicator wait between database re-connect attempts?
-        ;;; </summary>
-        public static readwrite property DatabaseRetryDelay, int
+            ;;; <summary>
+            ;;; How many seconds should replicator wait between database re-connect attempts?
+            ;;; </summary>
+            public static readwrite property DatabaseRetryDelay, int
 
-        ;;; <summary>
-        ;;; How many times should replicator attempt to re-connect to the database?
-        ;;; </summary>
-        public static readwrite property DatabaseRetryMax, int
+            ;;; <summary>
+            ;;; How many times should replicator attempt to re-connect to the database?
+            ;;; </summary>
+            public static readwrite property DatabaseRetryMax, int
 
-        ;;; <summary>
-        ;;; The name of the database schema that owns the tables
-        ;;; </summary>
-        public static readwrite property DatabaseSchema, string ;,"dbo"
+            ;;; <summary>
+            ;;; The name of the database schema that owns the tables
+            ;;; </summary>
+            public static readwrite property DatabaseSchema, string ;,"dbo"
 
-        ;;; <summary>
-        ;;; The name or IP address of the database server
-        ;;; </summary>
-        public static readwrite property DatabaseServer, string ;,"localhost"
+            ;;; <summary>
+            ;;; The name or IP address of the database server
+            ;;; </summary>
+            public static readwrite property DatabaseServer, string ;,"localhost"
 
-        ;;; <summary>
-        ;;; Database statement execution timeout in seconds. The default is 60 seconds.
-        ;;; </summary>
-        public static readwrite property DatabaseTimeout, int
+            ;;; <summary>
+            ;;; Database statement execution timeout in seconds. The default is 60 seconds.
+            ;;; </summary>
+            public static readwrite property DatabaseTimeout, int
 
-        ;;; <summary>
-        ;;; The database user to be used to access the database
-        ;;; </summary>
-        public static readwrite property DatabaseUser, string ;,"replicator"
+            ;;; <summary>
+            ;;; The database user to be used to access the database
+            ;;; </summary>
+            public static readwrite property DatabaseUser, string ;,"replicator"
 
-        ;;; <summary>
-        ;;; Use data compression for tables and indexes?
-        ;;; </summary>
-        public static readwrite property DataCompressionMode, DatabaseDataCompression
+            ;;; <summary>
+            ;;; Use data compression for tables and indexes?
+            ;;; </summary>
+            public static readwrite property DataCompressionMode, DatabaseDataCompression
 
-        ;;; <summary>
-        ;;; Is the instance enabled?
-        ;;; </summary>
-        public static readwrite property Enabled, boolean
+            ;;; <summary>
+            ;;; Is the instance enabled?
+            ;;; </summary>
+            public static readwrite property Enabled, boolean
 
-        ;;; <summary>
-        ;;; How many seconds should we sleep after processing an error?
-        ;;; </summary>
-        public static readwrite property ErrorSleepTime, decimal
+            ;;; <summary>
+            ;;; How many seconds should we sleep after processing an error?
+            ;;; </summary>
+            public static readwrite property ErrorSleepTime, decimal
 
-        ;;; <summary>
-        ;;; Is the use of FileService enabled?
-        ;;; </summary>
-        public static readwrite property FileServiceEnabled, boolean
+            ;;; <summary>
+            ;;; Is the use of FileService enabled?
+            ;;; </summary>
+            public static readwrite property FileServiceEnabled, boolean
 
-        ;;; <summary>
-        ;;; The name or IP address of the system running FileService
-        ;;; </summary>
-        public static readwrite property FileServiceHost, string
+            ;;; <summary>
+            ;;; The name or IP address of the system running FileService
+            ;;; </summary>
+            public static readwrite property FileServiceHost, string
 
-        ;;; <summary>
-        ;;; The IP port number that FileService is listening on
-        ;;; </summary>
-        public static readwrite property FileServicePort, int
+            ;;; <summary>
+            ;;; The IP port number that FileService is listening on
+            ;;; </summary>
+            public static readwrite property FileServicePort, int
 .ifdef DBLNET
         ;;; <summary>
         ;;; The name(s) or IP addresses and ports of the Kafka servers to use (Kafka queue mode only)?
@@ -191,110 +191,110 @@ namespace ReplicationLibrary
         ;;; </summary>
         public static readwrite property KafkaServers, string
 .endc
-        ;;; <summary>
-        ;;; Where should export files be created locally?
-        ;;; </summary>
-        public static readwrite property LocalExportPath, string
+            ;;; <summary>
+            ;;; Where should export files be created locally?
+            ;;; </summary>
+            public static readwrite property LocalExportPath, string
 
-        ;;; <summary>
-        ;;; Log bulk load exceptions to a log file?
-        ;;; </summary>
-        public static readwrite property LogBulkLoadExceptions, boolean
+            ;;; <summary>
+            ;;; Log bulk load exceptions to a log file?
+            ;;; </summary>
+            public static readwrite property LogBulkLoadExceptions, boolean
 
-        ;;; <summary>
-        ;;; Include key data in debug logs?
-        ;;; </summary>
-        public static readwrite property LogKeyValues, boolean
+            ;;; <summary>
+            ;;; Include key data in debug logs?
+            ;;; </summary>
+            public static readwrite property LogKeyValues, boolean
 
-        ;;; <summary>
-        ;;; Should we report progress when bulk loading tables?
-        ;;; </summary>
-        public static readwrite property LogLoadProgress, boolean
+            ;;; <summary>
+            ;;; Should we report progress when bulk loading tables?
+            ;;; </summary>
+            public static readwrite property LogLoadProgress, boolean
 
-        ;;; <summary>
-        ;;; Maximum number of columns in a database table (SQL Connection only)
-        ;;; </summary>
-        public static readwrite property MaxColumns, int
+            ;;; <summary>
+            ;;; Maximum number of columns in a database table (SQL Connection only)
+            ;;; </summary>
+            public static readwrite property MaxColumns, int
 
-        ;;; <summary>
-        ;;; Maximum number of database cursors (SQL Connection only)
-        ;;; </summary>
-        public static readwrite property MaxCursors, int
+            ;;; <summary>
+            ;;; Maximum number of database cursors (SQL Connection only)
+            ;;; </summary>
+            public static readwrite property MaxCursors, int
 
-        ;;; <summary>
-        ;;; How many times should replicator attempt to re-connect to a remote queue file?
-        ;;; </summary>
-        public static readwrite property QueueReconnectAttempts, int
+            ;;; <summary>
+            ;;; How many times should replicator attempt to re-connect to a remote queue file?
+            ;;; </summary>
+            public static readwrite property QueueReconnectAttempts, int
 
-        ;;; <summary>
-        ;;; How many seconds should replicator wait between remote queue file re-connect attempts?
-        ;;; </summary>
-        public static readwrite property QueueReconnectDelay, int
+            ;;; <summary>
+            ;;; How many seconds should replicator wait between remote queue file re-connect attempts?
+            ;;; </summary>
+            public static readwrite property QueueReconnectDelay, int
 
-        ;;; <summary>
-        ;;; Queue type (ISAM File, Kafka MQ).
-        ;;; </summary>
-        public static readwrite property QueueType, MessageQueueType
+            ;;; <summary>
+            ;;; Queue type (ISAM File, Kafka MQ).
+            ;;; </summary>
+            public static readwrite property QueueType, MessageQueueType
 
-        ;;; <summary>
-        ;;; How many seconds should we sleep when we run out of instructions to process?
-        ;;; </summary>
-        public static readwrite property SleepTime, int
+            ;;; <summary>
+            ;;; How many seconds should we sleep when we run out of instructions to process?
+            ;;; </summary>
+            public static readwrite property SleepTime, int
 
-        ;;; <summary>
-        ;;; Where possible, should we re-use SqlCommand objects?  (SqlClient mode only)
-        ;;; </summary>
-        public static readwrite property SqlCommandReuse, boolean
+            ;;; <summary>
+            ;;; Where possible, should we re-use SqlCommand objects?  (SqlClient mode only)
+            ;;; </summary>
+            public static readwrite property SqlCommandReuse, boolean
 
-        ;;; <summary>
-        ;;; Should we stop processing and close if we encounter an error?
-        ;;; </summary>
-        public static readwrite property StopOnError, boolean
+            ;;; <summary>
+            ;;; Should we stop processing and close if we encounter an error?
+            ;;; </summary>
+            public static readwrite property StopOnError, boolean
 
-        ;;; <summary>
-        ;;; Should we also log to the system log?
-        ;;; </summary>
-        public static readwrite property SystemLogging, boolean
+            ;;; <summary>
+            ;;; Should we also log to the system log?
+            ;;; </summary>
+            public static readwrite property SystemLogging, boolean
 
-        ;;; <summary>
-        ;;; Are we doing verbose logging?
-        ;;; </summary>
-        public static readwrite property VerboseLogging, boolean
+            ;;; <summary>
+            ;;; Are we doing verbose logging?
+            ;;; </summary>
+            public static readwrite property VerboseLogging, boolean
 
-        ;------------------------------------------------------------------------------------------------
-        ; Internal stuff below here
+            ;------------------------------------------------------------------------------------------------
+            ; Internal stuff below here
 
 .region "Internal properties"
 
-        ;;; <summary>
-        ;;; A synergy namespace used to store information about SDMS channels that the replicator currently has open
-        ;;; </summary>
-        public static readwrite property ChannelInfo, i4
+            ;;; <summary>
+            ;;; A synergy namespace used to store information about SDMS channels that the replicator currently has open
+            ;;; </summary>
+            public static readwrite property ChannelInfo, i4
 
-        ;;; <summary>
-        ;;; The database channel that represents our connection to the database (SQL Connection only).
-        ;;; </summary>
-        public static readwrite property DatabaseChannel, i4
+            ;;; <summary>
+            ;;; The database channel that represents our connection to the database (SQL Connection only).
+            ;;; </summary>
+            public static readwrite property DatabaseChannel, i4
 
-        ;;; <summary>
-        ;;; Is the database currently connected?
-        ;;; </summary>  
-        public static readwrite property DatabaseConnected, boolean
+            ;;; <summary>
+            ;;; Is the database currently connected?
+            ;;; </summary>  
+            public static readwrite property DatabaseConnected, boolean
 
-        ;;; <summary>
-        ;;; Are we using Synergy SQL Connection or Microsoft SqlClient to interact with the database
-        ;;; </summary>
-        public static readwrite property DatabaseConnectMode, DatabaseConnectionMode
+            ;;; <summary>
+            ;;; Are we using Synergy SQL Connection or Microsoft SqlClient to interact with the database
+            ;;; </summary>
+            public static readwrite property DatabaseConnectMode, DatabaseConnectionMode
 
-        ;;; <summary>
-        ;;; The database connections defined in the configuration file
-        ;;; </summary>
-        public static readwrite property DatabaseConnections, [#]@DatabaseConnection
+            ;;; <summary>
+            ;;; The database connections defined in the configuration file
+            ;;; </summary>
+            public static readwrite property DatabaseConnections, [#]@DatabaseConnection
 
-        ;;; <summary>
-        ;;; Database connect string
-        ;;; </summary>
-        public static readwrite property DatabaseConnectString, string
+            ;;; <summary>
+            ;;; Database connect string
+            ;;; </summary>
+            public static readwrite property DatabaseConnectString, string
 
 .ifdef DBLNET
         ;;; <summary>
@@ -308,15 +308,15 @@ namespace ReplicationLibrary
         public static readwrite property CurrentTransaction, @SqlTransaction
 .endc
 
-        ;;; <summary>
-        ;;; The main data directory where the replicator configuration (and maybe ISAM queue files) are located.
-        ;;; </summary>
-        public static readwrite property DataDirectory, string
+            ;;; <summary>
+            ;;; The main data directory where the replicator configuration (and maybe ISAM queue files) are located.
+            ;;; </summary>
+            public static readwrite property DataDirectory, string
 
-        ;;; <summary>
-        ;;; The channel number of the replication instruction file (ISAM queue mode only)
-        ;;; </summary>
-        public static readwrite property InstructionChannel, i4
+            ;;; <summary>
+            ;;; The channel number of the replication instruction file (ISAM queue mode only)
+            ;;; </summary>
+            public static readwrite property InstructionChannel, i4
 
 .ifdef DBLNET
 
@@ -344,93 +344,93 @@ namespace ReplicationLibrary
         ;;; </summary>
         public static readwrite property KafkaTopicName, string
 .endc
-        ;;; <summary>
-        ;;; The file spec of the instances log file
-        ;;; Set automatically to REPLICATOR_LOGDIR:REPLICATION_<InstanceName>_<yyyymmdd>_<hhmmss>.LOG"
-        ;;; </summary>
-        public static readwrite property LogFileName, string
+            ;;; <summary>
+            ;;; The file spec of the instances log file
+            ;;; Set automatically to REPLICATOR_LOGDIR:REPLICATION_<InstanceName>_<yyyymmdd>_<hhmmss>.LOG"
+            ;;; </summary>
+            public static readwrite property LogFileName, string
 
-        ;;; <summary>
-        ;;; The channel that the replicator log file is open on.
-        ;;; Set automatically when ValidateBasicEnvironment calls Logger.OpenLog()
-        ;;; </summary>
-        public static readwrite property LogFileChannel, i4
+            ;;; <summary>
+            ;;; The channel that the replicator log file is open on.
+            ;;; Set automatically when ValidateBasicEnvironment calls Logger.OpenLog()
+            ;;; </summary>
+            public static readwrite property LogFileChannel, i4
 
-        ;;; <summary>
-        ;;; The name of the replicator queue file (ISAM queue mode only).
-        ;;; Set automatically to REPLICATOR_DATA:REPLICATION_<InstanceName>.ISM"
-        ;;; </summary>
-        public static readwrite property QueueFileName, string
+            ;;; <summary>
+            ;;; The name of the replicator queue file (ISAM queue mode only).
+            ;;; Set automatically to REPLICATOR_DATA:REPLICATION_<InstanceName>.ISM"
+            ;;; </summary>
+            public static readwrite property QueueFileName, string
 
-        ;;; <summary>
-        ;;; Are we attached to a terminal?
-        ;;; Set automatically if terminal number >= 0.
-        ;;; </summary>
-        public static readwrite property RunningOnTerminal, boolean
+            ;;; <summary>
+            ;;; Are we attached to a terminal?
+            ;;; Set automatically if terminal number >= 0.
+            ;;; </summary>
+            public static readwrite property RunningOnTerminal, boolean
 
-        ;;; <summary>
-        ;;; If running interactively, the channel number of the terminal.
-        ;;; Channel opened and set automatically if RunningOnTerminal is true.
-        ;;; </summary>
-        public static readwrite property TerminalChannel, i4
+            ;;; <summary>
+            ;;; If running interactively, the channel number of the terminal.
+            ;;; Channel opened and set automatically if RunningOnTerminal is true.
+            ;;; </summary>
+            public static readwrite property TerminalChannel, i4
 
-        ;;; <summary>
-        ;;; An array of valid instance names based on the instances defined in the JSON configuration file
-        ;;; </summary>
-        public static readwrite property ValidInstanceNames, [#]string
+            ;;; <summary>
+            ;;; An array of valid instance names based on the instances defined in the JSON configuration file
+            ;;; </summary>
+            public static readwrite property ValidInstanceNames, [#]string
 
-        ;;; <summary>
-        ;;; An array of valid table names based on the TableMaps defined for the instance in the JSON configuration file
-        ;;; </summary>
-        public static readwrite property ValidTableNames, [#]string
+            ;;; <summary>
+            ;;; An array of valid table names based on the TableMaps defined for the instance in the JSON configuration file
+            ;;; </summary>
+            public static readwrite property ValidTableNames, [#]string
 
 .endregion
 
 .region "Methods"
 
-        ;;; <summary>
-        ;;; Are we able to use bulk load?
-        ;;; </summary>
-        ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
-        public static method CanBulkLoad, boolean
-        proc
-            if (DatabaseIsRemote()) then
-            begin
-                ;If the database is remote we need file service to be enabled, and have a host name or IP and port number
-                mreturn (
-                &    Settings.FileServiceEnabled
-                &    && !String.IsNullOrWhitespace(FileServiceHost)
-                &    && Settings.FileServicePort > 0
-                &    )
-            end
-            else
-            begin
-                ;If the database is local we can always bulk load
+            ;;; <summary>
+            ;;; Are we able to use bulk load?
+            ;;; </summary>
+            ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
+            public static method CanBulkLoad, boolean
+            proc
+                if (DatabaseIsRemote()) then
+                begin
+                    ;If the database is remote we need file service to be enabled, and have a host name or IP and port number
+                    mreturn (
+                    &    Settings.FileServiceEnabled
+                    &    && !String.IsNullOrWhitespace(FileServiceHost)
+                    &    && Settings.FileServicePort > 0
+                    &    )
+                end
+                else
+                begin
+                    ;If the database is local we can always bulk load
+                    mreturn true
+                end
+            endmethod
+
+            ;;; <summary>
+            ;;; Are we able to use bulk copy?
+            ;;; </summary>
+            ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
+            public static method CanBulkCopy, boolean
+            proc
+                ;TODO: * * * NEEDS IMPLEMENTING ASAP * * *
                 mreturn true
-            end
-        endmethod
+            endmethod
 
-        ;;; <summary>
-        ;;; Are we able to use bulk copy?
-        ;;; </summary>
-        ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
-        public static method CanBulkCopy, boolean
-        proc
-            ;TODO: * * * NEEDS IMPLEMENTING ASAP * * *
-            mreturn true
-        endmethod
-
-        ;;; <summary>
-        ;;; Is the database that we are connecting to with SQL Connection remote?
-        ;;; </summary>
-        ;;; <returns>Returns true if the database is remote, otherwise false.</returns>
-        public static method DatabaseIsRemote, boolean
-        proc
-            using Settings.DatabaseConnectMode select
-            (DatabaseConnectionMode.SqlConnection),
-            begin
-                mreturn DatabaseConnectString.ToLower().StartsWith("net:")
-            end
+            ;;; <summary>
+            ;;; Is the database that we are connecting to with SQL Connection remote?
+            ;;; </summary>
+            ;;; <returns>Returns true if the database is remote, otherwise false.</returns>
+            public static method DatabaseIsRemote, boolean
+            proc
+                using Settings.DatabaseConnectMode select
+                (DatabaseConnectionMode.SqlConnection),
+                begin
+                    mreturn DatabaseConnectString.ToLower().StartsWith("net:")
+                end
 .ifdef DBLNET
             (DatabaseConnectionMode.SqlClient),
             begin
@@ -441,54 +441,54 @@ namespace ReplicationLibrary
                 &   && !constr.Contains(String.Format("data source={0}",Environment.MachineName.ToLower())))
             end
 .endc
-            endusing
+                endusing
             
-        endmethod
+            endmethod
 
-        ;;; <summary>
-        ;;; Utility method to read in a file from disk and return that file
-        ;;; content parsed through JsonDocument.Parse
-        ;;; </summary>
-        ;;; <param name="filePath"></param>
-        ;;; <returns></returns>
-        public static method ParseConfigFile, @JsonDocument
-            record
-                jsonFileContent, @StringBuilder
-                firstBrace, int
-                channel, int
-                buffer, a1024
-                plays,string
-            endrecord
-        proc
-            jsonFileContent = new StringBuilder()
-            open(channel=0,i,"REPLICATOR_DATA:ReplicatorConfig.json")
+            ;;; <summary>
+            ;;; Utility method to read in a file from disk and return that file
+            ;;; content parsed through JsonDocument.Parse
+            ;;; </summary>
+            ;;; <param name="filePath"></param>
+            ;;; <returns></returns>
+            public static method ParseConfigFile, @JsonDocument
+                record
+                    jsonFileContent, @StringBuilder
+                    firstBrace, int
+                    channel, int
+                    buffer, a1024
+                    plays,string
+                endrecord
+            proc
+                jsonFileContent = new StringBuilder()
+                open(channel=0,i,"REPLICATOR_DATA:ReplicatorConfig.json")
 
-            while (true)
-            begin
-                reads(channel,buffer,eof)
-                if (firstBrace < 1)
+                while (true)
                 begin
-                    xcall instr(1, buffer, '{', firstBrace)
-                    if (firstBrace >= 1)
-                        buffer = buffer(firstBrace:1024-firstBrace)
+                    reads(channel,buffer,eof)
+                    if (firstBrace < 1)
+                    begin
+                        xcall instr(1, buffer, '{', firstBrace)
+                        if (firstBrace >= 1)
+                            buffer = buffer(firstBrace:1024-firstBrace)
+                    end
+                    jsonFileContent.Append(%atrim(buffer))
+                    nextloop
+                eof,
+                    jsonFileContent.Append(%atrim(buffer))
+                    exitloop
                 end
-                jsonFileContent.Append(%atrim(buffer))
-                nextloop
-            eof,
-                jsonFileContent.Append(%atrim(buffer))
-                exitloop
-            end
-            close(channel)
-            plays=jsonFileContent.ToString()
-            mreturn JsonDocument.Parse(jsonFileContent.ToString())
-        endmethod
+                close(channel)
+                plays=jsonFileContent.ToString()
+                mreturn JsonDocument.Parse(jsonFileContent.ToString())
+            endmethod
 
-        ;;; <summary>
-        ;;; Loads settings from the JSON configuration file
-        ;;; </summary>
-        ;;; <param name="errorMessage">Returned error message (if return value is false)</param>
-        ;;; <returns>Retuens true on success, or false</returns>
-        public static method Load, boolean
+            ;;; <summary>
+            ;;; Loads settings from the JSON configuration file
+            ;;; </summary>
+            ;;; <param name="errorMessage">Returned error message (if return value is false)</param>
+            ;;; <returns>Retuens true on success, or false</returns>
+            public static method Load, boolean
                 required out errorMessage, string
                 stack record
                     ok,                 boolean
@@ -524,8 +524,8 @@ namespace ReplicationLibrary
                 endrecord
                 external function
                     xsubr,  ^val
-            endexternal
-        proc
+                endexternal
+            proc
                 ok = true
                 errorMessage = ""
 
@@ -634,6 +634,8 @@ namespace ReplicationLibrary
                                     dbc.Mode = DatabaseConnectionMode.SqlConnection
                                 ("SQLCLIENT"),
                                     dbc.Mode = DatabaseConnectionMode.SqlClient
+                                ("SDMS"),
+                                    dbc.Mode = DatabaseConnectionMode.SDMS
                                 (),
                                 begin
                                     errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].Mode has an invalid value!"
@@ -644,7 +646,7 @@ namespace ReplicationLibrary
                         end
 
                         ;ConnectString
-                        if (ok)
+                        if (ok && dbc.Mode != DatabaseConnectionMode.SDMS)
                         begin
                             if (!dbConnection.TryGetProperty("ConnectString",setting)) then
                             begin
@@ -1801,14 +1803,26 @@ namespace ReplicationLibrary
                     errorMessage = "Can't use Kafka queue mode because KafkaServers has not been set!"
                     ok = false
                 end
+
+                ;Regardless of what configuration data says, there is no commit mode in SDMS mode
+                if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SDMS)
+                begin
+                    Settings.DatabaseCommitMode = DatabaseCommitMode.None
+                end
 .else
                 if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlClient)
                 begin
                     errorMessage = "SqlClient mode is only supported in .NET!"
                     ok = false
                 end
+
+                if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SDMS)
+                begin
+                    errorMessage = "SDMS mode is only supported in .NET!"
+                    ok = false
+                end
 .endc
-                if (ok && String.IsNullOrWhitespace(Settings.DatabaseConnectString))
+                if (ok && String.IsNullOrWhitespace(Settings.DatabaseConnectString) && Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS)
                 begin
                     errorMessage = "No database connection string is defined!"
                     ok = false
@@ -1820,32 +1834,33 @@ namespace ReplicationLibrary
 
 .endregion
 
-    endclass
+        endclass
 
-    structure strStructureData
-        structure_name,     a32    ;;Name of structure
-        structure_size,     i4     ;;Record length
-        structure_keynum,   i4     ;;Key number of unique key being used
-        structure_type,     a10    ;;Type (DBL ISAM, RELATIVE)
-    endstructure
+        structure strStructureData
+            structure_name,     a32     ;Name of structure
+            structure_size,     i4      ;Record length
+            structure_keynum,   i4      ;Key number of unique key being used
+            structure_type,     a10     ;Type (DBL ISAM, RELATIVE)
+        endstructure
 
-    ;; Do not change these values, they are processed via their integer value in the SqlIO routines!
-    public enum DatabaseCommitMode
-        Automatic,          1
-        Batch,              2
-        Manual,             3
-    endenum
+        ; Do not change these values, they are processed via their integer value in the SqlIO routines!
+        public enum DatabaseCommitMode
+            None,               0       ;For SDMS mode
+            Automatic,          1
+            Batch,              2
+            Manual,             3
+        endenum
 
-    ;; Do not change these values, they are processed via their integer value in the SqlIO routines!
-    public enum DatabaseDataCompression
-        None,       1
-        Row,        2
-        Page,       3
-    endenum
+        ; Do not change these values, they are processed via their integer value in the SqlIO routines!
+        public enum DatabaseDataCompression
+            None,       1
+            Row,        2
+            Page,       3
+        endenum
 
-    public enum MessageQueueType
-        IsamFile,           1
-        Kafka,              2
-    endenum
+        public enum MessageQueueType
+            IsamFile,           1
+            Kafka,              2
+        endenum
 
-endnamespace
+        endnamespace

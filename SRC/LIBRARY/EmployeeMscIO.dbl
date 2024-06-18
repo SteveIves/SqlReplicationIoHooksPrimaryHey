@@ -1535,7 +1535,7 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Load all data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table.
+;;; Load all data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table.
 ;;; </summary>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <param name="a_added">Total number of successful inserts.</param>
@@ -1763,7 +1763,7 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Bulk load data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a delimited text file.
+;;; Bulk load data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>
@@ -2253,7 +2253,7 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Bulk copy data from REPLICATOR_DATA:EMPLOYEE.ISM into the Employee table via a delimited text file.
+;;; Bulk copy data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ;;; <param name="a_records">Records loaded</param>

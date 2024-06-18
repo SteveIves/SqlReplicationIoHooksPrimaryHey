@@ -208,6 +208,7 @@ proc
     ;----------------------------------------------------------------------------------------------------------------
     (DatabaseConnectionMode.SDMS),
     begin
+        nop
         ;TODO: Maybe do some validation here, e.g. check we can open all the files that exist?
         ;Maybe not, because that'll happen anyway as each file is used.
     end

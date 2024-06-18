@@ -269,17 +269,17 @@ Key TRANSACTION_ID   ACCESS   Order ASCENDING   Dups NO   Density 100
    Description "Transaction ID (timestamp)"
    Segment FIELD   TRANSACTION_ID  SegType ALPHA  SegOrder ASCENDING
  
-File DEPARTMENT   DBL ISAM   "REPLICATOR_DATA:DEPARTMENT.ISM"
+File DEPARTMENT   DBL ISAM   "REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM"
    Description "Department master file"
    Compress
    Assign DEPARTMENT
  
-File EMPLOYEE   DBL ISAM   "REPLICATOR_DATA:EMPLOYEE.ISM"
+File EMPLOYEE   DBL ISAM   "REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM"
    Description "Employee master file"
    Compress
    Assign EMPLOYEE
  
-File RELFILE   RELATIVE   "REPLICATOR_DATA:RELFILE.DDF"
+File RELFILE   RELATIVE   "REPLICATOR_SAMPLE_DATA:RELFILE.DDF"
    Description "Relative file"
    Assign RELSTR
  

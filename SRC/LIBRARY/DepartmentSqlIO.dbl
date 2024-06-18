@@ -1412,7 +1412,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Load all data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table.
+; Load all data from REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM into the Department table.
 ; </summary>
 ; <param name="a_maxrows">Maximum number of rows to load.</param>
 ; <param name="a_added">Total number of successful inserts.</param>
@@ -1630,7 +1630,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Bulk load data from REPLICATOR_DATA:DEPARTMENT.ISM into the Department table via a CSV file.
+; Bulk load data from REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM into the Department table via a CSV file.
 ; </summary>
 ; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ; <param name="a_records">Records loaded</param>
@@ -2094,7 +2094,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Exports REPLICATOR_DATA:DEPARTMENT.ISM to a CSV file.
+; Exports REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM to a CSV file.
 ; </summary>
 ; <param name="fileSpec">File to create</param>
 ; <param name="maxRecords">Mumber of records to export.</param>
@@ -2318,7 +2318,7 @@ endsubroutine
 
 ;*****************************************************************************
 ; <summary>
-; Opens the REPLICATOR_DATA:DEPARTMENT.ISM for input.
+; Opens the REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM for input.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
@@ -2331,7 +2331,7 @@ function DepartmentOpenInput, ^val
 proc
     try
     begin
-        open(ch=0,i:i,"REPLICATOR_DATA:DEPARTMENT.ISM")
+        open(ch=0,i:i,"REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM")
         errorMessage = ""
     end
     catch (ex, @Exception)
@@ -2345,7 +2345,7 @@ endfunction
 
 ;*****************************************************************************
 ; <summary>
-; Opens the REPLICATOR_DATA:DEPARTMENT.ISM for update.
+; Opens the REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM for update.
 ; </summary>
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
@@ -2358,7 +2358,7 @@ function DepartmentOpenUpdate, ^val
 proc
     try
     begin
-        open(ch=0,u:i,"REPLICATOR_DATA:DEPARTMENT.ISM")
+        open(ch=0,u:i,"REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM")
         errorMessage = ""
     end
     catch (ex, @Exception)
@@ -2501,7 +2501,7 @@ function DepartmentRecs, ^val
 proc
     try
     begin
-        open(ch=0,i:i,"REPLICATOR_DATA:DEPARTMENT.ISM")
+        open(ch=0,i:i,"REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM")
         recordCount = %isinfo(ch,"NUMRECS")
         errorMessage = ""
         ok = true
