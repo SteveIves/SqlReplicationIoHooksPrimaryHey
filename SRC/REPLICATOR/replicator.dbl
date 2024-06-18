@@ -1484,7 +1484,7 @@ BulkLoadTable,
     end
     (DatabaseConnectionMode.SDMS),
     begin
-        functionName = %atrim(instruction.structure_name) + "$BulkLoad"
+        functionName = %atrim(instruction.structure_name) + "$Load"
     end
     endusing
 
