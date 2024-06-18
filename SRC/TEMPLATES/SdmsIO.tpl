@@ -84,7 +84,7 @@ import System.Text
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
 
-function <StructureName>Exists_, ^val
+function <StructureName>$Exists, ^val
     required out errorMessage, a
     endparams
 
@@ -170,7 +170,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Index_, ^val
+function <StructureName>$Index, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -184,7 +184,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>UnIndex_, ^val
+function <StructureName>$UnIndex, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -203,7 +203,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
-function <StructureName>Insert_, ^val
+function <StructureName>$Insert, ^val
 <IF STRUCTURE_RELATIVE>
     required in  recordNumber, n
 </IF STRUCTURE_RELATIVE>
@@ -217,11 +217,11 @@ function <StructureName>Insert_, ^val
 
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
     begin
         freturn 0
     end
@@ -263,7 +263,7 @@ endfunction
 ; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>InsertRows_, ^val
+function <StructureName>$InsertRows, ^val
     required in  recordsHandle, D_HANDLE
     required out errorMessage, a
     required out exceptionRecordsHandle, D_HANDLE
@@ -292,11 +292,11 @@ function <StructureName>InsertRows_, ^val
 
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
     begin
         freturn false
     end
@@ -380,7 +380,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Update_, ^val
+function <StructureName>$Update, ^val
 <IF STRUCTURE_RELATIVE>
     required in  recordNumber, n
 </IF>
@@ -400,16 +400,16 @@ function <StructureName>Update_, ^val
 
     external function
         <StructureName>KeyVal, ^val
-        <StructureName>KeyNum, ^value
+        <StructureName>KeyNum, ^val
     endexternal
 
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
     begin
         freturn false
     end
@@ -478,19 +478,19 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Delete_, ^val
+function <StructureName>$Delete, ^val
     required in  keyValue, a
     required out errorMessage, a
     .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>", nofields
     external function
-        <StructureName>KeyNum, ^value
+        <StructureName>KeyNum, ^val
     endexternal
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
     begin
         freturn false
     end
@@ -530,11 +530,11 @@ endfunction
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Clear_, ^val
+function <StructureName>$Clear, ^val
     required out errorMessage, a
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 proc
     errorMessage = ""
 
@@ -571,11 +571,11 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Drop_, ^val
+function <StructureName>$Drop, ^val
     required out errorMessage, a
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 proc
     errorMessage = ""
 
@@ -609,14 +609,14 @@ endfunction
 ; <param name="a_maxrows">Maximum number of rows to load.</param>
 ; <param name="a_added">Total number of successful inserts.</param>
 ; <param name="a_failed">Total number of failed inserts.</param>
-; <param name="a_errtxt">Returned error text.</param>
+; <param name="errorMessage">Returned error message (if return value is false).</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Load_, ^val
+function <StructureName>$Load, ^val
     required in  a_maxrows,       n
     required out a_added,         n
     required out a_failed,        n
-    required out a_errtxt,        a
+    required out errorMessage,    a
 
     .include "CONNECTDIR:ssql.def"
 <IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
@@ -659,7 +659,6 @@ function <StructureName>Load_, ^val
         ttl_added   ,int        ;Total rows added
         ttl_failed  ,int        ;Total failed inserts
         errnum      ,int        ;Error number
-        errtxt      ,a512       ;Error message text
         now         ,a20        ;Current date and time
         timer       ,@Timer
 <IF STRUCTURE_RELATIVE>
@@ -669,16 +668,17 @@ function <StructureName>Load_, ^val
 
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
     begin
         freturn false
     end
 
     init local_data
     ok = true
+    errorMessage = ""
 <IF STRUCTURE_RELATIVE>
     recordNumber = 0
 </IF>
@@ -694,9 +694,9 @@ proc
 
     ;Open the data file associated with the structure
 
-    if (!(filechn = %<StructureName>OpenInput(errtxt)))
+    if (!(filechn = %<StructureName>OpenInput(errorMessage)))
     begin
-        errtxt = "Failed to open data file! Error was " + errtxt
+        errorMessage = "Failed to open data file! Error was " + %atrim(errorMessage)
         ok = false
     end
 
@@ -761,7 +761,7 @@ proc
             catch (ex, @Exception)
             begin
                 ok = false
-                errtxt = "Unexpected error while reading data file: " + ex.Message
+                errorMessage = "Unexpected error while reading data file: " + ex.Message
                 exitloop
             end
             endtry
@@ -808,9 +808,6 @@ proc
     if (ex_ch && %chopen(ex_ch))
         close ex_ch
 
-    ;Return any error text
-    a_errtxt = errtxt
-
     ;Return totals
     a_added = ttl_added
     a_failed = ttl_failed
@@ -835,7 +832,7 @@ insert_data,
 
     attempted = (%mem_proc(DM_GETSIZE,mh)/^size(inpbuf))
 
-    if (%<StructureName>InsertRows(mh,errtxt,ex_mh))
+    if (%<StructureName>InsertRows(mh,errorMessage,ex_mh))
     begin
         ;Any exceptions?
         if (ex_mh) then
@@ -890,14 +887,14 @@ endfunction
 ; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ; <param name="a_records">Records loaded</param>
 ; <param name="a_exceptions">Records failes</param>
-; <param name="a_errtxt">Error message (if return value is false)</param>
+; <param name="errorMessage">Error message (if return value is false)</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>BulkLoad_, ^val
+function <StructureName>$BulkLoad, ^val
     required in recordsToLoad, n
     required out a_records,    n
     required out a_exceptions, n
-    required out a_errtxt,     a
+    required out errorMessage, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -920,7 +917,6 @@ function <StructureName>BulkLoad_, ^val
         dberror,                int
         recordCount,            int	        ;# records to load / loaded
         exceptionCount,         int
-        errtxt,                 a512        ;Error message text
         fsc,                    @FileServiceClient
         now,                    a20
         timer,                  @Timer
@@ -928,10 +924,10 @@ function <StructureName>BulkLoad_, ^val
 
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
     begin
         freturn false
     end
@@ -954,11 +950,12 @@ proc
         writelog("Verifying FileService connection")
         writett("Verifying FileService connection")
 
-        if (!fsc.Ping(errtxt))
+        if (!fsc.Ping(errorMessage))
         begin
+            errorMessage = "No response from FileService, bulk upload cancelled"
             now = %datetime
-            writelog(errtxt = "No response from FileService, bulk upload cancelled")
-            writett(errtxt = "No response from FileService, bulk upload cancelled")
+            writelog(errorMessage)
+            writett(errorMessage)
             ok = false
         end
     end
@@ -1017,7 +1014,7 @@ proc
         writelog("Exporting delimited file")
         writett("Exporting delimited file")
 
-        ok = %<StructureName>Csv(localCsvFile,recordsToLoad,recordCount,errtxt)
+        ok = %<StructureName>Csv(localCsvFile,recordsToLoad,recordCount,errorMessage)
     end
 
     if (ok)
@@ -1029,7 +1026,7 @@ proc
             now = %datetime
             writelog("Uploading delimited file to database host")
             writett("Uploading delimited file to database host")
-            ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
+            ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errorMessage)
         end
         else
         begin
@@ -1047,7 +1044,7 @@ proc
         begin
             now = %datetime
             writelog("Starting transaction")
-            ok = %StartTransactionSqlConnection(transaction,errtxt)
+            ok = %StartTransactionSqlConnection(transaction,errorMessage)
         end
 
         ;Open a cursor for the statement
@@ -1068,8 +1065,8 @@ proc
             else
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to open cursor"
+                if (%ssc_getemsg(Settings.DatabaseChannel,errorMessage,length,,dberror)==SSQL_FAILURE)
+                    errorMessage = "Failed to open cursor"
             end
         end
 
@@ -1083,8 +1080,8 @@ proc
             if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.BulkLoadTimeout))==SSQL_FAILURE)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to set database timeout"
+                if (%ssc_getemsg(Settings.DatabaseChannel,errorMessage,length,,dberror)==SSQL_FAILURE)
+                    errorMessage = "Failed to set database timeout"
             end
         end
 
@@ -1098,13 +1095,13 @@ proc
 
             if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
+                if (%ssc_getemsg(Settings.DatabaseChannel,errorMessage,length,,dberror)==SSQL_NORMAL) then
                 begin
-                    xcall ThrowOnCommunicationError(dberror,errtxt)
-
+                    xcall ThrowOnCommunicationError(dberror,errorMessage)
+                    errorMessage = "Bulk insert error: " + %atrim(errorMessage)
                     now = %datetime
-                    writelog("Bulk insert error: " + %atrim(errtxt))
-                    writett("Bulk insert error: " + %atrim(errtxt))
+                    writelog(errorMessage)
+                    writett(errorMessage)
 
                     using dberror select
                     (-4864),
@@ -1113,19 +1110,19 @@ proc
                         now = %datetime
                         writelog("Data conversion errors reported")
                         writett("Data conversion errors reported")
-                        clear dberror, errtxt
+                        clear dberror, errorMessage
                         call GetExceptionDetails
                     end
                     (),
                     begin
-                        errtxt = %string(dberror) + " " + errtxt
+                        errorMessage = %string(dberror) + " " + errorMessage
                         ok = false
                     end
                     endusing
                 end
                 else
                 begin
-                    errtxt="Failed to execute SQL statement"
+                    errorMessage = "Failed to execute SQL statement"
                     ok = false
                 end
             end
@@ -1163,14 +1160,14 @@ proc
             begin
                 writelog("COMMIT")
                 writett("COMMIT")
-                ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
+                ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errorMessage)
             end
             else
             begin
                 ;There was an error, rollback the transaction
                 writelog("ROLLBACK")
                 writett("ROLLBACK")
-                ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
+                ok = %RollbackSqlConnection(Settings.DatabaseChannel,errorMessage)
             end
         end
 
@@ -1189,8 +1186,8 @@ proc
         begin
             if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to close cursor"
+                if (%ssc_getemsg(Settings.DatabaseChannel,errorMessage,length,,dberror)==SSQL_FAILURE)
+                    errorMessage = "Failed to close cursor"
             end
         end
     end
@@ -1198,9 +1195,6 @@ proc
     ; Return the record and exception count
     a_records = recordCount
     a_exceptions = exceptionCount
-
-    ;Return any error text
-    a_errtxt = errtxt
 
     timer.Stop()
     now = %datetime
@@ -1360,10 +1354,10 @@ endfunction
 ; Close cursors associated with the <StructureName> table.
 ; </summary>
 
-subroutine <StructureName>Close_
+subroutine <StructureName>$Close
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 proc
     ;If the file is open, close it
 
@@ -1387,7 +1381,7 @@ endsubroutine
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>Csv_, boolean
+function <StructureName>$Csv, boolean
     required in  fileSpec, a
     required in  maxRecords, n
     required out recordCount, n
@@ -1427,10 +1421,10 @@ function <StructureName>Csv_, boolean
 
     external common
         ch<StructureName>, int
-    endglobal
+    endcommon
 proc
     ;Make sure the channel is open
-    if (!ch<StructureName> && !Open<StructureName>(errorMessage))
+    if (!ch<StructureName> && !Open$<StructureName>(errorMessage))
     begin
         freturn false
     end
@@ -1619,11 +1613,11 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
-function Open<StructureName>_, ^val
+function Open$<StructureName>, ^val
     required out errorMessage, a  ;Returned error text
     global common
         ch<StructureName>, int
-    endglobal
+    endcommon
 proc
     errorMessage = ""
 
@@ -1654,7 +1648,7 @@ endfunction
 ; <param name="aKeyValue">Unique key value.</param>
 ; <returns>Returns a record containig only the unique key segment data.</returns>
 
-function <StructureName>KeyToRecord_, a
+function <StructureName>$KeyToRecord, a
     required in aKeyValue, a
 
     .include "<STRUCTURE_NOALIAS>" repository, stack record="<structureName>", end

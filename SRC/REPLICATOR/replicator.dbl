@@ -782,7 +782,7 @@ proc
                         transformSuccess = %DatabaseTransformSqlClient(transformType,tableName,columnName,transformData,errorMessage)
                     end
 .endc
-                    (DatabaseConnectionMode.SDMS)
+                    (DatabaseConnectionMode.SDMS),
                     begin
                         ;TODO: Transform column for SDMS?
                         throw new ApplicationException("Column transformation not implemented for replication to SDMS files")
@@ -1205,7 +1205,7 @@ CheckTable,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Exists"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Exists_"
+        functionName = %atrim(instruction.structure_name) + "$Exists"
     endusing
 
     repeat
@@ -1274,7 +1274,7 @@ CreateTable,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Create"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Create_"
+        functionName = %atrim(instruction.structure_name) + "$Create"
     endusing
 
     repeat
@@ -1365,7 +1365,7 @@ LoadTable,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Load"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Load_"
+        functionName = %atrim(instruction.structure_name) + "$Load"
     endusing
 
     if (EmailSettings.CanSendEmail())
@@ -1484,7 +1484,7 @@ BulkLoadTable,
     end
     (DatabaseConnectionMode.SDMS),
     begin
-        functionName = %atrim(instruction.structure_name) + "BulkLoad_"
+        functionName = %atrim(instruction.structure_name) + "$BulkLoad"
     end
     endusing
 
@@ -1590,7 +1590,7 @@ DoInsert,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Insert"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Insert_"
+        functionName = %atrim(instruction.structure_name) + "$Insert"
     endusing
 
     repeat
@@ -1680,7 +1680,7 @@ DoInsertRelative,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Insert"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Insert_"
+        functionName = %atrim(instruction.structure_name) + "$Insert"
     endusing
 
     repeat
@@ -1769,7 +1769,7 @@ DoUpdate,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Update"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Update_"
+        functionName = %atrim(instruction.structure_name) + "$Update"
     endusing
 
     repeat
@@ -1860,7 +1860,7 @@ DoUpdateRelative,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Update"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Update_"
+        functionName = %atrim(instruction.structure_name) + "$Update"
     endusing
 
     repeat
@@ -1943,7 +1943,7 @@ DoDelete,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Delete"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Delete_"
+        functionName = %atrim(instruction.structure_name) + "$Delete"
     endusing
 
     repeat
@@ -2005,7 +2005,7 @@ DoCreateTable,
         (DatabaseConnectionMode.SqlClient),
             functionName = %atrim(instruction.structure_name) + "_Exists"
         (DatabaseConnectionMode.SDMS),
-            functionName = %atrim(instruction.structure_name) + "Exists_"
+            functionName = %atrim(instruction.structure_name) + "$Exists"
         endusing
 
         try
@@ -2030,7 +2030,7 @@ DoCreateTable,
                     (DatabaseConnectionMode.SqlClient),
                         functionName = %atrim(instruction.structure_name) + "_Create"
                     (DatabaseConnectionMode.SDMS),
-                        functionName = %atrim(instruction.structure_name) + "Create_"
+                        functionName = %atrim(instruction.structure_name) + "$Create"
                     endusing
 
                     try
@@ -2117,7 +2117,7 @@ DoLoadTable,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Exists"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Exists_"
+        functionName = %atrim(instruction.structure_name) + "$Exists"
     endusing
 
     repeat
@@ -2205,7 +2205,7 @@ DoCreateCsv,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Csv"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Csv_"
+        functionName = %atrim(instruction.structure_name) + "$Csv"
     endusing
 
     try
@@ -2242,7 +2242,7 @@ DoDeleteAllRows,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Clear"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Clear_"
+        functionName = %atrim(instruction.structure_name) + "$Clear"
     endusing
 
     repeat
@@ -2312,7 +2312,7 @@ DoDeleteTable,
         (DatabaseConnectionMode.SqlClient),
             functionName = %atrim(instruction.structure_name) + "_Exists"
         (DatabaseConnectionMode.SDMS),
-            functionName = %atrim(instruction.structure_name) + "Exists_"
+            functionName = %atrim(instruction.structure_name) + "$Exists"
         endusing
 
         try
@@ -2337,7 +2337,7 @@ DoDeleteTable,
                     (DatabaseConnectionMode.SqlClient),
                         functionName = %atrim(instruction.structure_name) + "_Drop"
                     (DatabaseConnectionMode.SDMS),
-                        functionName = %atrim(instruction.structure_name) + "Drop_"
+                        functionName = %atrim(instruction.structure_name) + "$Drop"
                     endusing
 
                     try
@@ -2422,7 +2422,7 @@ DoAddIndexes,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Index"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Index_"
+        functionName = %atrim(instruction.structure_name) + "$Index"
     endusing
 
     repeat
@@ -2486,7 +2486,7 @@ DoDeleteIndexes,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_UnIndex"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "Unindex_"
+        functionName = %atrim(instruction.structure_name) + "$Unindex"
     endusing
 
     repeat

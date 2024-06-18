@@ -30,7 +30,7 @@ import System.Text
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
 
-function EmployeeExists_, ^val
+function Employee$Exists, ^val
     required out errorMessage, a
     endparams
 
@@ -103,7 +103,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeIndex_, ^val
+function Employee$Index, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -117,7 +117,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeUnIndex_, ^val
+function Employee$UnIndex, ^val
     required out errorMessage, a
 proc
     errorMessage = ""
@@ -132,7 +132,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
-function EmployeeInsert_, ^val
+function Employee$Insert, ^val
     required in  recordData,   a
     required out errorMessage, a
 
@@ -143,11 +143,11 @@ function EmployeeInsert_, ^val
 
     external common
         chEmployee, int
-    endglobal
+    endcommon
 
 proc
     ;Make sure the channel is open
-    if (!chEmployee && !OpenEmployee(errorMessage))
+    if (!chEmployee && !Open$Employee(errorMessage))
     begin
         freturn 0
     end
@@ -185,7 +185,7 @@ endfunction
 ; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeInsertRows_, ^val
+function Employee$InsertRows, ^val
     required in  recordsHandle, D_HANDLE
     required out errorMessage, a
     required out exceptionRecordsHandle, D_HANDLE
@@ -204,11 +204,11 @@ function EmployeeInsertRows_, ^val
 
     external common
         chEmployee, int
-    endglobal
+    endcommon
 
 proc
     ;Make sure the channel is open
-    if (!chEmployee && !OpenEmployee(errorMessage))
+    if (!chEmployee && !Open$Employee(errorMessage))
     begin
         freturn false
     end
@@ -275,7 +275,7 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeUpdate_, ^val
+function Employee$Update, ^val
     required in  dataRecord, a
     required out recordsUpdated, i
     required out errorMessage, a
@@ -292,16 +292,16 @@ function EmployeeUpdate_, ^val
 
     external function
         EmployeeKeyVal, ^val
-        EmployeeKeyNum, ^value
+        EmployeeKeyNum, ^val
     endexternal
 
     external common
         chEmployee, int
-    endglobal
+    endcommon
 
 proc
     ;Make sure the channel is open
-    if (!chEmployee && !OpenEmployee(errorMessage))
+    if (!chEmployee && !Open$Employee(errorMessage))
     begin
         freturn false
     end
@@ -357,19 +357,19 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeDelete_, ^val
+function Employee$Delete, ^val
     required in  keyValue, a
     required out errorMessage, a
     .include "EMPLOYEE" repository, stack record="employee", nofields
     external function
-        EmployeeKeyNum, ^value
+        EmployeeKeyNum, ^val
     endexternal
     external common
         chEmployee, int
-    endglobal
+    endcommon
 proc
     ;Make sure the channel is open
-    if (!chEmployee && !OpenEmployee(errorMessage))
+    if (!chEmployee && !Open$Employee(errorMessage))
     begin
         freturn false
     end
@@ -408,11 +408,11 @@ endfunction
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeClear_, ^val
+function Employee$Clear, ^val
     required out errorMessage, a
     external common
         chEmployee, int
-    endglobal
+    endcommon
 proc
     errorMessage = ""
 
@@ -449,11 +449,11 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeDrop_, ^val
+function Employee$Drop, ^val
     required out errorMessage, a
     external common
         chEmployee, int
-    endglobal
+    endcommon
 proc
     errorMessage = ""
 
@@ -487,14 +487,14 @@ endfunction
 ; <param name="a_maxrows">Maximum number of rows to load.</param>
 ; <param name="a_added">Total number of successful inserts.</param>
 ; <param name="a_failed">Total number of failed inserts.</param>
-; <param name="a_errtxt">Returned error text.</param>
+; <param name="errorMessage">Returned error message (if return value is false).</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeLoad_, ^val
+function Employee$Load, ^val
     required in  a_maxrows,       n
     required out a_added,         n
     required out a_failed,        n
-    required out a_errtxt,        a
+    required out errorMessage,    a
 
     .include "CONNECTDIR:ssql.def"
     .include "EMPLOYEE" repository, structure="inpbuf", end
@@ -519,23 +519,23 @@ function EmployeeLoad_, ^val
         ttl_added   ,int        ;Total rows added
         ttl_failed  ,int        ;Total failed inserts
         errnum      ,int        ;Error number
-        errtxt      ,a512       ;Error message text
         now         ,a20        ;Current date and time
         timer       ,@Timer
     endrecord
 
     external common
         chEmployee, int
-    endglobal
+    endcommon
 proc
     ;Make sure the channel is open
-    if (!chEmployee && !OpenEmployee(errorMessage))
+    if (!chEmployee && !Open$Employee(errorMessage))
     begin
         freturn false
     end
 
     init local_data
     ok = true
+    errorMessage = ""
 
     timer = new Timer()
     timer.Start()
@@ -548,9 +548,9 @@ proc
 
     ;Open the data file associated with the structure
 
-    if (!(filechn = %EmployeeOpenInput(errtxt)))
+    if (!(filechn = %EmployeeOpenInput(errorMessage)))
     begin
-        errtxt = "Failed to open data file! Error was " + errtxt
+        errorMessage = "Failed to open data file! Error was " + %atrim(errorMessage)
         ok = false
     end
 
@@ -590,7 +590,7 @@ proc
             catch (ex, @Exception)
             begin
                 ok = false
-                errtxt = "Unexpected error while reading data file: " + ex.Message
+                errorMessage = "Unexpected error while reading data file: " + ex.Message
                 exitloop
             end
             endtry
@@ -632,9 +632,6 @@ proc
     if (ex_ch && %chopen(ex_ch))
         close ex_ch
 
-    ;Return any error text
-    a_errtxt = errtxt
-
     ;Return totals
     a_added = ttl_added
     a_failed = ttl_failed
@@ -659,7 +656,7 @@ insert_data,
 
     attempted = (%mem_proc(DM_GETSIZE,mh)/^size(inpbuf))
 
-    if (%EmployeeInsertRows(mh,errtxt,ex_mh))
+    if (%EmployeeInsertRows(mh,errorMessage,ex_mh))
     begin
         ;Any exceptions?
         if (ex_mh) then
@@ -714,14 +711,14 @@ endfunction
 ; <param name="recordsToLoad">Number of records to load (0=all)</param>
 ; <param name="a_records">Records loaded</param>
 ; <param name="a_exceptions">Records failes</param>
-; <param name="a_errtxt">Error message (if return value is false)</param>
+; <param name="errorMessage">Error message (if return value is false)</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeBulkLoad_, ^val
+function Employee$BulkLoad, ^val
     required in recordsToLoad, n
     required out a_records,    n
     required out a_exceptions, n
-    required out a_errtxt,     a
+    required out errorMessage, a
 
     .include "CONNECTDIR:ssql.def"
 
@@ -744,7 +741,6 @@ function EmployeeBulkLoad_, ^val
         dberror,                int
         recordCount,            int	        ;# records to load / loaded
         exceptionCount,         int
-        errtxt,                 a512        ;Error message text
         fsc,                    @FileServiceClient
         now,                    a20
         timer,                  @Timer
@@ -752,10 +748,10 @@ function EmployeeBulkLoad_, ^val
 
     external common
         chEmployee, int
-    endglobal
+    endcommon
 proc
     ;Make sure the channel is open
-    if (!chEmployee && !OpenEmployee(errorMessage))
+    if (!chEmployee && !Open$Employee(errorMessage))
     begin
         freturn false
     end
@@ -778,11 +774,12 @@ proc
         writelog("Verifying FileService connection")
         writett("Verifying FileService connection")
 
-        if (!fsc.Ping(errtxt))
+        if (!fsc.Ping(errorMessage))
         begin
+            errorMessage = "No response from FileService, bulk upload cancelled"
             now = %datetime
-            writelog(errtxt = "No response from FileService, bulk upload cancelled")
-            writett(errtxt = "No response from FileService, bulk upload cancelled")
+            writelog(errorMessage)
+            writett(errorMessage)
             ok = false
         end
     end
@@ -841,7 +838,7 @@ proc
         writelog("Exporting delimited file")
         writett("Exporting delimited file")
 
-        ok = %EmployeeCsv(localCsvFile,recordsToLoad,recordCount,errtxt)
+        ok = %EmployeeCsv(localCsvFile,recordsToLoad,recordCount,errorMessage)
     end
 
     if (ok)
@@ -853,7 +850,7 @@ proc
             now = %datetime
             writelog("Uploading delimited file to database host")
             writett("Uploading delimited file to database host")
-            ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errtxt)
+            ok = fsc.UploadChunked(localCsvFile,remoteCsvFile,320,fileToLoad,errorMessage)
         end
         else
         begin
@@ -871,7 +868,7 @@ proc
         begin
             now = %datetime
             writelog("Starting transaction")
-            ok = %StartTransactionSqlConnection(transaction,errtxt)
+            ok = %StartTransactionSqlConnection(transaction,errorMessage)
         end
 
         ;Open a cursor for the statement
@@ -892,8 +889,8 @@ proc
             else
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to open cursor"
+                if (%ssc_getemsg(Settings.DatabaseChannel,errorMessage,length,,dberror)==SSQL_FAILURE)
+                    errorMessage = "Failed to open cursor"
             end
         end
 
@@ -907,8 +904,8 @@ proc
             if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.BulkLoadTimeout))==SSQL_FAILURE)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to set database timeout"
+                if (%ssc_getemsg(Settings.DatabaseChannel,errorMessage,length,,dberror)==SSQL_FAILURE)
+                    errorMessage = "Failed to set database timeout"
             end
         end
 
@@ -922,13 +919,13 @@ proc
 
             if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
+                if (%ssc_getemsg(Settings.DatabaseChannel,errorMessage,length,,dberror)==SSQL_NORMAL) then
                 begin
-                    xcall ThrowOnCommunicationError(dberror,errtxt)
-
+                    xcall ThrowOnCommunicationError(dberror,errorMessage)
+                    errorMessage = "Bulk insert error: " + %atrim(errorMessage)
                     now = %datetime
-                    writelog("Bulk insert error: " + %atrim(errtxt))
-                    writett("Bulk insert error: " + %atrim(errtxt))
+                    writelog(errorMessage)
+                    writett(errorMessage)
 
                     using dberror select
                     (-4864),
@@ -937,19 +934,19 @@ proc
                         now = %datetime
                         writelog("Data conversion errors reported")
                         writett("Data conversion errors reported")
-                        clear dberror, errtxt
+                        clear dberror, errorMessage
                         call GetExceptionDetails
                     end
                     (),
                     begin
-                        errtxt = %string(dberror) + " " + errtxt
+                        errorMessage = %string(dberror) + " " + errorMessage
                         ok = false
                     end
                     endusing
                 end
                 else
                 begin
-                    errtxt="Failed to execute SQL statement"
+                    errorMessage = "Failed to execute SQL statement"
                     ok = false
                 end
             end
@@ -987,14 +984,14 @@ proc
             begin
                 writelog("COMMIT")
                 writett("COMMIT")
-                ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errtxt)
+                ok = %CommitTransactionSqlConnection(Settings.DatabaseChannel,errorMessage)
             end
             else
             begin
                 ;There was an error, rollback the transaction
                 writelog("ROLLBACK")
                 writett("ROLLBACK")
-                ok = %RollbackSqlConnection(Settings.DatabaseChannel,errtxt)
+                ok = %RollbackSqlConnection(Settings.DatabaseChannel,errorMessage)
             end
         end
 
@@ -1013,8 +1010,8 @@ proc
         begin
             if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
-                    errtxt="Failed to close cursor"
+                if (%ssc_getemsg(Settings.DatabaseChannel,errorMessage,length,,dberror)==SSQL_FAILURE)
+                    errorMessage = "Failed to close cursor"
             end
         end
     end
@@ -1022,9 +1019,6 @@ proc
     ; Return the record and exception count
     a_records = recordCount
     a_exceptions = exceptionCount
-
-    ;Return any error text
-    a_errtxt = errtxt
 
     timer.Stop()
     now = %datetime
@@ -1184,10 +1178,10 @@ endfunction
 ; Close cursors associated with the Employee table.
 ; </summary>
 
-subroutine EmployeeClose_
+subroutine Employee$Close
     external common
         chEmployee, int
-    endglobal
+    endcommon
 proc
     ;If the file is open, close it
 
@@ -1211,7 +1205,7 @@ endsubroutine
 ; <param name="errorMessage">Returned error text.</param>
 ; <returns>Returns true on success, otherwise false.</returns>
 
-function EmployeeCsv_, boolean
+function Employee$Csv, boolean
     required in  fileSpec, a
     required in  maxRecords, n
     required out recordCount, n
@@ -1244,10 +1238,10 @@ function EmployeeCsv_, boolean
 
     external common
         chEmployee, int
-    endglobal
+    endcommon
 proc
     ;Make sure the channel is open
-    if (!chEmployee && !OpenEmployee(errorMessage))
+    if (!chEmployee && !Open$Employee(errorMessage))
     begin
         freturn false
     end
@@ -1374,11 +1368,11 @@ endfunction
 ; <param name="errorMessage">Returned error message.</param>
 ; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
-function OpenEmployee_, ^val
+function Open$Employee, ^val
     required out errorMessage, a  ;Returned error text
     global common
         chEmployee, int
-    endglobal
+    endcommon
 proc
     errorMessage = ""
 
@@ -1408,7 +1402,7 @@ endfunction
 ; <param name="aKeyValue">Unique key value.</param>
 ; <returns>Returns a record containig only the unique key segment data.</returns>
 
-function EmployeeKeyToRecord_, a
+function Employee$KeyToRecord, a
     required in aKeyValue, a
 
     .include "EMPLOYEE" repository, stack record="employee", end
