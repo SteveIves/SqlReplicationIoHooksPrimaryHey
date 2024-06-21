@@ -2043,6 +2043,8 @@ DoCreateTable,
 
                         if (status) then
                         begin
+                            Logger.VerboseLog(" - Table created")
+
                             if (EmailSettings.CanSendEmail())
                             begin
                                 data subject, string, "SQL replicator " + Settings.InstanceName + " created table " + %atrimtostring(instruction.structure_name)

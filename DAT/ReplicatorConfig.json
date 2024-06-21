@@ -7,7 +7,7 @@
     }
   ],
   "InstanceDefaults": {
-    "QueueType": "Kafka",
+    "QueueType": "IsamFile",
     "DatabaseConnectionName": "SDMS_LOCAL",
     "DatabaseServer": "localhost",
     "DatabaseName": "SqlReplication",
@@ -41,7 +41,7 @@
     "SqlCommandReuse": false,
     "StopOnError": false,
     "SystemLogging": false,
-    "VerboseLogging": false
+    "VerboseLogging": true
   },
   "DatabaseConnections": [
     {

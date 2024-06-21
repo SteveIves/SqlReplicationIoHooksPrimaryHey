@@ -508,12 +508,12 @@ proc
 
     ;If the file is open, close it
 
-    if (!chEmployee)
+    if (chEmployee)
     begin
-        chEmployee = EmployeeOpenUpdate(errorMessage)
-        if (!chEmployee)
+        xcall Employee$Close
+        if (chEmployee)
         begin
-            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to close REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM prior to delete!"
             freturn 0
         end
     end

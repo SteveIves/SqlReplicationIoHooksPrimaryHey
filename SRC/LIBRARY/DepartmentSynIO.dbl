@@ -505,12 +505,12 @@ proc
 
     ;If the file is open, close it
 
-    if (!chDepartment)
+    if (chDepartment)
     begin
-        chDepartment = DepartmentOpenUpdate(errorMessage)
-        if (!chDepartment)
+        xcall Department$Close
+        if (chDepartment)
         begin
-            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to close REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM prior to delete!"
             freturn 0
         end
     end

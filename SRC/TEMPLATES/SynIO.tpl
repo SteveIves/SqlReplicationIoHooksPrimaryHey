@@ -636,12 +636,12 @@ proc
 
     ;If the file is open, close it
 
-    if (!ch<StructureName>)
+    if (ch<StructureName>)
     begin
-        ch<StructureName> = <StructureName>OpenUpdate(errorMessage)
-        if (!ch<StructureName>)
+        xcall <StructureName>$Close
+        if (ch<StructureName>)
         begin
-            errorMessage = "Failed to open <FILE_NAME>. Error was: " + %atrim(errorMessage)
+            errorMessage = "Failed to close <FILE_NAME> prior to delete!"
             freturn 0
         end
     end
