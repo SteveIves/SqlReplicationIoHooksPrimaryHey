@@ -62,7 +62,6 @@ namespace ReplicationLibrary
             endparams
 
 .define MAXARGS 256
-
             stack record localData
                 fstatus         ,boolean                ;;Function return status
                 command         ,a8192                  ;;Whole command line
@@ -70,8 +69,9 @@ namespace ReplicationLibrary
                 arg_pos         ,[MAXARGS] i4           ;;Positions of arguments in whole command line
                 arg_len         ,[MAXARGS] i4           ;;Lengths of arguments in whole command line
                 current_arg     ,i4                     ;;Index of current argument being processed
-                opt_char        ,a1                     ;;Character that precedes options (- or /)
+.align
                 option_value    ,String
+                opt_char        ,a1                     ;;Character that precedes options (- or /)
             endrecord
 
 .undefine MAXARGS

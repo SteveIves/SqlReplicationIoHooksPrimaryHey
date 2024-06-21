@@ -187,13 +187,13 @@ function <StructureName>Create, ^val
 
     .align
     stack record local_data
+        sql         ,string     ;SQL statement
         ok          ,boolean    ;Return status
         dberror     ,int        ;Database error number
         cursor      ,int        ;Database cursor
         length      ,int        ;Length of a string
         transaction ,boolean    ;Transaction in process
         errtxt      ,a512       ;Returned error message text
-        sql         ,string     ;SQL statement
     endrecord
 
 proc
@@ -364,6 +364,7 @@ function <StructureName>Index, ^val
 
     .align
     stack record local_data
+        sql,            string     ;SQL statement
         ok,             boolean    ;Return status
         dberror,        int        ;Database error number
         cursor,         int        ;Database cursor
@@ -372,7 +373,6 @@ function <StructureName>Index, ^val
         keycount,       int        ;Total number of keys
         errtxt,         a512       ;Returned error message text
         now,            a20        ;Current date and time
-        sql,            string     ;SQL statement
     endrecord
 
 proc
@@ -1707,14 +1707,15 @@ function <StructureName>Delete, ^val
 </IF DEFINED_ASA_TIREMAX>
     endexternal
 
+.align
     stack record local_data
+        sql         ,string     ;SQL statement
         ok          ,boolean    ;Return status
         dberror     ,int        ;Database error number
         cursor      ,int        ;Database cursor
         length      ,int        ;Length of a string
         transaction ,boolean    ;Transaction in progress
         errtxt      ,a512       ;Error message text
-        sql         ,string     ;SQL statement
     endrecord
 
 proc
@@ -1827,14 +1828,15 @@ function <StructureName>Clear, ^val
 
     .include "CONNECTDIR:ssql.def"
 
+    .align
     stack record local_data
+        sql         ,string     ;SQL statement
         ok          ,boolean    ;Return status
         dberror     ,int        ;Database error number
         cursor      ,int        ;Database cursor
         length      ,int        ;Length of a string
         transaction ,boolean    ;Transaction in process
         errtxt      ,a512       ;Returned error message text
-        sql         ,string     ;SQL statement
     endrecord
 
 proc
@@ -2321,11 +2323,8 @@ function <StructureName>BulkLoad, ^val
 
     .include "CONNECTDIR:ssql.def"
 
+.align
      stack record local_data
-        ok,                     boolean    ;Return status
-        transaction,            boolean
-        cursorOpen,             boolean
-        remoteBulkLoad,         boolean
         sql,                    string
         localCsvFile,           string
         localExceptionsFile,    string
@@ -2335,15 +2334,23 @@ function <StructureName>BulkLoad, ^val
         remoteExceptionsLog,    string
         copyTarget,             string
         fileToLoad,             string
+
+        fsc,                    @FileServiceClient
+        timer,                  @Timer
+
+        ok,                     boolean    ;Return status
+        transaction,            boolean
+        cursorOpen,             boolean
+        remoteBulkLoad,         boolean
+
         cursor,                 int
         length,                 int
         dberror,                int
         recordCount,            int	        ;# records to load / loaded
         exceptionCount,         int
+
         errtxt,                 a512        ;Error message text
-        fsc,                    @FileServiceClient
         now,                    a20
-        timer,                  @Timer
     endrecord
 
 proc
@@ -2803,16 +2810,19 @@ function <StructureName>Csv, boolean
 
     .align
     stack record local_data
+        outrec,     @StringBuilder  ;A CSV file record
+        timer,      @Timer  ;A timer
+
         ok,         boolean ;Return status
+
         filechn,    int     ;Data file channel
         outchn,     int     ;CSV file channel
-        outrec,     @StringBuilder  ;A CSV file record
         records,    int     ;Number of records exported
         pos,        int     ;Position in a string
         recordsMax, int     ;Max # or records to export
+
         errtxt,     a512    ;Error message text
         now,        a20     ;The time now
-        timer,      @Timer  ;A timer
     endrecord
 
 proc

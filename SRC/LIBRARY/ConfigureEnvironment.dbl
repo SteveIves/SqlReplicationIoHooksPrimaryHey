@@ -160,6 +160,37 @@ proc
         end
     end
 
+.ifdef DBLNET
+    ;For SDMS mode, Settings.DatabaseConnectString can be used to provide environment variables
+    if (Settings.DatabaseConnectMode == DatabaseConnectionMode.SDMS)
+    begin
+        if (!String.IsNullOrWhitespace(Settings.DatabaseConnectString))
+        begin
+            data envvars = Settings.DatabaseConnectString.Split(";")
+            if (envvars.Length > 0)
+            begin
+                data item, string
+                data sts, int
+                foreach item in envvars
+                begin
+                    ; If the original string had a trailing ; that will reslt in a blank item at the end of the array
+                    if String.IsNullOrWhiteSpace(item)
+                        nextloop
+
+                    ;Check there is an = and not in the first or last position
+                    data indexOfEqual = item.IndexOf('=')
+                    if (indexOfEqual < 1 || indexOfEqual == item.Length - 1)
+                        nextloop
+
+                    ;We have a winner!
+                    data namevalue = item.Split("=")
+                    xcall setlog(namevalue[1],namevalue[2],sts)
+                end
+            end
+        end
+    end
+.endc
+
     ;Report the logging level
 
     if (ok)

@@ -92,6 +92,8 @@ namespace ReplicationLibrary
 
         public method DoWork, void
         proc
+            data rec, strEmployee
+
             ;Open the employee file
             open(mChn=0,U:I,"REPLICATOR_DATA:EMPLOYEE.ISM")
 
@@ -101,7 +103,6 @@ namespace ReplicationLibrary
             begin
                 mRecordCount = %isinfo(mChn,"NUMRECS")
 
-                data rec, strEmployee
                 try
                 begin
                     read(mChn,rec,^LAST,LOCK:Q_NO_LOCK)
@@ -134,7 +135,6 @@ namespace ReplicationLibrary
             deleteErrors = 0
 
             data operation = 0
-            data rec, strEmployee
             data now, a20, %datetime
 
             while (!mCancelToken.IsCancellationRequested)

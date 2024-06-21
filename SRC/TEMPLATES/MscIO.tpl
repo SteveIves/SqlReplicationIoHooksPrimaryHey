@@ -1253,11 +1253,12 @@ function <StructureName>_Update, ^val
     endexternal
 
 </IF DEFINED_ASA_TIREMAX>
+.align
     stack record local_data
+        errorMessage,   string      ;Error message text
         ok,             boolean     ;OK to continue
         length,         int         ;Length of a string
         rows,           int         ;Number of rows updated
-        errorMessage,   string      ;Error message text
     endrecord
 
     literal
@@ -1479,9 +1480,9 @@ function <StructureName>_Delete, ^val
 
     .align
     stack record local_data
-        ok,             boolean     ;Return status
         errorMessage,   string      ;Error message
         sql,            string      ;SQL statement
+        ok,             boolean     ;Return status
     endrecord
 
 proc
@@ -1572,8 +1573,8 @@ function <StructureName>_Clear, ^val
 
     .align
     stack record local_data
-        ok,             boolean ;Return status
         errorMessage,   string  ;Returned error message text
+        ok,             boolean ;Return status
     endrecord
 
     literal
@@ -1754,14 +1755,18 @@ function <StructureName>_Load, ^val
     .define BUFFER_ROWS     1000
     .define EXCEPTION_BUFSZ 100
 
+.align
     stack record local_data
+        errorMessage,   string      ;Error message text
         ok,             boolean     ;Return status
         firstRecord,    boolean     ;Is this the first record?
-        filechn,        int         ;Data file channel
+
         mh,             D_HANDLE    ;Memory handle containing data to insert
+        ex_mh,          D_HANDLE    ;Memory buffer for exception records
+
+        filechn,        int         ;Data file channel
         ms,             int         ;Size of memory buffer in rows
         mc,             int         ;Memory buffer rows currently used
-        ex_mh,          D_HANDLE    ;Memory buffer for exception records
         ex_mc,          int         ;Number of records in returned exception array
         ex_ch,          int         ;Exception log file channel
         attempted,      int         ;Rows being attempted
@@ -1770,10 +1775,11 @@ function <StructureName>_Load, ^val
         ttl_added,      int         ;Total rows added
         ttl_failed,     int         ;Total failed inserts
         errnum,         int         ;Error number
+
         tmperrmsg,      a512        ;Temporary error message
-        errorMessage,   string      ;Error message text
         now,            a20        ;;Current date and time
 <IF STRUCTURE_RELATIVE>
+
         recordNumber,   d28
 </IF STRUCTURE_RELATIVE>
     endrecord
@@ -2261,13 +2267,13 @@ proc
                         begin
                             ;Download the error file
                             data exceptionRecords, [#]string
-                            data errorMessage, string
+                            data errorMessage1, string
 
                             now = %datetime
                             writelog("Downloading remote exceptions data file")
                             writett("Downloading remote exceptions data file")
 
-                            if (fsc.DownloadText(remoteExceptionsFile,exceptionRecords,errorMessage))
+                            if (fsc.DownloadText(remoteExceptionsFile,exceptionRecords,errorMessage1))
                             begin
                                 data ex_ch, int
                                 data exceptionRecord, string
@@ -2310,13 +2316,13 @@ proc
                         begin
                             ;Download the error file
                             data exceptionRecords, [#]string
-                            data errorMessage, string
+                            data errorMessage1, string
 
                             now = %datetime
                             writelog("Downloading remote exceptions log file")
                             writett("Downloading remote exceptions log file")
 
-                            if (fsc.DownloadText(remoteExceptionsLog,exceptionRecords,errorMessage))
+                            if (fsc.DownloadText(remoteExceptionsLog,exceptionRecords,errorMessage1))
                             begin
                                 data ex_ch, int
                                 data exceptionRecord, string
@@ -2708,3 +2714,5 @@ proc
     freturn ok
 
 endfunction
+
+.endc

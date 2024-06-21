@@ -289,14 +289,14 @@ proc
                                 begin
                                     Settings.KafkaConsumer.Commit(msg)
                                 end
-                                catch (ex, @KafkaException)
+                                catch (ex1, @KafkaException)
                                 begin
-                                    Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                    Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex1.Message)
                                     ;TODO: Thrown if the request failed. Now what?
                                 end
-                                catch (ex, @TopicPartitionOffsetException)
+                                catch (ex1, @TopicPartitionOffsetException)
                                 begin
-                                    Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex.Message)
+                                    Logger.ErrorLog("Failed to suppress/commit unsupported message. Error was: " + ex1.Message)
                                     ;TODO: Thrown if the result is in error. Now what?
                                 end
                                 endtry

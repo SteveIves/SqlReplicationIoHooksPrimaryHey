@@ -645,28 +645,25 @@ namespace ReplicationLibrary
                             end
                         end
 
-                        ;ConnectString
-                        if (ok && dbc.Mode != DatabaseConnectionMode.SDMS)
+                        ;ConnectString (Used for environment variables in SDMS mode)
+                        if (!dbConnection.TryGetProperty("ConnectString",setting)) then
                         begin
-                            if (!dbConnection.TryGetProperty("ConnectString",setting)) then
-                            begin
-                                errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no ConnectString!"
-                                ok = false
-                            end
-                            else if (setting.ValueKind != JsonValueKind.String) then
-                            begin
-                                errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectString is not a string!"
-                                ok = false
-                            end
-                            else if (String.IsNullOrWhitespace(setting.GetString())) then
-                            begin
-                                errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectString has no value!"
-                                ok = false
-                            end
-                            else
-                            begin
-                                dbc.ConnectString = setting.GetString()
-                            end
+                            errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "] has no ConnectString!"
+                            ok = false
+                        end
+                        else if (setting.ValueKind != JsonValueKind.String) then
+                        begin
+                            errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectString is not a string!"
+                            ok = false
+                        end
+                        else if (String.IsNullOrWhitespace(setting.GetString())) then
+                        begin
+                            errorMessage = "DatabaseConnections[" + %string(connectionNumber+1) + "].ConnectString has no value!"
+                            ok = false
+                        end
+                        else
+                        begin
+                            dbc.ConnectString = setting.GetString()
                         end
 
                         if (!ok)
@@ -1623,7 +1620,7 @@ namespace ReplicationLibrary
                         for addressNumber from 0 thru addressCount - 1
                         begin
                             emailAddress = setting[addressNumber]
-                
+
                             if (emailAddress.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(emailAddress.GetString())) then
                             begin
                                 ok = false

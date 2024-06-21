@@ -8,7 +8,7 @@
   ],
   "InstanceDefaults": {
     "QueueType": "Kafka",
-    "DatabaseConnectionName": "SqlConnection_LOCAL",
+    "DatabaseConnectionName": "SDMS_LOCAL",
     "DatabaseServer": "localhost",
     "DatabaseName": "SqlReplication",
     "DatabaseSchema": "dbo",
@@ -72,7 +72,7 @@
     {
       "Name": "SDMS_LOCAL",
       "Mode": "SDMS",
-      "ConnectString": ""
+      "ConnectString": "REPLICATOR_SAMPLE_DATA=C:\\TEMP\\ReplicationData;"
     }
   ],
   "EmailSettings": {
