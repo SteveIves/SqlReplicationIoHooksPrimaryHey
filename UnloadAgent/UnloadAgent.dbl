@@ -1,0 +1,315 @@
+
+import Amazon
+import Confluent.Kafka
+import System
+import System.Diagnostics
+import System.IO
+import System.IO.Compression
+import UnloadAgent
+
+;;; <summary>
+;;; 
+;;; </summary>
+main UnloadAgent
+
+    record
+        s3c, @S3Client
+        msg, @ConsumeResult<string,string>
+    endrecord
+
+    ;TODO: Data that needs to come from configuration
+    record
+        exportDirectory, string, "C:\\TEMP"
+        zipFileDirectory, string, "C:\\TEMP"
+        s3UploadBucket, string, "UploadFiles"
+        kafkaServers, string, ""
+        kafkaInboundTopic, string, "UnloadRequest"
+        kafkaOutboundTopic, string, "UnloadResponse"
+        kafkaConsumerClientId, string, ""
+        kafkaConsumerGroupId, string, ""
+        consumerSleepSeconds, int, 2
+    endrecord
+
+proc
+    ;---------------------------------------------------------------------------
+    ;Become a consumer of the Kafka topic used for inbound messages
+
+    data cconfig = new ConsumerConfig()
+    cconfig.ClientId = kafkaConsumerClientId
+    cconfig.GroupId = kafkaConsumerGroupId
+    cconfig.BootstrapServers = kafkaServers
+    cconfig.AutoOffsetReset = AutoOffsetReset.Earliest
+    cconfig.EnableAutoCommit = false ;Disable auto commit so that we can control when kafka messages are committed
+    cconfig.AllowAutoCreateTopics = false
+
+    ;Note: The AutoOffsetReset property determines the start offset in the event
+    ;there are not yet any committed offsets for the consumer group for the
+    ;topic/partitions of interest. By default, offsets are committed
+    ;automatically, so in this example, consumption will only start from the
+    ;earliest message in the topic the first time you run the program.
+
+    data consumer, @IConsumer<string,string>, new ConsumerBuilder<string,string>(cconfig).Build()
+    consumer.Subscribe(kafkaInboundTopic)
+    ;TODO: The subscribe still works when the server is not running!
+
+    ;---------------------------------------------------------------------------
+    ;Become a publisher to the Kafka topic used for outbound messages
+
+    ;Connect to the Kafka server
+    data pconfig = new ProducerConfig()
+    pconfig.BootstrapServers = kafkaServers
+    pconfig.EnableIdempotence = true ;ensure delivery of messages in the order specified
+
+    data producer, @IProducer<string,string>, new ProducerBuilder<string,string>(pconfig).Build()
+
+    ;---------------------------------------------------------------------------
+    ;Connect to the S3 storage that we'll be uploading to
+
+    s3c = new S3client(RegionEndpoint.USEast1)
+
+    ;---------------------------------------------------------------------------
+    ;Listen for "unload file" messages on the inbound topic
+
+    repeat
+    begin
+        ;Consume a message
+        msg = consumer.Consume(TimeSpan.FromSeconds(consumerSleepSeconds))
+
+        ;Did our sleep timer fire?
+        if (msg == ^null)
+        begin
+            ;Here we have an opportunity to execute code during inactivity
+            nextloop
+        end
+
+        ;Messages have an (optional) key and a value
+        ;We will respond to:
+        ;Key    Valaue      Action
+        ;------ ------      ------
+        ;EXIT   n/a         Stop processing and exit
+        ;UNLOAD <filespec>  Export and upload a file
+
+        ;Keys are optional, but we require one, so ignore any message that does not have one
+        if (msg.Key == ^null)
+            nextloop
+
+        using msg.Key select
+
+        ("EXIT"),
+        begin
+            exitloop
+        end
+
+        ("UNLOAD"),
+        begin
+            data ok = true
+            data errorMessage = String.Empty
+            data fileSpec, string, msg.Value
+            data fileName, string
+            data fileExt, string
+            data fileType, string
+            data exportFile = String.Format("{0}.txt")
+            data exportFileSpec = Path.Combine(exportDirectory,exportFile)
+            data zipName = String.Format("{0}{1}.zip",fileName,fileExt)
+            data zipSpec = Path.Combine(zipFileDirectory,zipName)
+            data fileExported = false
+            data fileZipped = false
+            data fileUploaded = false
+
+            ;-------------------------------------------------------------------
+            ;Extract the base file name from the file spec
+
+            begin
+                data tmpname, a80
+                data tmpext, a40
+                xcall parse(fileSpec,,,,,tmpname,tmpext)
+                fileName = %atrimtostring(tmpname)
+                fileExt = %atrimtostring(tmpext)
+            end
+
+            ;-------------------------------------------------------------------
+            ;Determine the file type
+
+            begin
+                data ch = 0
+                try
+                begin
+                    open(ch,i,fileSpec)
+                    data result, int
+                    xcall getfa(ch,"ORG",result)
+                    using result select
+                    (32), fileType = "ISAM"
+                    (15), fileType = "RELATIVE"
+                    endusing
+                end
+                catch (e, @Exception)
+                begin
+                    ok = false
+                    errorMessage = String.Format("Failed to open file {0}. Error was {1}",fileSpec,e.Message)
+                    ch = 0
+                end
+                finally
+                begin
+                    if (ch)
+                    begin
+                        close ch
+                    end
+                end
+                endtry
+            end
+
+            ;-------------------------------------------------------------------
+            ;Run fconvert to unload the file
+
+            if (ok)
+            begin
+                data paramPattern, string
+
+                using fileType select
+                ("ISAM"),
+                begin
+                    paramPattern = "-ii {0} -oc {1}"
+                end
+                ("RELATIVE"),
+                begin
+                    paramPattern = "-ir {0} -ot {1}"
+                end
+                endusing
+
+                data params = String.Format(paramPattern,fileSpec,exportFileSpec)
+
+                data psi = new ProcessStartInfo() {
+                &    FileName = "fconvert",
+                &    Arguments = params,
+                &    UseShellExecute = false,
+                &    RedirectStandardOutput = true,
+                &    RedirectStandardError = true,
+                &    }
+
+                try
+                begin
+                    disposable data prc = Process.Start(psi)
+                    prc.WaitForExit()
+                    fileExported = true
+                end
+                catch (e, @Exception)
+                begin
+                    ok = false
+                    errorMessage = String.Format("Failed to export file {0}.{1}. Error was {2}",fileName,fileExt,e.Message)
+                end
+                endtry
+            end
+
+            ;-------------------------------------------------------------------
+            ;Verify that the export file is present
+
+            if (ok && fileExported)
+            begin
+                if (!File.Exists(exportFileSpec))
+                begin
+                    ok = false
+                    errorMessage = String.Format("Failed to export file {0}.{1}.",fileName)
+                    fileExported = false
+                end
+            end
+
+            ;-------------------------------------------------------------------
+            ;Compress the unloaded file
+
+            if (fileExported)
+            begin
+                try
+                begin
+                    disposable data zipToOpen = new FileStream(zipSpec,FileMode.Create)
+                    disposable data archive = new ZipArchive(zipToOpen,ZipArchiveMode.Create)
+                    archive.CreateEntryFromFile(exportFileSpec,exportFile)
+                    fileZipped = true
+                end
+                catch (e, @Exception)
+                begin
+                    ok = false
+                    errorMessage = String.Format("Failed to compress file. Error was {0}",e.Message)
+                end
+                endtry
+            end
+
+            ;-------------------------------------------------------------------
+            ;Delete the uncompressed file
+
+            if (fileExported)
+            begin
+                File.Delete(exportFileSpec)
+            end
+
+            ;-------------------------------------------------------------------
+            ;Upload the compressed file to an S3 bucket
+
+            if (fileZipped)
+            begin
+                data uploadResult = s3c.UploadFileAsync(zipSpec,s3UploadBucket).Result
+
+                fileUploaded = uploadResult.Item1
+
+                if (!fileUploaded)
+                begin
+                    ok = false
+                    errorMessage = String.Format("Failed to uplod {0} to S3 storage!",zipName)
+                end
+            end
+
+            ;-------------------------------------------------------------------
+            ;Report the outcome to the outbound Kafka topic
+ 
+            if (ok && fileUploaded) then
+            begin
+                ;Send "load file ready"
+                data kafkaMessage = new Message<string,string>() { Key="UPLOADED", Value=fileSpec }
+                data deliveryResult = producer.ProduceAsync(kafkaOutboundTopic,kafkaMessage).Result
+                ;TODO: How to validate a DeliveryResult?
+            end
+            else
+            begin
+                ;Send "export failed"
+                data kafkaMessage = new Message<string,string>() { Key="UPLOADFAILED", Value=fileSpec }
+                data deliveryResult = producer.ProduceAsync(kafkaOutboundTopic,kafkaMessage).Result
+                ;TODO: How to validate a DeliveryResult?
+            end
+
+            ;-------------------------------------------------------------------
+            ;Delete the compressed file
+
+            if (fileZipped)
+            begin
+                try
+                begin
+                    File.Delete(zipSpec)
+                end
+                catch (e, @Exception)
+                begin
+                    nop
+                end
+                endtry
+            end
+        end
+
+        (),
+        begin
+            ;Some message with a key we don't recognize; ignore it
+            nextloop
+        end
+
+        endusing
+    end
+
+    ;Clean up the Kafka consumer
+    consumer.Close()
+    consumer.Dispose()
+    consumer = ^null
+
+    ;Clean up the Kafka producer
+    producer.Dispose()
+    producer = ^null
+
+    stop
+
+endmain

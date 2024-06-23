@@ -1,0 +1,126 @@
+
+import Amazon
+import Amazon.S3
+import Amazon.S3.Transfer
+import System
+import System.Threading.Tasks
+import System.IO
+
+namespace UnloadAgent
+
+    public class S3Client implements IDisposable
+
+        private _client, @IAmazonS3
+
+        public method S3Client
+            required in region, @RegionEndpoint
+        proc
+            _client = new AmazonS3Client(region)
+        endmethod
+
+        public method Dispose, void
+        proc
+            _client.Dispose()
+        endmethod
+
+        ;;; <summary>
+        ;;; Upload a file to an S3 bucket.
+        ;;; The file name is used as the object key name.
+        ;;; </summary>
+        ;;; <param name="inputFilePath"></param>
+        ;;; <param name="bucketName"></param>
+        ;;; <returns></returns>
+        public async method UploadFileAsync, @Task<Tuple<Boolean,string>>
+            required in inputFilePath, string
+            required in bucketName, string
+        proc
+            try
+            begin
+                data fileTransferUtility = new TransferUtility(_client)
+                ;Option 1. Upload a file. The file name is used as the object key name.
+                await fileTransferUtility.UploadAsync(inputFilePath, bucketName)
+                mreturn Tuple.Create(true,String.Empty)
+            end
+            catch (e, @AmazonS3Exception)
+            begin
+                data message = String.Format("Error encountered on server. Message:'{0}' when writing an object", e.Message)
+                mreturn Tuple.Create(false,message)
+            end
+            catch (e, @Exception)
+            begin
+                data message = String.Format("Unknown encountered on server. Message:'{0}' when writing an object", e.Message)
+                mreturn Tuple.Create(false,message)
+            end
+            endtry
+        endmethod
+
+        ;;; <summary>
+        ;;; Upload a file to an S3 bucket.
+        ;;; The object key name is explicitly provided.
+        ;;; </summary>
+        ;;; <param name="inputFilePath"></param>
+        ;;; <param name="bucketName"></param>
+        ;;; <param name="objectKey"></param>
+        ;;; <returns></returns>
+        public async method UploadFileAsync, @Task<Tuple<Boolean,string>>
+            required in inputFilePath, string
+            required in bucketName, string
+            required in objectKey, string
+        proc
+            try
+            begin
+                data fileTransferUtility = new TransferUtility(_client)
+
+                ;Option 2. Specify object key name explicitly.
+                await fileTransferUtility.UploadAsync(inputFilePath, bucketName, objectKey)
+                mreturn Tuple.Create(true,String.Empty)
+            end
+            catch (e, @AmazonS3Exception)
+            begin
+                data message = String.Format("Error encountered on server. Message:'{0}' when writing an object", e.Message)
+                mreturn Tuple.Create(false,message)
+            end
+            catch (e, @Exception)
+            begin
+                data message = String.Format("Unknown encountered on server. Message:'{0}' when writing an object", e.Message)
+                mreturn Tuple.Create(false,message)
+            end
+            endtry
+        endmethod
+
+        ;;; <summary>
+        ;;; Upload a FileStream to an S3 bucket.
+        ;;; The object key name is explicitly provided.
+        ;;; </summary>
+        ;;; <param name="inputStream"></param>
+        ;;; <param name="bucketName"></param>
+        ;;; <param name="objectKey"></param>
+        ;;; <returns></returns>
+        public async method UploadStreamAsync, @Task<Tuple<Boolean,string>>
+            required in inputStream, @FileStream
+            required in bucketName, string
+            required in objectKey, string
+        proc
+            try
+            begin
+                data fileTransferUtility = new TransferUtility(_client)
+                ;Option 3. Upload data from a type of System.IO.Stream.
+                await fileTransferUtility.UploadAsync(inputStream, bucketName, objectKey)
+                mreturn Tuple.Create(true,String.Empty)
+            end
+            catch (e, @AmazonS3Exception)
+            begin
+                data message = String.Format("Error encountered on server. Message:'{0}' when writing an object", e.Message)
+                mreturn Tuple.Create(false,message)
+            end
+            catch (e, @Exception)
+            begin
+                data message = String.Format("Unknown encountered on server. Message:'{0}' when writing an object", e.Message)
+                mreturn Tuple.Create(false,message)
+            end
+            endtry
+        endmethod
+
+    endclass
+
+endnamespace

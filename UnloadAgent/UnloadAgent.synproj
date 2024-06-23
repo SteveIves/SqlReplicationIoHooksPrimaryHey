@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk" DefaultTargets="restore;Build">
+  <Import Project="$(SolutionDir)Common.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework Condition="'$(TargetFrameworkOverride)' == ''">net8.0</TargetFramework>
+    <TargetFramework Condition="'$(TargetFrameworkOverride)' != ''">$(TargetFrameworkOverride)</TargetFramework>
+    <DefaultLanguageSourceExtension>.dbl</DefaultLanguageSourceExtension>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <ProjectGuid>{a73f4dde-c898-4a7b-a95b-8ac6bf85a79f}</ProjectGuid>
+    <Name>UnloadAgent</Name>
+    <EnableCommonProperties>True</EnableCommonProperties>
+    <CommonPropertiesFileLocation>$(SolutionDir)Common.props</CommonPropertiesFileLocation>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <UnevaluatedOutputPath>REPLICATOR_EXE:</UnevaluatedOutputPath>
+    <Prefer32Bit>False</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="S3Client.dbl" />
+    <Compile Include="UnloadAgent.dbl" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3">
+      <Version>3.7.309.7</Version>
+    </PackageReference>
+    <PackageReference Include="Confluent.Kafka">
+      <Version>2.3.0</Version>
+    </PackageReference>
+    <PackageReference Include="Synergex.SynergyDE.Build" Version="24.*" />
+    <PackageReference Include="Synergex.SynergyDE.synrnt" Version="12.*" />
+  </ItemGroup>
+</Project>

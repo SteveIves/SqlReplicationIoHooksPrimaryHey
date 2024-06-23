@@ -1,0 +1,57 @@
+
+;Define what a Kafka message looks like
+
+namespace UnloadAgentVMS
+    public class KafkaMessage
+        public readwrite property key, string
+        public readwrite property value, string
+    endclass
+endnamespace
+
+;Consumer API
+
+function KafkaConnectConsumer, boolean
+    required in servers, string
+    required in topic, string
+    required out consumer, int
+proc
+    freturn true
+endfunction
+
+function KafkaConsume, boolean
+    required in consumer, int
+    required out message, @KafkaMessage
+proc
+    freturn true
+endfunction
+
+subroutine KafkaDisconnectConsumer
+    required inout consumer, int
+proc
+    clear consumer
+    xreturn
+endsubroutine
+
+;Publisher API
+
+function KafkaConnectPublisher, boolean
+    required in servers, string
+    required in topic, string
+    required out publisher, int
+proc
+    freturn true
+endfunction
+
+function KafkaPublish, boolean
+    required in publisher, int
+    required in message, @KafkaMessage
+proc
+    freturn true
+endfunction
+
+subroutine KafkaDisconnectPublisher
+    required inout publisher, int
+proc
+    clear publisher
+    xreturn
+endsubroutine
