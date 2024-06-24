@@ -1,14 +1,14 @@
 
-import UnloadAgentVMS
-
 ;;; <summary>
 ;;; The main entry point for the application.
 ;;; </summary>
-main UnloadAgentVMS
+main UNLOAD_AGENT
     record
         ok, boolean
-        consumer, int
-        publisher, int
+        consumer, i4
+        publisher, i4
+        messageKey, string
+        messageValue, string
 
         ;TODO: These need to come from configuration
         servers, string
@@ -17,6 +17,13 @@ main UnloadAgentVMS
         exportDirectory, string
         zipFileDirectory, string
     endrecord
+
+    external function
+        KafkaConnectConsumer, boolean
+        KafkaConsume, boolean
+        KafkaConnectPublisher, boolean
+        KafkaPublish, boolean
+endexternal
 proc
     ok = true
     
@@ -24,8 +31,8 @@ proc
     servers = ""
     consumerTopic = "UnloadRequest"
     publisherTopic = "UnloadResponse"
-    exportDirectory = "REPLICATOR_EXPORT:"
-    zipFileDirectory = "REPLICATOR_ZIP:"
+    exportDirectory = "UNLOAD_EXPORT:"
+    zipFileDirectory = "UNLOAD_ZIP:"
 
     ;TODO: Set environment variables
 
@@ -39,7 +46,7 @@ proc
     if (ok)
     begin
         Console.WriteLine("Connecting consumer...")
-        if (!%KafkaConnectConsumer(servers,consumerTopic,consumer))
+        if (!%KafkaConnectConsumer((a)servers,(a)consumerTopic,consumer))
         begin
             ok = false
             Console.WriteLine("ERROR: Failed to connect consumer!")
@@ -51,7 +58,7 @@ proc
     if (ok)
     begin
         Console.WriteLine("Connecting publisher...")
-        if (!%KafkaConnectPublisher(servers,publisherTopic,publisher))
+        if (!%KafkaConnectPublisher((a)servers,(a)publisherTopic,publisher))
         begin
             ok = false
             Console.WriteLine("ERROR: Failed to connect publisher!")
@@ -71,15 +78,19 @@ proc
     begin
         repeat
         begin
-            data inMessage, @KafkaMessage
+            data tmpkey, a128
+            data tmpvalue, a1024
 
-            if (%KafkaConsume(consumer,inMessage)) then
+            if (%KafkaConsume(consumer,tmpkey,tmpvalue)) then
             begin
                 ;Keys are optional, but we require one, so ignore any message that does not have one
-                if (inMessage.Key == ^null)
+                if (!tmpkey)
                     nextloop
 
-                using inMessage.Key select
+                messageKey = %atrimtostring(tmpkey)
+                messageValue = %atrimtostring(tmpvalue)
+
+                using messageKey select
 
                 ("EXIT"),
                 begin
@@ -89,9 +100,8 @@ proc
 
                 ("UNLOAD"),
                 begin
-                    data ok = true
                     data errorMessage, string, ""
-                    data fileSpec, string, inMessage.Value
+                    data fileSpec, string, messageValue
                     data fileName, string
                     data fileExt, string
                     data exportFile, string
@@ -234,8 +244,7 @@ proc
                     if (ok && fileUploaded) then
                     begin
                         ;Send "load file ready"
-                        data outMessage, @KafkaMessage, new KafkaMessage() { Key="UPLOADED", Value=fileSpec }
-                        if (!%KafkaPublish(publisher,outMessage))
+                        if (!%KafkaPublish(publisher,"UPLOADED",(a)fileSpec))
                         begin
                             ;TODO: What to do on a publish fail?
                             nop
@@ -244,8 +253,7 @@ proc
                     else
                     begin
                         ;Send "export failed"
-                        data outMessage, @KafkaMessage, new KafkaMessage() { Key="UPLOADFAILED", Value=fileSpec }
-                        if (!%KafkaPublish(publisher,outMessage))
+                        if (!%KafkaPublish(publisher,"UPLOADFAILED",(a)fileSpec))
                         begin
                             ;TODO: What to do on a publish fail?
                             nop

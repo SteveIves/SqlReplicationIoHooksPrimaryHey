@@ -1,0 +1,52 @@
+
+;Consumer API
+
+function KafkaConnectConsumer, boolean
+    required in servers, a
+    required in topic, a
+    required out consumer, n
+proc
+    freturn true
+endfunction
+
+function KafkaConsume, boolean
+    required in consumer, n
+    required out messageKey, a
+    required out messageValue, a
+proc
+    messageKey = "BLABLA"
+    messageValue = "MORE BLA"
+    freturn true
+endfunction
+
+subroutine KafkaDisconnectConsumer
+    required inout consumer, n
+proc
+    clear consumer
+    xreturn
+endsubroutine
+
+;Publisher API
+
+function KafkaConnectPublisher, boolean
+    required in servers, a
+    required in topic, a
+    required out publisher, n
+proc
+    freturn true
+endfunction
+
+function KafkaPublish, boolean
+    required in publisher, n
+    required in messageKey, a
+    required in messageValue, a
+proc
+    freturn true
+endfunction
+
+subroutine KafkaDisconnectPublisher
+    required inout publisher, n
+proc
+    clear publisher
+    xreturn
+endsubroutine
