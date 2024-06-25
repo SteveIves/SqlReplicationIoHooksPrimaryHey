@@ -29,7 +29,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="S3Client.dbl" />
-    <Compile Include="UnloadAgent.dbl" />
+    <Compile Include="NetUnloadAgent.dbl" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3">

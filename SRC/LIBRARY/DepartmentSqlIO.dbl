@@ -2462,6 +2462,19 @@ endfunction
 ; </summary>
 ; <returns></returns>
 
+function DepartmentFile, ^val
+    required out fileSpec, a
+proc
+    fileSpec = "REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM"
+    freturn true
+endfunction
+
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <returns></returns>
+
 function DepartmentLength ,^val
 proc
     freturn 100

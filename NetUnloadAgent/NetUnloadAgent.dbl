@@ -1,16 +1,16 @@
 
 import Amazon
 import Confluent.Kafka
+import NetUnloadAgent
 import System
 import System.Diagnostics
 import System.IO
 import System.IO.Compression
-import UnloadAgent
 
 ;;; <summary>
 ;;; 
 ;;; </summary>
-main UnloadAgent
+main NetUnloadAgent
 
     record
         s3c, @S3Client
@@ -178,17 +178,17 @@ proc
 
                 data params = String.Format(paramPattern,fileSpec,exportFileSpec)
 
-                data psi = new ProcessStartInfo() {
+                data psi, @ProcessStartInfo, new ProcessStartInfo() {
                 &    FileName = "fconvert",
                 &    Arguments = params,
                 &    UseShellExecute = false,
                 &    RedirectStandardOutput = true,
-                &    RedirectStandardError = true,
+                &    RedirectStandardError = true
                 &    }
 
                 try
                 begin
-                    disposable data prc = Process.Start(psi)
+                    disposable data prc, @Process, Process.Start(psi)
                     prc.WaitForExit()
                     fileExported = true
                 end

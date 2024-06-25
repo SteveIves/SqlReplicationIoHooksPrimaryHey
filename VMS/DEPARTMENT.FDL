@@ -21,7 +21,7 @@ RECORD
 	BLOCK_SPAN              yes
 	CARRIAGE_CONTROL        carriage_return
 	FORMAT                  fixed
-	SIZE                    71
+	SIZE                    100
 
 AREA 0
 	ALLOCATION              32

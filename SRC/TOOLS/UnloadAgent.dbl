@@ -1,0 +1,373 @@
+
+;;; <summary>
+;;; The main entry point for the application.
+;;; </summary>
+main UnloadAgent
+.align
+    record
+        ok, boolean
+        consumer, i4
+        publisher, i4
+        chIn, i4
+        chOut, i4
+        chInOpen, i4
+        chOutOpen, i4
+        messageKey, string
+        tableName, string
+        iobuffer, a32768
+        errorText, a256
+    endrecord
+
+.align
+    record
+        ;TODO: These need to come from configuration
+        servers, string
+        consumerTopic, string
+        publisherTopic, string
+        exportDirectory, string
+        zipFileDirectory, string
+    endrecord
+
+    external function
+        KafkaConnectConsumer, boolean
+        KafkaConsume, boolean
+        KafkaConnectPublisher, boolean
+        KafkaPublish, boolean
+        xsubr, ^val
+    endexternal
+
+proc
+    ok = true
+    
+    ;TODO: Load configuration
+    servers = ""
+    consumerTopic = "UnloadRequest"
+    publisherTopic = "UnloadResponse"
+    exportDirectory = "REPLICATOR_EXPORT_LOCAL:"
+    zipFileDirectory = "REPLICATOR_EXPORT_LOCAL:"
+
+    ;TODO: Set environment variables
+
+    if (ok)
+    begin
+        
+    end
+
+    ;Become a consumer of the Kafka topic used for inbound messages
+
+    if (ok)
+    begin
+        Console.WriteLine("Connecting consumer...")
+        if (!%KafkaConnectConsumer((a)servers,(a)consumerTopic,consumer))
+        begin
+            ok = false
+            Console.WriteLine("ERROR: Failed to connect consumer!")
+        end
+    end
+
+    ;Become a publisher to the Kafka topic used for outbound messages
+
+    if (ok)
+    begin
+        Console.WriteLine("Connecting publisher...")
+        if (!%KafkaConnectPublisher((a)servers,(a)publisherTopic,publisher))
+        begin
+            ok = false
+            Console.WriteLine("ERROR: Failed to connect publisher!")
+        end
+    end
+
+    ;Listen for "unload file" messages on the inbound topic
+
+    ;Messages have an (optional) key and a value
+    ;We will respond to:
+    ;Key    Valaue      Action
+    ;------ ------      ------
+    ;EXIT   n/a         Stop processing and exit
+    ;UNLOAD <table>     Export and upload a file
+
+    if (ok)
+    begin
+        repeat
+        begin
+            data tmpkey, a128
+            data tmpvalue, a1024
+
+            ok = true
+
+            if (%KafkaConsume(consumer,tmpkey,tmpvalue)) then
+            begin
+                ;Keys are optional, but we require one, so ignore any message that does not have one
+                if (!tmpkey)
+                    nextloop
+
+                messageKey = %atrimtostring(tmpkey)
+                tableName = %atrimtostring(tmpvalue)
+
+                using messageKey select
+
+                ("EXIT"),
+                begin
+                    Console.WriteLine("Shutdown instruction received!")
+                    exitloop
+                end
+
+                ("UNLOAD"),
+                begin
+                    data errorMessage, string, ""
+                    data fileSpec, string
+                    data exportFile, string
+                    data exportFileSpec, string
+                    data zipName, string 
+                    data zipSpec, string
+                    data fileType, string
+                    data fileExported = false
+                    data fileZipped = false
+                    data fileUploaded = false
+                    data recordLength, int
+
+                    Console.WriteLine("Unload instruction received for table " + tableName)
+
+                    ;-------------------------------------------------------------------
+                    ;Determine the file type and record length
+
+                    begin
+                        data tmpFileSpec, a80
+                        xcall xsubr(tableName+"File",tmpFileSpec)
+                        fileSpec = %atrimtostring(tmpFileSpec)
+                    end
+
+                    recordLength = %xsubr(tableName+"Length")
+
+                    ;-------------------------------------------------------------------
+                    ;Set the export and zip file names
+
+                    begin
+                        exportFile = tableName + ".TXT"
+                        exportFileSpec = exportDirectory + exportFile
+                        zipName = tableName + ".ZIP"
+                        zipSpec = zipFileDirectory + zipName
+                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Determine the file type
+
+                    begin
+                        data tmptype, a8
+                        xcall xsubr(tableName+"Type",tmptype)
+                        fileType = tmptype
+                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Open the input file
+
+                    if (ok)
+                    begin
+                        Console.WriteLine(" - Opening input file " + fileSpec)
+
+                        chIn = %xsubr(tableName+"OpenInput",errorText)
+
+                        if (chIn) then
+                        begin
+                            chInOpen = true
+                        end
+                        else
+                        begin
+                            chInOpen = false
+                            ok = false
+                            Console.WriteLine(" - Failed to open input file " + fileSpec + " Error was: " + %atrim(errorText))
+                        end
+                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Open the output file
+
+                    if (ok)
+                    begin
+                        Console.WriteLine(" - Opening output file " + exportFileSpec)
+
+                        try
+                        begin
+                            open(chOut=0,o:s,exportFileSpec)
+                            chOutOpen = true
+                        end
+                        catch (e, @Exception)
+                        begin
+                            chOutOpen = false
+                            ok = false
+                            Console.WriteLine(" - Failed to open input file " + exportFileSpec + " Error was " + e.Message)
+                        end
+                        endtry
+                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Export the input file content
+
+                    if (ok)
+                    begin
+                        data recs = 0
+                        Console.WriteLine(" - Exporting data...")
+
+                        repeat
+                        begin
+                            ;TODO: Need stop take into account dd_tag values?
+                            reads(chIn,iobuffer(1:recordLength),eof)
+                            recs += 1
+                            writes(chOut,iobuffer(1:recordLength))
+                        end
+                    eof,
+                        fileExported = true
+
+                        Console.WriteLine(" - " + %string(recs) + " records exported")
+                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Close the input and output files
+
+                    if (chInOpen && chIn)
+                    begin
+                        close chIn
+                        clear chIn
+                    end
+
+                    if (chOutOpen && chOut)
+                    begin
+                        close chOut
+                        clear chOut
+                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Verify that the output file is present
+
+                    if (ok && fileExported)
+                    begin
+                        data tmpch, int
+
+                        Console.WriteLine(" - Verifying export file...")
+
+                        try
+                        begin
+                            open(tmpch=0,i:s,exportFileSpec)
+                        end
+                        catch (e, @Exception)
+                        begin
+                            ok = false
+                            Console.WriteLine(" - Failed to export file " + fileSpec + " to " + exportFileSpec + " Error was: " + e.Message)
+                            fileExported = false
+                            clear tmpch
+                        end
+                        finally
+                        begin
+                            if (tmpch)
+                            begin
+                                close tmpch
+                            end
+                        end
+                        endtry
+                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Compress the unloaded file
+
+;                    if (fileExported)
+;                    begin
+;                        ;TODO: zip the file
+;                        data zipCommand = "zip -q -D " + zipSpec + " " + exportFileSpec
+;                        fileZipped = true
+;                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Delete the uncompressed file
+
+;                    if (fileExported && fileZipped)
+;                    begin
+;                        xcall delet(exportFileSpec)
+;                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Upload the compressed file to an S3 bucket
+
+;                    if (fileZipped)
+;                    begin
+;                        ;TODO: Upload the ZIP file to S3
+;                        nop
+;                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Report the outcome to the outbound Kafka topic
+ 
+;                    if (ok && fileUploaded) then
+;                    begin
+;                        ;Send "load file ready"
+;                        if (!%KafkaPublish(publisher,"UPLOADED",(a)fileSpec))
+;                        begin
+;                            ;TODO: What to do on a publish fail?
+;                            nop
+;                        end
+;                    end
+;                    else
+;                    begin
+;                        ;Send "export failed"
+;                        if (!%KafkaPublish(publisher,"UPLOADFAILED",(a)fileSpec))
+;                        begin
+;                            ;TODO: What to do on a publish fail?
+;                            nop
+;                        end
+;                    end
+
+                    ;-------------------------------------------------------------------
+                    ;Delete the compressed file
+
+;                    if (fileZipped)
+;                    begin
+;                        try
+;                        begin
+;                            xcall delet(zipSpec)
+;                        end
+;                        catch (e, @Exception)
+;                        begin
+;                            nop
+;                        end
+;                        endtry
+;                    end
+                end
+
+                (),
+                begin
+                    ;Some message with a key we don't recognize; ignore it
+                    nextloop
+                end
+                endusing
+            end
+            else
+            begin
+                ;TODO:KafkaReceive returned an error. Decide what needs to be done.
+                nop
+            end
+        end
+    end
+
+    ;Disconnect the consumer
+    Console.WriteLine("Disconnecting consumer...")
+    xcall KafkaDisconnectConsumer(consumer)
+
+    ;Disconnect the publisher
+    Console.WriteLine("Disconnecting publisher...")
+    xcall KafkaDisconnectPublisher(publisher)
+
+    Console.WriteLine("Stopping")
+    stop
+
+    begin
+        data tmpfil, a40
+        xcall DepartmentFile(tmpfil)
+        xcall EmployeeFile(tmpfil)
+        xcall DepartmentLength
+        xcall EmployeeLength
+        xcall DepartmentType(tmpfil)
+        xcall EmployeeType(tmpfil)
+        xcall DepartmentOpenInput(tmpfil)
+        xcall EmployeeOpenInput(tmpfil)
+    end
+
+endmain

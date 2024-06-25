@@ -55,7 +55,7 @@ KEY 0
 	NAME                    "EMP_ID"
 	NULL_KEY                no
 	PROLOG                  3
-	SEG0_LENGTH             6
+	SEG0_LENGTH             8
 	SEG0_POSITION           0
 	TYPE                    string
 
@@ -72,7 +72,7 @@ KEY 1
 	NAME                    "EMP_DEPT"
 	NULL_KEY                no
 	SEG0_LENGTH             15
-	SEG0_POSITION           46
+	SEG0_POSITION           48
 	TYPE                    string
 
 KEY 2
@@ -88,7 +88,7 @@ KEY 2
 	NAME                    "EMP_LAST_NAME"
 	NULL_KEY                no
 	SEG0_LENGTH             20
-	SEG0_POSITION           26
+	SEG0_POSITION           28
 	TYPE                    string
 
 KEY 3
@@ -104,7 +104,7 @@ KEY 3
 	NAME                    "STATE_CODE"
 	NULL_KEY                no
 	SEG0_LENGTH             2
-	SEG0_POSITION           215
+	SEG0_POSITION           217
 	TYPE                    string
 
 KEY 4
@@ -120,7 +120,7 @@ KEY 4
 	NAME                    "ZIP_CODE"
 	NULL_KEY                no
 	SEG0_LENGTH             5
-	SEG0_POSITION           217
+	SEG0_POSITION           219
 	TYPE                    string
 
 ANALYSIS_OF_AREA 0

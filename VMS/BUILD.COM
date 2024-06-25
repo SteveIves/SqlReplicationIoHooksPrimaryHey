@@ -50,7 +50,7 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:IsEmailAddress.dbl -
  + LIBSRC:IsTime.dbl -
  + LIBSRC:Json.dbl -
- + LIBSRC:KafkaAPI.dbl -
+ + LIBSRC:KafkaConsumeAPI.dbl -
  + LIBSRC:LastRecordCache.dbl -
  + LIBSRC:Logger.dbl -
  + LIBSRC:MakeDateForCsv.dbl -
@@ -83,37 +83,52 @@ $ ! WRITE SYS$OUTPUT "Creating shared image LIBRARY.EXE..."
 $ ! MAKESHARE -L OBJ:LIBRARY.OLB -E REPLICATOR_EXE: -Q -SQL -XD
 $ ! @LIBRARY.COM
 $ !
+$ !TODO: Need to move all of the C code into the standard repo at some point and remove these hard-coded paths
+$ !
+$ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: DKA100:[JEFF.VMS_BROKER]DBL_UTILS.C
+$ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: DKA100:[JEFF.VMS_BROKER]MESSAGE_UTILS.C
+$ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: DKA100:[JEFF.VMS_BROKER]PACKET_UTILS.C
+$ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: DKA100:[JEFF.VMS_BROKER]ZMQ_HOOKS.C
+$ !
+$ LIB/INSERT OBJ:LIBRARY.OLB OBJ:DBL_UTILS.OBJ
+$ LIB/INSERT OBJ:LIBRARY.OLB OBJ:MESSAGE_UTILS.OBJ
+$ LIB/INSERT OBJ:LIBRARY.OLB OBJ:PACKET_UTILS.OBJ
+$ LIB/INSERT OBJ:LIBRARY.OLB OBJ:ZMQ_HOOKS.OBJ
+$ !
 $ !------------------------------------------------------------------------------------
 $ WRITE SYS$OUTPUT "Compiling replicator and utilities..."
 $ !
-$ OPTIONS_FILE="''HERE'REPLICATOR.OPT/OPT"
+$ OPTIONS_FILE="''HERE'REPLICATOR/OPT"
 $ !
 $ DIB/OPT/OBJ=OBJ:REPLICATOR.OBJ REPSRC:replicator.dbl
-$ LINK/EXE=REPLICATOR_EXE:REPLICATOR.EXE OBJ:REPLICATOR.OBJ,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:REPLICATOR.EXE OBJ:REPLICATOR.OBJ,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:ChangeEveryEmployee.dbl
-$ LINK/EXE=REPLICATOR_EXE:ChangeEveryEmployee.exe OBJ:ChangeEveryEmployee.obj,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:ChangeEveryEmployee.exe OBJ:ChangeEveryEmployee.obj,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:DepartmentMaintenance.dbl
-$ LINK/EXE=REPLICATOR_EXE:DepartmentMaintenance.exe OBJ:DepartmentMaintenance.obj,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:DepartmentMaintenance.exe OBJ:DepartmentMaintenance.obj,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:EmployeeDataReport.dbl
-$ LINK/EXE=REPLICATOR_EXE:EmployeeDataReport.exe OBJ:EmployeeDataReport.obj,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeDataReport.exe OBJ:EmployeeDataReport.obj,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:EmployeeMaintenance.dbl
-$ LINK/EXE=REPLICATOR_EXE:EmployeeMaintenance.exe OBJ:EmployeeMaintenance.obj,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeMaintenance.exe OBJ:EmployeeMaintenance.obj,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:InstructionCount.dbl
-$ LINK/EXE=REPLICATOR_EXE:InstructionCount.exe OBJ:InstructionCount.obj,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:InstructionCount.exe OBJ:InstructionCount.obj,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:QueueMonitor.dbl
-$ LINK/EXE=REPLICATOR_EXE:QueueMonitor.exe OBJ:QueueMonitor.obj,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:QueueMonitor.exe OBJ:QueueMonitor.obj,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:ReplicatorMenu.dbl
-$ LINK/EXE=REPLICATOR_EXE:ReplicatorMenu.exe OBJ:ReplicatorMenu.obj,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorMenu.exe OBJ:ReplicatorMenu.obj,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:ReplicatorStop.dbl
-$ LINK/EXE=REPLICATOR_EXE:ReplicatorStop.exe OBJ:ReplicatorStop.obj,'OPTIONS_FILE
+$ LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorStop.exe OBJ:ReplicatorStop.obj,'OPTIONS_FILE
+$ !
+$ DIB/OPT/OBJ=OBJ: TOOLSRC:UnloadAgent.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:UnloadAgent.exe OBJ:UnloadAgent.obj,'OPTIONS_FILE
 $ !
 $ !------------------------------------------------------------------------------------
 $ WRITE SYS$OUTPUT "Cleaning up..."

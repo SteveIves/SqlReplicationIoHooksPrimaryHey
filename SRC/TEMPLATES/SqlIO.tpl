@@ -3309,6 +3309,19 @@ endfunction
 ; </summary>
 ; <returns></returns>
 
+function <StructureName>File, ^val
+    required out fileSpec, a
+proc
+    fileSpec = "<FILE_NAME>"
+    freturn true
+endfunction
+
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <returns></returns>
+
 function <StructureName>Length ,^val
 proc
     freturn <STRUCTURE_SIZE>

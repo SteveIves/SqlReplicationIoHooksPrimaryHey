@@ -104,6 +104,9 @@
     <Compile Include="..\..\SRC\TOOLS\ReplicatorStop.dbl">
       <Link>ReplicatorStop.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\TOOLS\UnloadAgent.dbl">
+      <Link>UnloadAgent.dbl</Link>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\library\library.synproj">

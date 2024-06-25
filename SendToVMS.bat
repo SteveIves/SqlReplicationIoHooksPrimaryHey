@@ -36,12 +36,13 @@ echo ascii >> ftp.tmp
 echo prompt >> ftp.tmp
 
 rem Put us in a REPLICATION subdirectory
-echo mkdir [.REPLICATION] >> ftp.tmp
-echo cd [.REPLICATION] >> ftp.tmp
+echo mkdir [.%VMS_DIRECTORY%] >> ftp.tmp
+echo cd [.%VMS_DIRECTORY%] >> ftp.tmp
 
 rem Make sure the directories are all there
 echo mkdir [.DATA] >> ftp.tmp
 echo mkdir [.EXE] >> ftp.tmp
+echo mkdir [.FDL] >> ftp.tmp
 echo mkdir [.OBJ] >> ftp.tmp
 echo mkdir [.PROTO] >> ftp.tmp
 echo mkdir [.LOGS] >> ftp.tmp
@@ -51,6 +52,8 @@ echo mkdir [.SRC.REPLICATOR] >> ftp.tmp
 echo mkdir [.SRC.TOOLS] >> ftp.tmp
 
 rem Delete existing files
+echo mdelete [.DATA]*.seq;* >> ftp.tmp
+echo mdelete [.FDL]*.*;* >> ftp.tmp
 echo mdelete [.OBJ]*.*;* >> ftp.tmp
 echo mdelete [.PROTO]*.*;* >> ftp.tmp
 echo mdelete [.REPOSITORY]*.*;* >> ftp.tmp
@@ -61,6 +64,11 @@ echo mdelete [.SRC.TOOLS]*.*;* >> ftp.tmp
 rem Upload new files
 echo cd [.REPOSITORY] >> ftp.tmp
 echo put RPS\REPLICATION.SCH >> ftp.tmp
+echo cd [-.DATA] >> ftp.tmp
+echo put DAT\department.seq >> ftp.tmp
+echo put DAT\employee.seq >> ftp.tmp
+echo cd [-.FDL] >> ftp.tmp
+echo mput VMS\*.fdl >> ftp.tmp
 echo cd [-.SRC.LIBRARY] >> ftp.tmp
 echo mput SRC\LIBRARY\*.dbl >> ftp.tmp
 echo mput SRC\LIBRARY\*.def >> ftp.tmp

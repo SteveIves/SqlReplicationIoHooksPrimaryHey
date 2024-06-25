@@ -2783,6 +2783,19 @@ endfunction
 ; </summary>
 ; <returns></returns>
 
+function EmployeeFile, ^val
+    required out fileSpec, a
+proc
+    fileSpec = "REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM"
+    freturn true
+endfunction
+
+;*****************************************************************************
+; <summary>
+; 
+; </summary>
+; <returns></returns>
+
 function EmployeeLength ,^val
 proc
     freturn 300
