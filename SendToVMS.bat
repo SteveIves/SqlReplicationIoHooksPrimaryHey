@@ -9,6 +9,7 @@ rem    set VMS_IP_ADDRESS=1.2.3.4
 rem    set VMS_FTP_PORT=21
 rem    set VMS_USERNAME=myusername
 rem    set VMS_PASSWORD=mypassword
+rem    set VMS_DIRECTORY=REPLICATION
 rem
 rem After this script completes:
 rem 
