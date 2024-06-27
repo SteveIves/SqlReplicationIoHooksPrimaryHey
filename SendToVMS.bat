@@ -51,6 +51,7 @@ echo mkdir [.REPOSITORY] >> ftp.tmp
 echo mkdir [.SRC.LIBRARY] >> ftp.tmp
 echo mkdir [.SRC.REPLICATOR] >> ftp.tmp
 echo mkdir [.SRC.TOOLS] >> ftp.tmp
+echo mkdir [.SRC.VMSC] >> ftp.tmp
 
 rem Delete existing files
 echo mdelete [.DATA]*.seq;* >> ftp.tmp
@@ -61,6 +62,7 @@ echo mdelete [.REPOSITORY]*.*;* >> ftp.tmp
 echo mdelete [.SRC.LIBRARY]*.*;* >> ftp.tmp
 echo mdelete [.SRC.REPLICATOR]*.*;* >> ftp.tmp
 echo mdelete [.SRC.TOOLS]*.*;* >> ftp.tmp
+echo mdelete [.SRC.VMSC]*.*;* >> ftp.tmp
 
 rem Upload new files
 echo cd [.REPOSITORY] >> ftp.tmp
@@ -77,6 +79,8 @@ echo cd [-.REPLICATOR] >> ftp.tmp
 echo mput SRC\REPLICATOR\*.dbl >> ftp.tmp
 echo cd [-.TOOLS] >> ftp.tmp
 echo mput SRC\TOOLS\*.dbl >> ftp.tmp
+echo cd [-.VMSC] >> ftp.tmp
+echo mput SRC\VMSC\*.* >> ftp.tmp
 echo cd [-.-] >> ftp.tmp
 echo mput VMS\*.COM >> ftp.tmp
 echo put VMS\MAKESHARE.DBL >> ftp.tmp

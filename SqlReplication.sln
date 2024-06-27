@@ -112,6 +112,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "WINDOWS", "WINDOWS", "{355B
 EndProject
 Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetUnloadAgent", "NetUnloadAgent\NetUnloadAgent.synproj", "{A73F4DDE-C898-4A7B-A95B-8AC6BF85A79F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "VMSC", "VMSC", "{02631B6B-01EB-4297-B7FA-F139F9E5E943}"
+	ProjectSection(SolutionItems) = preProject
+		SRC\VMSC\dbl_utils.c = SRC\VMSC\dbl_utils.c
+		SRC\VMSC\dbl_utils.h = SRC\VMSC\dbl_utils.h
+		SRC\VMSC\message_utils.c = SRC\VMSC\message_utils.c
+		SRC\VMSC\message_utils.h = SRC\VMSC\message_utils.h
+		SRC\VMSC\packet_utils.c = SRC\VMSC\packet_utils.c
+		SRC\VMSC\packet_utils.h = SRC\VMSC\packet_utils.h
+		SRC\VMSC\zmq_hooks.c = SRC\VMSC\zmq_hooks.c
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -302,6 +313,7 @@ Global
 		{7F265779-4E2A-4A5E-BE13-328B3180AC9F} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
 		{432DB05E-7646-4F34-B8C3-BE682D60992D} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
 		{355B4005-250C-48B9-9399-F5D4EA9A4AA4} = {CD5A07D5-E55A-43A3-BAF3-E89A6E0E29C3}
+		{02631B6B-01EB-4297-B7FA-F139F9E5E943} = {7F265779-4E2A-4A5E-BE13-328B3180AC9F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {09DE7623-A783-489C-842F-C7D857603C5F}
