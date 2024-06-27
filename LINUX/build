@@ -41,7 +41,7 @@ dbl -do REPLICATOR_OBJ:library.dbo \
   LIBSRC:IsEmailAddress.dbl \
   LIBSRC:IsTime.dbl \
   LIBSRC:Json.dbl \
-  LIBSRC:KafkaAPI.dbl \
+  LIBSRC:KafkaConsumeAPI.dbl \
   LIBSRC:LastRecordCache.dbl \
   LIBSRC:Logger.dbl \
   LIBSRC:MakeDateForCsv.dbl \
@@ -63,7 +63,9 @@ dbl -do REPLICATOR_OBJ:library.dbo \
   LIBSRC:ThrowOnCommunicationError.dbl \
   LIBSRC:TimeNow.dbl \
   LIBSRC:Timer.dbl \
+  LIBSRC:UnloadAgentSettings.dbl \
   LIBSRC:ValidateBasicEnvironment.dbl
+
 
 dblink -dl REPLICATOR_EXE:library.elb REPLICATOR_OBJ:library.dbo
 

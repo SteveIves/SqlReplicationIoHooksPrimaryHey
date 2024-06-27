@@ -1,0 +1,265 @@
+
+import System.Collections
+import System.Text
+import System.Text.Json
+import Synergex.SynergyDE.Select
+
+namespace ReplicationLibrary
+
+    public class UnloadAgentSettings
+
+        private static configFileSpec, string
+
+        public readwrite property KafkaServers, string
+        public readwrite property ConsumerTopic, string
+        public readwrite property PublisherTopic, string
+        public readwrite property ExportDirectory, string
+        public readwrite property ZipFileDirectory, string
+        public readwrite property EnvironmentVariables, [#]@EnvironmentVariable
+
+        ;;; <summary>
+        ;;; Loads settings from the JSON configuration file
+        ;;; </summary>
+        ;;; <param name="errorMessage">Returned error message (if return value is false)</param>
+        ;;; <returns>Retuens true on success, or false</returns>
+        public static method Load, @UnloadAgentSettings
+            required out errorMessage, string
+            stack record
+                doc,    @JsonDocument
+                setting, @JsonElement
+                envvars, @JsonElement
+                instance, @UnloadAgentSettings
+            endrecord
+        proc
+            errorMessage = ""
+
+            ;Parse the JSON configuration file
+
+            configFileSpec = "REPLICATOR_DATA:UnloadAgentConfig.json"
+            doc = UnloadAgentSettings.ParseConfigFile(errorMessage)
+
+            if (doc == ^null)
+                mreturn ^null
+
+            instance = new UnloadAgentSettings()
+
+            ;--------------------------------------------------------------------------------------------------------
+            ;KafkaServers
+
+            if (!doc.RootElement.TryGetProperty("KafkaServers",setting))
+            begin
+                errorMessage = "KafkaServers is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+            begin
+                errorMessage = "KafkaServers setting must be a non-blank string!"
+                mreturn ^null
+            end
+
+            instance.KafkaServers = setting.GetString()
+            
+            ;--------------------------------------------------------------------------------------------------------
+            ;ConsumerTopic
+
+            if (!doc.RootElement.TryGetProperty("ConsumerTopic",setting))
+            begin
+                errorMessage = "ConsumerTopic is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+            begin
+                errorMessage = "ConsumerTopic setting must be a non-blank string!"
+                mreturn ^null
+            end
+
+            instance.ConsumerTopic = setting.GetString()
+            
+            ;--------------------------------------------------------------------------------------------------------
+            ;PublisherTopic
+
+            if (!doc.RootElement.TryGetProperty("PublisherTopic",setting))
+            begin
+                errorMessage = "PublisherTopic is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+            begin
+                errorMessage = "PublisherTopic setting must be a non-blank string!"
+                mreturn ^null
+            end
+
+            instance.PublisherTopic = setting.GetString()
+            
+            ;--------------------------------------------------------------------------------------------------------
+            ;ExportDirectory
+
+            if (!doc.RootElement.TryGetProperty("ExportDirectory",setting))
+            begin
+                errorMessage = "ExportDirectory is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+            begin
+                errorMessage = "ExportDirectory setting must be a non-blank string!"
+                mreturn ^null
+            end
+
+            instance.ExportDirectory = setting.GetString()
+            
+            ;--------------------------------------------------------------------------------------------------------
+            ;ZipFileDirectory
+
+            if (!doc.RootElement.TryGetProperty("ZipFileDirectory",setting))
+            begin
+                errorMessage = "ZipFileDirectory is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+            begin
+                errorMessage = "ZipFileDirectory setting must be a non-blank string!"
+                mreturn ^null
+            end
+
+            instance.ZipFileDirectory = setting.GetString()
+            
+            ;--------------------------------------------------------------------------------------------------------
+            ;EnvironmentVariables (optional)
+
+            if (doc.RootElement.TryGetProperty("EnvironmentVariables",envvars))
+            begin
+                data elements, i4
+                data element, i4
+
+                if (envvars.ValueKind!=JsonValueKind.Array)
+                begin
+                    errorMessage = "EnvironmentVariables setting must be an array!"
+                    mreturn ^null
+                end
+
+                elements = envvars.GetArrayLength()
+                instance.EnvironmentVariables = new EnvironmentVariable[elements]
+
+                for element from 1 thru elements
+                begin
+                    data envvar, @JsonElement, envvars[element-1]
+                    data envvarName, @JsonElement
+                    data envvarValue, @JsonElement
+
+                    if (envvar.ValueKind!=JsonValueKind.Object)
+                    begin
+                        errorMessage = "Invalid environment variable definition!"
+                        mreturn ^null
+                    end
+
+                    if (!envvar.TryGetProperty("Name",envvarName))
+                    begin
+                        errorMessage = "Invalid environment variable definition!"
+                        mreturn ^null
+                    end
+
+                    if (envvarName.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(envvarName.GetString()))
+                    begin
+                        errorMessage = "Invalid environment variable definition!"
+                        mreturn ^null
+                    end
+
+                    if (!envvar.TryGetProperty("Value",envvarValue))
+                    begin
+                        errorMessage = "Invalid environment variable definition!"
+                        mreturn ^null
+                    end
+
+                    if (envvarValue.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(envvarValue.GetString()))
+                    begin
+                        errorMessage = "Invalid environment variable definition!"
+                        mreturn ^null
+                    end
+
+                    instance.EnvironmentVariables[element] = new EnvironmentVariable() { Name=envvarName.GetString(), Value=envvarValue.GetString() }
+
+                end
+
+            end
+
+            ;--------------------------------------------------------------------------------------------------------
+            ;Validations
+
+
+
+
+            mreturn instance
+            
+        endmethod
+
+        ;;; <summary>
+        ;;; Parse the configuration file into a JsonDocument
+        ;;; </summary>
+        ;;; <param name="errorMessage">Returned error message if a null document is returned</param>
+        ;;; <returns>Returns a JsonDocument object, or ^null if the parse fails.</returns>
+        private static method ParseConfigFile, @JsonDocument
+            required out errorMessage, string
+            record
+                channel, i4
+                buffer, a1024
+                jsonFileContent, @StringBuilder
+            endrecord
+        proc
+            errorMessage = ""
+            jsonFileContent = new StringBuilder()
+            channel = 0
+
+            try
+            begin
+                data firstBrace = 0
+
+                open(channel,i,configFileSpec)
+
+                while (true)
+                begin
+                    reads(channel,buffer)
+                    if (firstBrace < 1)
+                    begin
+                        xcall instr(1, buffer, '{', firstBrace)
+                        if (firstBrace >= 1)
+                            buffer = buffer(firstBrace:1024-firstBrace)
+                    end
+                    jsonFileContent.Append(%atrim(buffer))
+                end
+            end
+            catch (e, @EndOfFileException)
+            begin
+                jsonFileContent.Append(%atrim(buffer))
+            end
+            catch (e, @Exception)
+            begin
+                errorMessage = "Failed to parse " + configFileSpec
+                mreturn ^null
+            end
+            finally
+            begin
+                if (channel)
+                    close(channel)
+            end
+            endtry
+
+            mreturn JsonDocument.Parse(jsonFileContent.ToString())
+
+        endmethod
+
+    endclass
+
+    public class EnvironmentVariable
+
+        public readwrite property Name, string
+
+        public readwrite property Value, string
+
+    endclass
+
+endnamespace

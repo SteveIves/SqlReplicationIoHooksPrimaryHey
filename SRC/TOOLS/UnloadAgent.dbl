@@ -1,4 +1,6 @@
 
+import ReplicationLibrary
+
 ;;; <summary>
 ;;; The main entry point for the application.
 ;;; </summary>
@@ -7,7 +9,9 @@ main UnloadAgent
     record
         ok, boolean
         consumer, i4
+        consumerConnected, boolean
         publisher, i4
+        publisherConnected, boolean
         chIn, i4
         chOut, i4
         chInOpen, i4
@@ -16,16 +20,8 @@ main UnloadAgent
         tableName, string
         iobuffer, a32768
         errorText, a256
-    endrecord
-
-.align
-    record
-        ;TODO: These need to come from configuration
-        servers, string
-        consumerTopic, string
-        publisherTopic, string
-        exportDirectory, string
-        zipFileDirectory, string
+        errorMessage, string
+        agentSettings, @UnloadAgentSettings
     endrecord
 
     external function
@@ -38,46 +34,77 @@ main UnloadAgent
 
 proc
     ok = true
-    
-    ;TODO: Load configuration
-    servers = ""
-    consumerTopic = "UnloadRequest"
-    publisherTopic = "UnloadResponse"
-    exportDirectory = "REPLICATOR_EXPORT_LOCAL:"
-    zipFileDirectory = "REPLICATOR_EXPORT_LOCAL:"
 
-    ;TODO: Set environment variables
+    ;Make sure we're on OpenVMS
 
-    if (ok)
     begin
-        
+        data system, i4
+        xcall envrn(system)
+        if (system != 6)
+        begin
+            Console.WriteLine("This program is for use on OpenVMS. On other platforms use NetUnloadAgent")
+            sleep 3
+            stop
+        end
     end
 
-    ;Become a consumer of the Kafka topic used for inbound messages
+    ;Load configuration
+
+    Console.WriteLine("Loading configuration...")
+    agentSettings = UnloadAgentSettings.Load(errorMessage)
+    if (agentSettings == ^null)
+    begin
+        Console.WriteLine("ERROR: Failed to load configuration. Error was: " + errorMessage)
+        ok = false
+    end
+
+    ;Set any environment variables defined in the configuration file
+
+    if (ok && agentSettings.EnvironmentVariables != ^null)
+    begin
+        data envvar, @EnvironmentVariable
+        data sts, i4
+        foreach envvar in agentSettings.EnvironmentVariables
+        begin
+            data p1, string, envvar.Name
+            data p2, string, envvar.Value
+            xcall setlog(envvar.Name,envvar.Value,sts)
+        end
+    end
+
+    ;Create a consumer for inbound Kafka messages
 
     if (ok)
     begin
         Console.WriteLine("Connecting consumer...")
-        if (!%KafkaConnectConsumer((a)servers,(a)consumerTopic,consumer))
+        if (%KafkaConnectConsumer((a)agentSettings.KafkaServers,(a)agentSettings.ConsumerTopic,consumer)) then
         begin
-            ok = false
+            consumerConnected = true
+        end
+        else
+        begin
             Console.WriteLine("ERROR: Failed to connect consumer!")
+            ok = false
         end
     end
 
-    ;Become a publisher to the Kafka topic used for outbound messages
+    ;Create a producer for outbound Kafka messages
 
     if (ok)
     begin
         Console.WriteLine("Connecting publisher...")
-        if (!%KafkaConnectPublisher((a)servers,(a)publisherTopic,publisher))
+        if (%KafkaConnectPublisher((a)agentSettings.KafkaServers,(a)agentSettings.PublisherTopic,publisher)) then
         begin
-            ok = false
+            publisherConnected = true
+        end
+        else
+        begin
             Console.WriteLine("ERROR: Failed to connect publisher!")
+            ok = false
         end
     end
 
-    ;Listen for "unload file" messages on the inbound topic
+    ;Listen for inbound "UNLOAD" messages
 
     ;Messages have an (optional) key and a value
     ;We will respond to:
@@ -114,7 +141,6 @@ proc
 
                 ("UNLOAD"),
                 begin
-                    data errorMessage, string, ""
                     data fileSpec, string
                     data exportFile, string
                     data exportFileSpec, string
@@ -128,7 +154,6 @@ proc
 
                     Console.WriteLine("Unload instruction received for table " + tableName)
 
-                    ;-------------------------------------------------------------------
                     ;Determine the file type and record length
 
                     begin
@@ -139,17 +164,15 @@ proc
 
                     recordLength = %xsubr(tableName+"Length")
 
-                    ;-------------------------------------------------------------------
                     ;Set the export and zip file names
 
                     begin
                         exportFile = tableName + ".TXT"
-                        exportFileSpec = exportDirectory + exportFile
+                        exportFileSpec =agentSettings.ExportDirectory + exportFile
                         zipName = tableName + ".ZIP"
-                        zipSpec = zipFileDirectory + zipName
+                        zipSpec = agentSettings.ZipFileDirectory + zipName
                     end
 
-                    ;-------------------------------------------------------------------
                     ;Determine the file type
 
                     begin
@@ -158,7 +181,6 @@ proc
                         fileType = tmptype
                     end
 
-                    ;-------------------------------------------------------------------
                     ;Open the input file
 
                     if (ok)
@@ -179,7 +201,6 @@ proc
                         end
                     end
 
-                    ;-------------------------------------------------------------------
                     ;Open the output file
 
                     if (ok)
@@ -200,7 +221,6 @@ proc
                         endtry
                     end
 
-                    ;-------------------------------------------------------------------
                     ;Export the input file content
 
                     if (ok)
@@ -221,7 +241,6 @@ proc
                         Console.WriteLine(" - " + %string(recs) + " records exported")
                     end
 
-                    ;-------------------------------------------------------------------
                     ;Close the input and output files
 
                     if (chInOpen && chIn)
@@ -236,7 +255,6 @@ proc
                         clear chOut
                     end
 
-                    ;-------------------------------------------------------------------
                     ;Verify that the output file is present
 
                     if (ok && fileExported)
@@ -266,7 +284,6 @@ proc
                         endtry
                     end
 
-                    ;-------------------------------------------------------------------
                     ;Compress the unloaded file
 
 ;                    if (fileExported)
@@ -276,7 +293,6 @@ proc
 ;                        fileZipped = true
 ;                    end
 
-                    ;-------------------------------------------------------------------
                     ;Delete the uncompressed file
 
 ;                    if (fileExported && fileZipped)
@@ -284,7 +300,6 @@ proc
 ;                        xcall delet(exportFileSpec)
 ;                    end
 
-                    ;-------------------------------------------------------------------
                     ;Upload the compressed file to an S3 bucket
 
 ;                    if (fileZipped)
@@ -293,7 +308,6 @@ proc
 ;                        nop
 ;                    end
 
-                    ;-------------------------------------------------------------------
                     ;Report the outcome to the outbound Kafka topic
  
 ;                    if (ok && fileUploaded) then
@@ -315,7 +329,6 @@ proc
 ;                        end
 ;                    end
 
-                    ;-------------------------------------------------------------------
                     ;Delete the compressed file
 
 ;                    if (fileZipped)
@@ -348,26 +361,22 @@ proc
     end
 
     ;Disconnect the consumer
-    Console.WriteLine("Disconnecting consumer...")
-    xcall KafkaDisconnectConsumer(consumer)
+
+    if (consumerConnected)
+    begin
+        Console.WriteLine("Disconnecting consumer...")
+        xcall KafkaDisconnectConsumer(consumer)
+    end
 
     ;Disconnect the publisher
-    Console.WriteLine("Disconnecting publisher...")
-    xcall KafkaDisconnectPublisher(publisher)
+
+    if (publisherConnected)
+    begin
+        Console.WriteLine("Disconnecting publisher...")
+        xcall KafkaDisconnectPublisher(publisher)
+    end
 
     Console.WriteLine("Stopping")
     stop
-
-    begin
-        data tmpfil, a40
-        xcall DepartmentFile(tmpfil)
-        xcall EmployeeFile(tmpfil)
-        xcall DepartmentLength
-        xcall EmployeeLength
-        xcall DepartmentType(tmpfil)
-        xcall EmployeeType(tmpfil)
-        xcall DepartmentOpenInput(tmpfil)
-        xcall EmployeeOpenInput(tmpfil)
-    end
 
 endmain

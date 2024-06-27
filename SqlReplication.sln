@@ -74,6 +74,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DAT", "DAT", "{9C0C9260-545
 		DAT\DEPARTMENT.SEQ = DAT\DEPARTMENT.SEQ
 		DAT\EMPLOYEE.SEQ = DAT\EMPLOYEE.SEQ
 		DAT\ReplicatorConfig.json = DAT\ReplicatorConfig.json
+		DAT\UnloadAgentConfig.json = DAT\UnloadAgentConfig.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "VMS", "VMS", "{7F265779-4E2A-4A5E-BE13-328B3180AC9F}"

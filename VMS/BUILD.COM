@@ -72,6 +72,7 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:ThrowOnCommunicationError.dbl -
  + LIBSRC:TimeNow.dbl -
  + LIBSRC:Timer.dbl -
+ + LIBSRC:UnloadAgentSettings.dbl -
  + LIBSRC:ValidateBasicEnvironment.dbl
 $ !
 $ WRITE SYS$OUTPUT "Creating object library LIBRARY.OLB..."
@@ -100,7 +101,7 @@ $ WRITE SYS$OUTPUT "Compiling replicator and utilities..."
 $ !
 $ OPTIONS_FILE="''HERE'REPLICATOR/OPT"
 $ !
-$ DIB/OPT/OBJ=OBJ:REPLICATOR.OBJ REPSRC:replicator.dbl
+$ DIB/OPT/OBJ=OBJ: REPSRC:replicator.dbl
 $ LINK/THREADS/EXE=REPLICATOR_EXE:REPLICATOR.EXE OBJ:REPLICATOR.OBJ,'OPTIONS_FILE
 $ !
 $ DIB/OPT/OBJ=OBJ: TOOLSRC:ChangeEveryEmployee.dbl

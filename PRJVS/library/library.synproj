@@ -21,6 +21,7 @@
     <EnableCommonProperties>True</EnableCommonProperties>
     <CommonPropertiesFileLocation>$(SolutionDir)Common.props</CommonPropertiesFileLocation>
     <RootNamespace>ReplicationLibrary</RootNamespace>
+    <DBL_qWarnLevel>0</DBL_qWarnLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
     <IncludeDebugInformation>true</IncludeDebugInformation>
@@ -263,6 +264,9 @@
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\Timer.dbl">
       <Link>Timer.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\UnloadAgentSettings.dbl">
+      <Link>UnloadAgentSettings.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\ValidateBasicEnvironment.dbl">
       <Link>ValidateBasicEnvironment.dbl</Link>
