@@ -17,8 +17,8 @@ $ !
 $ DBLPROTO -OUT LIBRARY LIBSRC:*.dbl
 $ !
 $ WRITE SYS$OUTPUT "Compiling library routines..."
-$ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
-  LIBSRC:CommandLineParser.dbl -
+$ DIBOL/OPT/OBJ=OBJ:LIBRARY.OBJ -
+   LIBSRC:CommandLineParser.dbl -
  + LIBSRC:CommitTransactionSqlConnection.dbl -
  + LIBSRC:ConfigureEnvironment.dbl -
  + LIBSRC:ConfigureReplication.dbl -
@@ -77,6 +77,7 @@ $ DIB/OPT/OBJ=OBJ:LIBRARY.OBJ -
 $ !
 $ WRITE SYS$OUTPUT "Creating object library LIBRARY.OLB..."
 $ LIB/CREATE OBJ:LIBRARY.OLB OBJ:LIBRARY.OBJ
+$ DELETE/NOLOG OBJ:library.OBJ;*
 $ !
 $ ! We can't use a shared image because of the issue with destructors
 $ ! so unless we find a solution to that problem we'll use an object library.
@@ -84,8 +85,7 @@ $ ! WRITE SYS$OUTPUT "Creating shared image LIBRARY.EXE..."
 $ ! MAKESHARE -L OBJ:LIBRARY.OLB -E REPLICATOR_EXE: -Q -SQL -XD
 $ ! @LIBRARY.COM
 $ !
-$ !TODO: Need to move all of the C code into the standard repo at some point and remove these hard-coded paths
-$ !
+$ WRITE SYS$OUTPUT "Compiling ZeroMQ interface..."
 $ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: VMSCSRC:DBL_UTILS.C
 $ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: VMSCSRC:MESSAGE_UTILS.C
 $ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: VMSCSRC:PACKET_UTILS.C
@@ -96,40 +96,43 @@ $ LIB/INSERT OBJ:LIBRARY.OLB OBJ:MESSAGE_UTILS.OBJ
 $ LIB/INSERT OBJ:LIBRARY.OLB OBJ:PACKET_UTILS.OBJ
 $ LIB/INSERT OBJ:LIBRARY.OLB OBJ:ZMQ_HOOKS.OBJ
 $ !
+$ DELETE/NOLOG OBJ:DBL_UTILS.OBJ;*
+$ DELETE/NOLOG OBJ:MESSAGE_UTILS.OBJ;*
+$ DELETE/NOLOG OBJ:PACKET_UTILS.OBJ;*
+$ DELETE/NOLOG OBJ:ZMQ_HOOKS.OBJ;*
+$ !
 $ !------------------------------------------------------------------------------------
 $ WRITE SYS$OUTPUT "Compiling replicator and utilities..."
 $ !
-$ OPTIONS_FILE="''HERE'REPLICATOR/OPT"
+$ DIBOL/OPT/OBJ=OBJ: REPSRC:replicator.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:REPLICATOR.EXE OBJ:REPLICATOR.OBJ,[]REPLICATOR.OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: REPSRC:replicator.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:REPLICATOR.EXE OBJ:REPLICATOR.OBJ,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:ChangeEveryEmployee.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:ChangeEveryEmployee.exe OBJ:ChangeEveryEmployee.obj,[]REPLICATOR/OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:ChangeEveryEmployee.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:ChangeEveryEmployee.exe OBJ:ChangeEveryEmployee.obj,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:DepartmentMaintenance.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:DepartmentMaintenance.exe OBJ:DepartmentMaintenance.obj,[]REPLICATOR/OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:DepartmentMaintenance.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:DepartmentMaintenance.exe OBJ:DepartmentMaintenance.obj,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:EmployeeDataReport.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeDataReport.exe OBJ:EmployeeDataReport.obj,[]REPLICATOR/OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:EmployeeDataReport.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeDataReport.exe OBJ:EmployeeDataReport.obj,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:EmployeeMaintenance.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeMaintenance.exe OBJ:EmployeeMaintenance.obj,[]REPLICATOR/OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:EmployeeMaintenance.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeMaintenance.exe OBJ:EmployeeMaintenance.obj,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:InstructionCount.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:InstructionCount.exe OBJ:InstructionCount.obj,[]REPLICATOR/OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:InstructionCount.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:InstructionCount.exe OBJ:InstructionCount.obj,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:QueueMonitor.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:QueueMonitor.exe OBJ:QueueMonitor.obj,[]REPLICATOR/OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:QueueMonitor.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:QueueMonitor.exe OBJ:QueueMonitor.obj,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:ReplicatorMenu.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorMenu.exe OBJ:ReplicatorMenu.obj,[]REPLICATOR/OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:ReplicatorMenu.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorMenu.exe OBJ:ReplicatorMenu.obj,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:ReplicatorStop.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorStop.exe OBJ:ReplicatorStop.obj,[]REPLICATOR/OPT
 $ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:ReplicatorStop.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorStop.exe OBJ:ReplicatorStop.obj,'OPTIONS_FILE
-$ !
-$ DIB/OPT/OBJ=OBJ: TOOLSRC:UnloadAgent.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:UnloadAgent.exe OBJ:UnloadAgent.obj,'OPTIONS_FILE
+$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:UnloadAgent.dbl
+$ LINK/THREADS/EXE=REPLICATOR_EXE:UnloadAgent.exe OBJ:UnloadAgent.obj,[]REPLICATOR/OPT
 $ !
 $ !------------------------------------------------------------------------------------
 $ WRITE SYS$OUTPUT "Cleaning up..."

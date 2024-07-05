@@ -54,15 +54,15 @@ echo mkdir [.SRC.TOOLS] >> ftp.tmp
 echo mkdir [.SRC.VMSC] >> ftp.tmp
 
 rem Delete existing files
-echo mdelete [.DATA]*.seq;* >> ftp.tmp
-echo mdelete [.FDL]*.*;* >> ftp.tmp
-echo mdelete [.OBJ]*.*;* >> ftp.tmp
-echo mdelete [.PROTO]*.*;* >> ftp.tmp
-echo mdelete [.REPOSITORY]*.*;* >> ftp.tmp
-echo mdelete [.SRC.LIBRARY]*.*;* >> ftp.tmp
-echo mdelete [.SRC.REPLICATOR]*.*;* >> ftp.tmp
-echo mdelete [.SRC.TOOLS]*.*;* >> ftp.tmp
-echo mdelete [.SRC.VMSC]*.*;* >> ftp.tmp
+rem echo mdelete [.DATA]*.seq;* >> ftp.tmp
+rem echo mdelete [.FDL]*.*;* >> ftp.tmp
+rem echo mdelete [.OBJ]*.*;* >> ftp.tmp
+rem echo mdelete [.PROTO]*.*;* >> ftp.tmp
+rem echo mdelete [.REPOSITORY]*.*;* >> ftp.tmp
+rem echo mdelete [.SRC.LIBRARY]*.*;* >> ftp.tmp
+rem echo mdelete [.SRC.REPLICATOR]*.*;* >> ftp.tmp
+rem echo mdelete [.SRC.TOOLS]*.*;* >> ftp.tmp
+rem echo mdelete [.SRC.VMSC]*.*;* >> ftp.tmp
 
 rem Upload new files
 echo cd [.REPOSITORY] >> ftp.tmp

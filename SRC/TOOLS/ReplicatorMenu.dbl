@@ -161,7 +161,6 @@ proc
 
 .ifdef DBLNET
         xcall w_disp(mainwnd,WD_POS,3,2,"SR. Start Replicator (Normal)")
-        xcall w_disp(mainwnd,WD_POS,4,2,"SD. Start Replicator (Detached/CRASH!)")
 .else
         if (windows) then
         begin
@@ -308,12 +307,8 @@ proc
         ("SD"),
         begin
 .ifdef DBLNET
-            data startInfo = new ProcessStartInfo() {
-            &    FileName = "C:\DEV_UNFI\UBSSQLReplication\EXE\net6.0\NetReplicator.exe",
-            &    UseShellExecute = false,
-            &    CreateNoWindow = true
-            &    }
-            System.Diagnostics.Process.Start(startInfo)
+            ;Can't happen
+            nop
 .else
             if (windows)
             begin

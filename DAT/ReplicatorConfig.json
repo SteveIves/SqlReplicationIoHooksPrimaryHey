@@ -7,7 +7,7 @@
     }
   ],
   "InstanceDefaults": {
-    "QueueType": "IsamFile",
+    "QueueType": "Kafka",
     "DatabaseConnectionName": "SDMS_LOCAL",
     "DatabaseServer": "localhost",
     "DatabaseName": "SqlReplication",
@@ -29,7 +29,7 @@
     "FileServiceHost": "localhost",
     "FileServicePort": 8080,
     "KafkaServers": "localhost:19092,localhost:29092,localhost:39092",
-    "LocalExportPath": "C:\\DEV_SYNERGEX\\SqlReplication\\CSV\\",
+    "LocalExportPath": "C:\\DEV\\SqlReplication\\CSV\\",
     "LogBulkLoadExceptions": false,
     "LogKeyValues": false,
     "LogLoadProgress": false,
