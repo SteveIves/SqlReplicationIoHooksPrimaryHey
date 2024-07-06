@@ -57,7 +57,7 @@ proc
         ok = false
         if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to rollback transaction"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        xcall ThrowOnCommunicationError("RollbackSqlConnection",dberror,errtxt)
     end
 
     freturn ok

@@ -3,10 +3,10 @@
 ;
 ;  REPOSITORY     : C:\DEV_SYNERGEX\SqlReplication\RPS\rpsmain.ism
 ;                 : C:\DEV_SYNERGEX\SqlReplication\RPS\rpstext.ism
-;                 : Version 12.2.1
+;                 : Version 12.4.1
 ;
-;  GENERATED      : 07-MAR-2024, 14:42:22
-;                 : Version 12.2.1
+;  GENERATED      : 05-JUL-2024, 14:29:23
+;                 : Version 12.3.1
 ;  EXPORT OPTIONS : [ALL] 
  
  
@@ -18,7 +18,8 @@ Enumeration REPLICATION_INSTRUCTION
           LOAD_TABLE 5, CREATE_AND_LOAD_TABLE 6, DELETE_ALL_ROWS 7,
           DELETE_TABLE 8, SHUTDOWN 9, INSERT_RELATIVE 10,
           UPDATE_RELATIVE 11, ADD_INDEXES 12, DELETE_INDEXES 13,
-          BULK_LOAD_TABLE 14, BULK_LOAD_FIRST_1000 15, BULK_COPY_TABLE 18,
+          BULK_LOAD_TABLE 14, BULK_LOAD_FIRST_1000 15,
+          BULK_LOAD_TO_TEMP_TABLE 16, DELETE_TEMP_TABLE 17, BULK_COPY_TABLE 18,
           DELETE_ALL_INSTRUCTIONS 20, CLOSE_FILE 21, CHANGE_INTERVAL 22,
           CREATE_CSV 23, CYCLE_LOG 24, OPEN_FILE 25,
           DELETE_FIRST_INSTRUCTION 26, TRANSFORM_COLUMN 27
@@ -73,10 +74,10 @@ Field DEPT_MANAGER   Template EMPLOYEE_ID
    Description "Department manager"
    Prompt "Manager"
  
-Field MONAME_001   Type ALPHA   Size 27   Language Noview   Script Noview
+Field NONAME_001   Type ALPHA   Size 27   Language Noview   Script Noview
    Report Noview   Nonamelink
    Description "Spare space"
- 
+
 Key DEPT_ID   ACCESS   Order ASCENDING   Dups NO
    Description "Department ID"
    Segment FIELD   DEPT_ID
@@ -84,7 +85,7 @@ Key DEPT_ID   ACCESS   Order ASCENDING   Dups NO
 Key DEPT_MANAGER   ACCESS   Order ASCENDING   Dups YES   Insert END
    Modifiable YES   Krf 001
    Description "Department manager"
-   Segment FIELD   DEPT_MANAGER  SegType ALPHA
+   Segment FIELD   DEPT_MANAGER  SegType DECIMAL  SegOrder ASCENDING
  
 Structure EMPLOYEE   DBL ISAM
    Description "Employee Master File"
@@ -185,7 +186,7 @@ Field NONAME_001   Type ALPHA   Size 76   Language Noview   Script Noview
    ODBC Name SPARE_SPACE_1
  
 Key EMP_ID   ACCESS   Order ASCENDING   Dups NO
-   Segment FIELD   EMP_ID  SegType ALPHA
+   Segment FIELD   EMP_ID  SegType DECIMAL  SegOrder ASCENDING
  
 Key EMP_DEPT   ACCESS   Order ASCENDING   Dups YES   Insert END
    Modifiable YES   Krf 001
@@ -205,7 +206,7 @@ Key STATE_CODE   ACCESS   Order ASCENDING   Dups YES   Insert END
 Key ZIP_CODE   ACCESS   Order ASCENDING   Dups YES   Insert END
    Modifiable YES   Krf 004
    Description "Zip code"
-   Segment FIELD   EMP_ADDRESS_ZIP  SegType ALPHA  SegOrder ASCENDING
+   Segment FIELD   EMP_ADDRESS_ZIP  SegType DECIMAL  SegOrder ASCENDING
  
 Structure RELSTR   RELATIVE
    Description "Relative structure"

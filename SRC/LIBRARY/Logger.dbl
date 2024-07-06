@@ -77,9 +77,10 @@ namespace ReplicationLibrary
                 data tmpchn, i4
                 close Settings.LogFileChannel
                 Settings.LogFileName = "REPLICATOR_LOGDIR:REPLICATOR_" + Settings.InstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
+
                 open(tmpchn=0,o:s,Settings.LogFileName)
                 Settings.LogFileChannel = tmpchn
-                Logger.Log(" - Log file is now " + Settings.LogFileName)
+                Logger.Log("New log " + Settings.LogFileName)
             end
         endmethod
 
@@ -95,7 +96,7 @@ namespace ReplicationLibrary
                 writes(Settings.LogFileChannel,%TimeNow + " " + message)
             ;;If running on the terminal, also display the message
             if (Settings.RunningOnTerminal)
-                writes(Settings.TerminalChannel,message)
+                writes(Settings.TerminalChannel,%TimeNow + message)
         endmethod
 
         ;;; <summary>

@@ -21,23 +21,26 @@ import System.Text
 .include "EMPLOYEE" repository, structure="strEmployee", end
 .endc
 
-.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
-.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
+.define writelog(x) if Settings.LogFileChannel writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
+.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
 
 ;*****************************************************************************
-; <summary>
-; Determines if the Employee table exists in the database.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
+;;; <summary>
+;;; Determines if the Employee table exists in the database.
+;;; </summary>
+;;; <param name="a_temp_table">Create a TEMP table.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
 function EmployeeExists, ^val
+    required in a_temp_table, n
     required out a_errtxt, a
     endparams
 
     .include "CONNECTDIR:ssql.def"
 
     stack record local_data
+        sql         ,string ;SQL statement
         error       ,int    ;Returned error number
         dberror     ,int    ;Database error number
         cursor      ,int    ;Database cursor
@@ -50,13 +53,20 @@ proc
 
     init local_data
 
+    if (a_temp_table) then
+        sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='EmployeeTEMP'"
+    else
+        sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Employee'"
+
     ;Open a cursor for the SELECT statement
 
-    if (%ssc_open(Settings.DatabaseChannel,cursor,"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Employee'",SSQL_SELECT)==SSQL_FAILURE)
+    if (%ssc_open(Settings.DatabaseChannel,cursor,sql,SSQL_SELECT)==SSQL_FAILURE)
     begin
         error=-1
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to open cursor"
+        else
+            xcall ThrowOnCommunicationError("EmployeeExists",dberror,errtxt)
     end
 
     ;Bind host variables to receive the data
@@ -66,8 +76,10 @@ proc
         if (%ssc_define(Settings.DatabaseChannel,cursor,1,table_name)==SSQL_FAILURE)
         begin
             error=-1
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variable"
+            else
+                xcall ThrowOnCommunicationError("EmployeeExists",dberror,errtxt)
         end
     end
 
@@ -81,11 +93,10 @@ proc
         end
         else
         begin
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
-            begin
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to execute SQL Statement"
-            end
-            xcall ThrowOnCommunicationError(dberror,errtxt)
+            else
+                xcall ThrowOnCommunicationError("EmployeeExists",dberror,errtxt)
         end
     end
 
@@ -98,8 +109,10 @@ proc
             if (!error)
             begin
                 error=-1
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeExists",dberror,errtxt)
             end
         end
     end
@@ -116,13 +129,15 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Creates the Employee table in the database.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Creates the Employee table in the database.
+;;; </summary>
+;;; <param name="a_temp_table">Create a TEMP table.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeCreate, ^val
+    required in a_temp_table, n
     required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
@@ -130,6 +145,7 @@ function EmployeeCreate, ^val
     .align
     stack record local_data
         sql         ,string     ;SQL statement
+        tableName   ,string     ;Table to create
         ok          ,boolean    ;Return status
         dberror     ,int        ;Database error number
         cursor      ,int        ;Database cursor
@@ -154,7 +170,12 @@ proc
 
     if (ok)
     begin
-        sql = 'CREATE TABLE "Employee" ('
+        if (a_temp_table) then
+            tableName = "EmployeeTEMP"
+        else
+            tableName = "Employee"
+
+        sql = 'CREATE TABLE ' + tableName + ' ('
         & + '"EmpId" DECIMAL(8) NOT NULL,'
         & + '"EmpFirstName" VARCHAR(20) NOT NULL,'
         & + '"EmpLastName" VARCHAR(20) NOT NULL,'
@@ -170,7 +191,7 @@ proc
         & + '"EmpAddressCity" VARCHAR(20),'
         & + '"EmpAddressState" VARCHAR(2),'
         & + '"EmpAddressZip" DECIMAL(5),'
-        & + 'CONSTRAINT PK_Employee PRIMARY KEY CLUSTERED("EmpId" ASC)'
+        & + 'CONSTRAINT PK_' + tableName + ' PRIMARY KEY CLUSTERED("EmpId" ASC)'
         & + ')'
 
         using Settings.DataCompressionMode select
@@ -193,7 +214,7 @@ proc
 
     if (ok)
     begin
-        sql = 'GRANT ALL ON "Employee" TO PUBLIC'
+        sql = 'GRANT ALL ON ' + tableName + ' TO PUBLIC'
 
         call open_cursor
 
@@ -234,8 +255,10 @@ open_cursor,
     if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to open cursor"
+        else
+            xcall ThrowOnCommunicationError("EmployeeCreate",dberror,errtxt)
     end
 
     return
@@ -245,9 +268,10 @@ execute_cursor,
     if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to execute SQL statement"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        else
+            xcall ThrowOnCommunicationError("EmployeeCreate",dberror,errtxt)
     end
 
     return
@@ -261,8 +285,10 @@ close_cursor,
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeCreate",dberror,errtxt)
             end
         end
         clear cursor
@@ -273,11 +299,11 @@ close_cursor,
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Add alternate key indexes to the Employee table if they do not exist.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Add alternate key indexes to the Employee table if they do not exist.
+;;; </summary>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeIndex, ^val
     required out a_errtxt, a
@@ -313,12 +339,14 @@ proc
     if (ok)
     begin
         now = %datetime
-        writelog(" - Setting database timeout to " + %string(Settings.BulkLoadTimeout) + " seconds")
+        writelog("Setting database timeout to " + %string(Settings.BulkLoadTimeout) + " seconds")
         if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.BulkLoadTimeout))==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to set database timeout"
+            else
+                xcall ThrowOnCommunicationError("EmployeeIndex",dberror,errtxt)
         end
     end
 
@@ -347,11 +375,11 @@ proc
 
         if (ok) then
         begin
-            writelog(" - Added index IX_Employee_EmpDept")
+            writelog("Added index IX_Employee_EmpDept")
         end
         else
         begin
-            writelog(" - ERROR: Failed to add index IX_Employee_EmpDepts")
+            writelog("ERROR: Failed to add index IX_Employee_EmpDepts")
             ok = true
         end
     end
@@ -381,11 +409,11 @@ proc
 
         if (ok) then
         begin
-            writelog(" - Added index IX_Employee_EmpLastName")
+            writelog("Added index IX_Employee_EmpLastName")
         end
         else
         begin
-            writelog(" - ERROR: Failed to add index IX_Employee_EmpLastNames")
+            writelog("ERROR: Failed to add index IX_Employee_EmpLastNames")
             ok = true
         end
     end
@@ -415,11 +443,11 @@ proc
 
         if (ok) then
         begin
-            writelog(" - Added index IX_Employee_StateCode")
+            writelog("Added index IX_Employee_StateCode")
         end
         else
         begin
-            writelog(" - ERROR: Failed to add index IX_Employee_StateCodes")
+            writelog("ERROR: Failed to add index IX_Employee_StateCodes")
             ok = true
         end
     end
@@ -449,11 +477,11 @@ proc
 
         if (ok) then
         begin
-            writelog(" - Added index IX_Employee_ZipCode")
+            writelog("Added index IX_Employee_ZipCode")
         end
         else
         begin
-            writelog(" - ERROR: Failed to add index IX_Employee_ZipCodes")
+            writelog("ERROR: Failed to add index IX_Employee_ZipCodes")
             ok = true
         end
     end
@@ -478,7 +506,7 @@ proc
     ;Set the database timeout back to the regular value
 
     now = %datetime
-    writelog(" - Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
+    writelog("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
     if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))==SSQL_FAILURE)
         nop
 
@@ -496,8 +524,10 @@ open_cursor,
     if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to open cursor"
+        else
+            xcall ThrowOnCommunicationError("EmployeeIndex",dberror,errtxt)
     end
 
     return
@@ -507,9 +537,10 @@ execute_cursor,
     if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to execute SQL statement"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        else
+            xcall ThrowOnCommunicationError("EmployeeIndex",dberror,errtxt)
     end
 
     return
@@ -523,8 +554,10 @@ close_cursor,
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeIndex",dberror,errtxt)
             end
         end
         clear cursor
@@ -535,11 +568,11 @@ close_cursor,
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Removes alternate key indexes from the Employee table in the database.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Removes alternate key indexes from the Employee table in the database.
+;;; </summary>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeUnIndex, ^val
     required out a_errtxt, a
@@ -659,8 +692,10 @@ open_cursor,
     if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to open cursor"
+        else
+            xcall ThrowOnCommunicationError("EmployeeUnIndex",dberror,errtxt)
     end
 
     return
@@ -670,9 +705,10 @@ execute_cursor,
     if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to execute SQL statement"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        else
+            xcall ThrowOnCommunicationError("EmployeeUnIndex",dberror,errtxt)
     end
 
     return
@@ -686,8 +722,10 @@ close_cursor,
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeUnIndex",dberror,errtxt)
             end
         end
         clear cursor
@@ -698,12 +736,12 @@ close_cursor,
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Insert a row into the Employee table.
-; </summary>
-; <param name="a_data">Record to be inserted.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
+;;; <summary>
+;;; Insert a row into the Employee table.
+;;; </summary>
+;;; <param name="a_data">Record to be inserted.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
 function EmployeeInsert, ^val
     required in  a_data,   a
@@ -751,6 +789,7 @@ function EmployeeInsert, ^val
         c1Employee, i4, 0
     endcommon
 
+
 proc
     init local_data
     ok = true
@@ -772,8 +811,10 @@ proc
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("EmployeeInsert",dberror,errtxt)
         end
     end
 
@@ -800,8 +841,10 @@ proc
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("EmployeeInsert",dberror,errtxt)
         end
     end
 
@@ -871,7 +914,7 @@ proc
                 end
                 (),
                 begin
-                    nop
+                    xcall ThrowOnCommunicationError("EmployeeInsert",dberror,errtxt)
                 end
                 endusing
             end
@@ -879,7 +922,6 @@ proc
             begin
                 errtxt="Failed to execute SQL statement"
             end
-            xcall ThrowOnCommunicationError(dberror,errtxt)
         end
     end
 
@@ -911,13 +953,13 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Inserts multiple rows into the Employee table.
-; </summary>
-; <param name="a_data">Memory handle containing one or more rows to insert.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <param name="a_exception">Memory handle to load exception data records into.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Inserts multiple rows into the Employee table.
+;;; </summary>
+;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <param name="a_exception">Memory handle to load exception data records into.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeInsertRows, ^val
     required in  a_data,      i
@@ -1012,8 +1054,10 @@ proc
         if (%ssc_open(Settings.DatabaseChannel,c2Employee,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("EmployeeInsertRows",dberror,errtxt)
         end
     end
 
@@ -1039,8 +1083,10 @@ proc
         &    employee.emp_address_zip)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("EmployeeInsertRows",dberror,errtxt)
         end
     end
 
@@ -1099,10 +1145,10 @@ proc
 
             if (%ssc_execute(Settings.DatabaseChannel,c2Employee,SSQL_STANDARD)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to execute SQL statement"
-
-                xcall ThrowOnCommunicationError(dberror,errtxt)
+                else
+                    xcall ThrowOnCommunicationError("EmployeeInsertRows",dberror,errtxt)
 
                 clear continue
 
@@ -1181,13 +1227,13 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Updates a row in the Employee table.
-; </summary>
-; <param name="a_data">Record containing data to update.</param>
-; <param name="a_rows">Returned number of rows affected.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Updates a row in the Employee table.
+;;; </summary>
+;;; <param name="a_data">Record containing data to update.</param>
+;;; <param name="a_rows">Returned number of rows affected.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeUpdate, ^val
     required in  a_data,   a
@@ -1235,6 +1281,7 @@ function EmployeeUpdate, ^val
     global common
         c3Employee, i4
     endcommon
+
 proc
     init local_data
     ok = true
@@ -1261,8 +1308,10 @@ proc
         if (%ssc_open(Settings.DatabaseChannel,c3Employee,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("EmployeeUpdate",dberror,errtxt)
         end
     end
 
@@ -1288,8 +1337,10 @@ proc
         &    employee.emp_address_zip)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("EmployeeUpdate",dberror,errtxt)
         end
     end
 
@@ -1300,8 +1351,10 @@ proc
         if (%ssc_bind(Settings.DatabaseChannel,c3Employee,1,employee.emp_id)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind key variables"
+            else
+                xcall ThrowOnCommunicationError("EmployeeUpdate",dberror,errtxt)
         end
     end
 
@@ -1356,9 +1409,10 @@ proc
         else
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to execute SQL statement"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
+            else
+                xcall ThrowOnCommunicationError("EmployeeUpdate",dberror,errtxt)
         end
     end
 
@@ -1390,12 +1444,12 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Deletes a row from the Employee table.
-; </summary>
-; <param name="a_key">Unique key of row to be deleted.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes a row from the Employee table.
+;;; </summary>
+;;; <param name="a_key">Unique key of row to be deleted.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeDelete, ^val
     required in  a_key,    a
@@ -1444,8 +1498,10 @@ proc
         if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("EmployeeDelete",dberror,errtxt)
         end
     end
 
@@ -1456,9 +1512,10 @@ proc
         if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to execute SQL statement"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
+            else
+                xcall ThrowOnCommunicationError("EmployeeDelete",dberror,errtxt)
         end
     end
 
@@ -1471,8 +1528,10 @@ proc
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeDelete",dberror,errtxt)
             end
         end
     end
@@ -1505,13 +1564,15 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Deletes all rows from the Employee table.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes all rows from the Employee table.
+;;; </summary>
+;;; <param name="a_temp_table">Clear TEMP table.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeClear, ^val
+    required in a_temp_table, n
     required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
@@ -1543,12 +1604,18 @@ proc
 
     if (ok)
     begin
-        sql = 'TRUNCATE TABLE "Employee"'
+        if (a_temp_table) then
+            sql = 'TRUNCATE TABLE EmployeeTEMP'
+        else
+            sql = 'TRUNCATE TABLE Employee'
+
         if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("EmployeeClear",dberror,errtxt)
         end
     end
 
@@ -1559,9 +1626,10 @@ proc
         if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to execute SQL statement"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
+            else
+                xcall ThrowOnCommunicationError("EmployeeClear",dberror,errtxt)
         end
     end
 
@@ -1574,8 +1642,10 @@ proc
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeClear",dberror,errtxt)
             end
         end
     end
@@ -1608,19 +1678,22 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Deletes the Employee table from the database.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes the Employee table from the database.
+;;; </summary>
+;;; <param name="a_temp_table">Drop TEMP table.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeDrop, ^val
+    required in a_temp_table, n
     required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
     stack record local_data
         ok          ,boolean    ;Return status
+        sql         ,string     ;SQL statement
         dberror     ,int        ;Database error number
         cursor      ,int        ;Database cursor
         length      ,int        ;Length of a string
@@ -1648,11 +1721,18 @@ proc
 
     if (ok)
     begin
-        if (%ssc_open(Settings.DatabaseChannel,cursor,"DROP TABLE Employee",SSQL_NONSEL)==SSQL_FAILURE)
+        sql = "DROP TABLE Employee"
+
+        if (a_temp_table)
+            sql = sql + "TEMP"
+
+        if (%ssc_open(Settings.DatabaseChannel,cursor,sql,SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("EmployeeDrop",dberror,errtxt)
         end
     end
 
@@ -1668,14 +1748,16 @@ proc
                 if (dberror==-3701) then
                     clear errtxt
                 else
+                begin
                     ok = false
+                    xcall ThrowOnCommunicationError("EmployeeDrop",dberror,errtxt)
+                end
             end
             else
             begin
                 errtxt="Failed to execute SQL statement"
                 ok = false
             end
-            xcall ThrowOnCommunicationError(dberror,errtxt)
         end
     end
 
@@ -1688,8 +1770,10 @@ proc
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeDrop",dberror,errtxt)
             end
         end
     end
@@ -1722,14 +1806,14 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Load all data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table.
-; </summary>
-; <param name="a_maxrows">Maximum number of rows to load.</param>
-; <param name="a_added">Total number of successful inserts.</param>
-; <param name="a_failed">Total number of failed inserts.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Load all data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table.
+;;; </summary>
+;;; <param name="a_maxrows">Maximum number of rows to load.</param>
+;;; <param name="a_added">Total number of successful inserts.</param>
+;;; <param name="a_failed">Total number of failed inserts.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeLoad, ^val
     required in  a_maxrows,       n
@@ -1928,7 +2012,7 @@ insert_data,
             ttl_added += attempted
             if (Settings.RunningOnTerminal && Settings.LogLoadProgress)
             begin
-                writes(Settings.TerminalChannel," - " + %string(ttl_added) + " rows inserted")
+                writes(Settings.TerminalChannel,%string(ttl_added) + " rows inserted")
             end
         end
     end
@@ -1940,17 +2024,19 @@ insert_data,
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Bulk load data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table via a CSV file.
-; </summary>
-; <param name="recordsToLoad">Number of records to load (0=all)</param>
-; <param name="a_records">Records loaded</param>
-; <param name="a_exceptions">Records failes</param>
-; <param name="a_errtxt">Error message (if return value is false)</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Bulk load data from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM into the Employee table via a CSV file.
+;;; </summary>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="a_temp_table">Load TEMP table</param>
+;;; <param name="a_records">Records loaded</param>
+;;; <param name="a_exceptions">Records failes</param>
+;;; <param name="a_errtxt">Error message (if return value is false)</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeBulkLoad, ^val
     required in recordsToLoad, n
+    required in  a_temp_table, n
     required out a_records,    n
     required out a_exceptions, n
     required out a_errtxt,     a
@@ -2107,7 +2193,14 @@ proc
 
         if (ok)
         begin
-            sql = "BULK INSERT Employee FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + fileToLoad + "_err'"
+            data errorFile = fileToLoad + "_err"
+
+            sql = "BULK INSERT Employee"
+
+            if (a_temp_table)
+                sql = sql + "TEMP"
+
+            sql = sql + " FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + errorFile + "'"
 
             if (Settings.BulkLoadBatchSize > 0)
             begin
@@ -2121,8 +2214,10 @@ proc
             else
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to open cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeBulkLoad",dberror,errtxt)
             end
         end
 
@@ -2136,8 +2231,10 @@ proc
             if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.BulkLoadTimeout))==SSQL_FAILURE)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to set database timeout"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeBulkLoad",dberror,errtxt)
             end
         end
 
@@ -2153,7 +2250,7 @@ proc
             begin
                 if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
                 begin
-                    xcall ThrowOnCommunicationError(dberror,errtxt)
+                    xcall ThrowOnCommunicationError("EmployeeBulkLoad",dberror,errtxt)
 
                     now = %datetime
                     writelog("Bulk insert error: " + %atrim(errtxt))
@@ -2242,8 +2339,10 @@ proc
         begin
             if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("EmployeeBulkLoad",dberror,errtxt)
             end
         end
     end
@@ -2360,7 +2459,6 @@ GetExceptionDetails,
 
                     now = %datetime
                     writelog(%string(exceptionRecords.Length) + " items saved to " + localExceptionsLog)
-                    writelog(" - " + %string(exceptionRecords.Length) + " items saved to " + localExceptionsLog)
                 end
             end
             else
@@ -2409,14 +2507,14 @@ eof,        close ex_ch
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Exports REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM to a CSV file.
-; </summary>
-; <param name="fileSpec">File to create</param>
-; <param name="maxRecords">Mumber of records to export.</param>
-; <param name="recordCount">Returned number of records exported.</param>
-; <param name="errorMessage">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Exports REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM to a CSV file.
+;;; </summary>
+;;; <param name="fileSpec">File to create</param>
+;;; <param name="maxRecords">Mumber of records to export.</param>
+;;; <param name="recordCount">Returned number of records exported.</param>
+;;; <param name="errorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function EmployeeCsv, boolean
     required in  fileSpec, a
@@ -2569,13 +2667,13 @@ eof,
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Close cursors associated with the Employee table.
-; This routine is called at the following times;
-; 1. If the table is about to be dropped
-; 2. Before a database disconnect/reconnect
-; 3. Before a replicator shutdown.
-; </summary>
+;;; <summary>
+;;; Close cursors associated with the Employee table.
+;;; This routine is called at the following times;
+;;; 1. If the table is about to be dropped
+;;; 2. Before a database disconnect/reconnect
+;;; 3. Before a replicator shutdown.
+;;; </summary>
 
 subroutine EmployeeClose
 
@@ -2648,11 +2746,11 @@ proc
 endsubroutine
 
 ;*****************************************************************************
-; <summary>
-; Opens the REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM for input.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns the channel number, or 0 if an error occured.</returns>
+;;; <summary>
+;;; Opens the REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM for input.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
 function EmployeeOpenInput, ^val
     required out errorMessage, a  ;Returned error text
@@ -2675,11 +2773,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Opens the REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM for update.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns the channel number, or 0 if an error occured.</returns>
+;;; <summary>
+;;; Opens the REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM for update.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
 function EmployeeOpenUpdate, ^val
     required out errorMessage, a  ;Returned error text
@@ -2702,11 +2800,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Loads a unique key value into the respective fields in a record.
-; </summary>
-; <param name="aKeyValue">Unique key value.</param>
-; <returns>Returns a record containig only the unique key segment data.</returns>
+;;; <summary>
+;;; Loads a unique key value into the respective fields in a record.
+;;; </summary>
+;;; <param name="aKeyValue">Unique key value.</param>
+;;; <returns>Returns a record containig only the unique key segment data.</returns>
 
 function EmployeeKeyToRecord, a
     required in aKeyValue, a
@@ -2730,14 +2828,14 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Extract a key value from the segment fields in a record.
-; This function behaves like %KEYVAL but without requiring an open channel.
-; </summary>
-; <param name="aRecord">Record containing key data</param>
-; <param name="aKeyVal">Returned key value</param>
-; <param name="aKeyLen">Returned key length</param>
-; <returns>Always returns true</returns>
+;;; <summary>
+;;; Extract a key value from the segment fields in a record.
+;;; This function behaves like %KEYVAL but without requiring an open channel.
+;;; </summary>
+;;; <param name="aRecord">Record containing key data</param>
+;;; <param name="aKeyVal">Returned key value</param>
+;;; <param name="aKeyLen">Returned key length</param>
+;;; <returns>Always returns true</returns>
 
 function EmployeeKeyVal, ^val
     required in  aRecord, a
@@ -2767,10 +2865,10 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Returns the key number of the first unique key.
-; </summary>
-; <returns>Returned key number.</returns>
+;;; <summary>
+;;; Returns the key number of the first unique key.
+;;; </summary>
+;;; <returns>Returned key number.</returns>
 
 function EmployeeKeyNum, ^val
 proc
@@ -2778,10 +2876,10 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <returns></returns>
 
 function EmployeeFile, ^val
     required out fileSpec, a
@@ -2791,10 +2889,10 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <returns></returns>
 
 function EmployeeLength ,^val
 proc
@@ -2802,11 +2900,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="fileType"></param>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <param name="fileType"></param>
+;;; <returns></returns>
 
 function EmployeeType, ^val
     required out fileType, a
@@ -2816,10 +2914,10 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
+;;; <summary>
+;;; Return the number of columns in the Employee table
+;;; </summary>
+;;; <returns>Number of columns</returns>
 
 function EmployeeCols ,^val
 proc
@@ -2829,11 +2927,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="fileType"></param>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <param name="fileType"></param>
+;;; <returns></returns>
 
 function EmployeeRecs, ^val
     required out recordCount, n

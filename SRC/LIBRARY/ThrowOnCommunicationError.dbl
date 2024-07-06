@@ -54,30 +54,20 @@ import System.Collections
 ;;; <param name="dberror">Database error number from %SSC_GETEMSG</param>
 ;;; <param name="errtxt">Database error text from %SSC_GETEMSG</param>
 subroutine ThrowOnCommunicationError
+    required in routine, string
     required in dberror, int
     required in errtxt, a
 
+.define MESSAGE_COUNT 5
     static record
-        messages, @ArrayList
-        message, string
+        messages, [MESSAGE_COUNT]a128,
+        &    "Network connection lost (recv): errno: 10060",
+        &    "Shared Memory Provider: No process is on the other end of the pipe",
+        &    "Network connection lost (send): An existing connection was forcibly closed by the remote host."
+        &    "CONFIG: Expected a CONFIG call"
     endrecord
 
 proc
-    if (messages == ^null)
-    begin
-        if (ReplicationLibrary.File.Exists("REPLICATOR_DATA:RetryErrorMessages.txt"))
-        begin
-            ReplicationLibrary.File.ReadAllLines("REPLICATOR_DATA:RetryErrorMessages.txt",messages)
-        end
-
-        if ((messages == ^null) || (messages.Count == 0))
-        begin
-            messages = new ArrayList()
-            messages.Add((string)"Network connection lost (recv): errno: 10060")
-            messages.Add((string)"Shared Memory Provider: No process is on the other end of the pipe")
-        end
-    end
-
     ;Turn off network adapter on server
     ;   dberror    -1
     ;   errtxt     Network connection lost (recv): errno: 10060
@@ -87,21 +77,28 @@ proc
     ;   dberror    -233
     ;   errtxt     [Microsoft][ODBC Driver 17 for SQL Server]Shared Memory Provider: No process is on the other end of the pipe.\r\n\0[Microsoft][ODBC Driver 17 for SQL Server]Communication link failure
 
-    ;Stop OpenNet server
+    ;Stop the OpenNet server once a connection is established
     ;   dberror    ???
-    ;   errtxt     ???
+    ;   errtxt     Network connection lost (send): An existing connection was forcibly closed by the remote host.
+
+    ;Interfere with network packets going to FileService. Produced with Clumsy using the "Tamper" function and the rule "inbound and tcp.DstPort == 8080"
+    ;Not currently trapping this one because it could be caused by bad data in the delimited file that we send.
+    ;   dberror    -4863
+    ;   errtxt     [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Bulk load data conversion error (truncation) for row 3, column 132 (Cusccall). [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Bulk load data conversion error (truncation) for row 6, column 92 (Cmiscf). [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Bulk load data conversion error (type mismatch or invalid character for the specified codepage) for row 75, column 113 (Fetmtd). [Microsoft][ODBC Driver 17 for SQL Server][SQL Server]Bulk load da
 
     ;Shut down SQL Server host
     ;   dberror    ???
     ;   errtxt     ???
 
+
     if (errtxt)
     begin
-        foreach message in messages
+        data ix, i4
+        for ix from 1 thru MESSAGE_COUNT
         begin
-            if (%instr(1,errtxt,message))
+            if (%instr(1,errtxt,%atrim(messages[ix])))
             begin
-                throw new DatabaseCommunicationException(dberror,%atrimtostring(errtxt))
+                throw new DatabaseCommunicationException(routine,dberror,%atrimtostring(errtxt))
             end
         end
     end

@@ -105,11 +105,11 @@ import System.Text
 .define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
 
 ;*****************************************************************************
-; <summary>
-; Determines if <FILE_NAME> exists in the replicated data set.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
+;;; <summary>
+;;; Determines if <FILE_NAME> exists in the replicated data set.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
 
 function <StructureName>$Exists, ^val
     required out errorMessage, a
@@ -137,11 +137,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Creates <FILE_NAME> in the replicated data set.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Creates <FILE_NAME> in the replicated data set.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Create, ^val
     required out errorMessage, a
@@ -191,11 +191,11 @@ endfunction
 
 <IF STRUCTURE_ISAM>
 ;*****************************************************************************
-; <summary>
-; Not used in the SDMS replication use case.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Not used in the SDMS replication use case.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Index, ^val
     required out errorMessage, a
@@ -205,11 +205,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Not used in the SDMS replication use case.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Not used in the SDMS replication use case.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$UnIndex, ^val
     required out errorMessage, a
@@ -220,15 +220,15 @@ endfunction
 
 </IF STRUCTURE_ISAM>
 ;*****************************************************************************
-; <summary>
-; Insert a record into <FILE_NAME>.
-; </summary>
+;;; <summary>
+;;; Insert a record into <FILE_NAME>.
+;;; </summary>
 <IF STRUCTURE_RELATIVE>
-; <param name="recordNumber">Relative record number to be inserted.</param>
+;;; <param name="recordNumber">Relative record number to be inserted.</param>
 </IF STRUCTURE_RELATIVE>
-; <param name="recordData">Record to be inserted.</param>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
+;;; <param name="recordData">Record to be inserted.</param>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
 function <StructureName>$Insert, ^val
 <IF STRUCTURE_RELATIVE>
@@ -288,13 +288,13 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Inserts multiple records into <FILE_NAME>.
-; </summary>
-; <param name="recordsHandle">Memory handle containing one or more rows to insert.</param>
-; <param name="errorMessage">Returned error text.</param>
-; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Inserts multiple records into <FILE_NAME>.
+;;; </summary>
+;;; <param name="recordsHandle">Memory handle containing one or more rows to insert.</param>
+;;; <param name="errorMessage">Returned error text.</param>
+;;; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$InsertRows, ^val
     required in  recordsHandle, D_HANDLE
@@ -408,16 +408,16 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Updates a record in <FILE_NAME>.
-; </summary>
+;;; <summary>
+;;; Updates a record in <FILE_NAME>.
+;;; </summary>
 <IF STRUCTURE_RELATIVE>
-; <param name="recordNumber">record number.</param>
+;;; <param name="recordNumber">record number.</param>
 </IF>
-; <param name="dataRecord">Record containing data to update.</param>
-; <param name="recordsUpdated">Returned number of rows affected.</param>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <param name="dataRecord">Record containing data to update.</param>
+;;; <param name="recordsUpdated">Returned number of rows affected.</param>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Update, ^val
 <IF STRUCTURE_RELATIVE>
@@ -516,12 +516,12 @@ endfunction
 
 <IF STRUCTURE_ISAM>
 ;*****************************************************************************
-; <summary>
-; Deletes a record from <FILE_NAME>
-; </summary>
-; <param name="keyValue">Unique key of record to be deleted.</param>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes a record from <FILE_NAME>
+;;; </summary>
+;;; <param name="keyValue">Unique key of record to be deleted.</param>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Delete, ^val
     required in  keyValue, a
@@ -575,11 +575,11 @@ endfunction
 
 </IF>
 ;*****************************************************************************
-; <summary>
-; Deletes all rows from the <StructureName> table.
-; </summary>
-; <param name="errorMessage">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes all rows from the <StructureName> table.
+;;; </summary>
+;;; <param name="errorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Clear, ^val
     required out errorMessage, a
@@ -620,11 +620,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Deletes the <StructureName> table from the database.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes the <StructureName> table from the database.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Drop, ^val
     required out errorMessage, a
@@ -662,14 +662,14 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Load all data from the original file into <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF>
-; </summary>
-; <param name="a_maxrows">Maximum number of rows to load.</param>
-; <param name="a_added">Number of successful inserts.</param>
-; <param name="a_failed">Number of failed inserts.</param>
-; <param name="errorMessage">Returned error message (if return value is false).</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Load all data from the original file into <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF>
+;;; </summary>
+;;; <param name="a_maxrows">Maximum number of rows to load.</param>
+;;; <param name="a_added">Number of successful inserts.</param>
+;;; <param name="a_failed">Number of failed inserts.</param>
+;;; <param name="errorMessage">Returned error message (if return value is false).</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Load, ^val
     required in  a_maxrows, n
@@ -754,9 +754,9 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Close cursors associated with the <StructureName> table.
-; </summary>
+;;; <summary>
+;;; Close cursors associated with the <StructureName> table.
+;;; </summary>
 
 subroutine <StructureName>$Close
     external common

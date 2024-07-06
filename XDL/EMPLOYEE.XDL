@@ -1,4 +1,4 @@
-!	Synergy ISAM XDL File created Thu Mar  7 14:50:19 2024
+!	Synergy ISAM XDL File created Fri Jul  5 14:32:34 2024
 FILE
 	NAME		"EMPLOYEE.ISM"
 	ADDRESSING	32
@@ -16,10 +16,10 @@ RECORD
 	!Static vectoring enabled
 	!Default R6 file attributes:
 	!  Static RFAs enabled (Required)
-	!Creation version 12.2.1.1010 {Compat Level 6.0}
+	!Creation version 12.3.1.1014 {Compat Level 6.0}
 	!0 of 32 byte file text allocation in use, @0x16a8
 	!Update revision count 0
-	!File created on Thu Mar  7 14:49:46 2024
+	!File created on Fri Jul  5 14:32:15 2024
 	!23 byte longest key
 	!0 free index blocks, 0x0 free list head
 	!0 records, 0 free
@@ -28,7 +28,7 @@ KEY 0
 	!Primary key
 	START		1
 	LENGTH		8
-	TYPE		alpha
+	TYPE		decimal
 	ORDER		ascending
 	NAME		"EMP_ID"
 	DUPLICATES	no
@@ -90,7 +90,7 @@ KEY 4
 	!Alternate key #4
 	START		220
 	LENGTH		5
-	TYPE		alpha
+	TYPE		decimal
 	ORDER		ascending
 	NAME		"ZIP_CODE"
 	DUPLICATES	yes

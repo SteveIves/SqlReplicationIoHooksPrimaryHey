@@ -54,7 +54,7 @@ main replicator
 .ifdef D_VMS
     .include "REPLICATION_VMS" repository, record="instruction", end
 .else
-    .include "REPLICATION" repository, record="instruction",end
+    .include "REPLICATION" repository, record="instruction", end
 .endc
 
 .align
@@ -74,6 +74,8 @@ main replicator
         rows,                       i4                  ;Number of rows affected
         oldSleepTime,               i4                  ;Previous sleep time value
         maxRowsToLoad,              i4                  ;Maximum rows to load
+        useTempTable,               i4                  ;Use TEMP table instead of actual table
+        noLoadOnCreate,             i4                  ;;Do not load table after create
         recordCount,                i4                  ;Number of records in a file
         functionName,               string              ;External function to call
         keyValue,                   a256                ;Key value of the current ISAM record
@@ -91,7 +93,7 @@ main replicator
     endrecord
 
     external function
-        xsubr,  ^val
+        xsubr, ^val
     endexternal
 
 proc
@@ -641,6 +643,7 @@ proc
                     bulkLoad = false
                     bulkCopy = false
                     maxRowsToLoad = 0
+                    useTempTable = 0
                     call DoLoadTable
                     doForceCommit = true
                 end
@@ -656,7 +659,9 @@ proc
                         Logger.Log("Load table " + %atrim(instruction.structure_name))
                     end
                     maxRowsToLoad = 0
+                    useTempTable = 0
                     call DoLoadTable
+                    bulkLoad = false
                     doForceCommit = true
                 end
 
@@ -673,7 +678,9 @@ proc
                         Logger.Log("Load 1000 records to table " + %atrim(instruction.structure_name))
                     end
                     maxRowsToLoad = 1000
+                    useTempTable = 0
                     call DoLoadTable
+                    maxRowsToLoad = 0
                     doForceCommit = true
                 end
 
@@ -690,6 +697,22 @@ proc
                     maxRowsToLoad = 0
                     call DoLoadTable
                     doForceCommit = true
+                end
+
+                (REPLICATION_INSTRUCTION.BULK_LOAD_TO_TEMP_TABLE),
+                begin
+                    Logger.Log("Bulk load table " + %atrim(instruction.structure_name) + "TEMP")
+                    if (bulkLoad = Settings.CanBulkLoad()) then
+                    begin
+                        useTempTable = 1
+                        call DoBulkLoadToTempTable
+                        useTempTable = 0
+                        doForceCommit = true
+                    end
+                    else
+                    begin
+                        Logger.Log("Bulk load unavailable!")
+                    end
                 end
 
                 (REPLICATION_INSTRUCTION.CREATE_AND_LOAD_TABLE),
@@ -727,6 +750,15 @@ proc
                     doForceCommit = true
                 end
 
+                (REPLICATION_INSTRUCTION.DELETE_TEMP_TABLE),
+                begin
+                    Logger.Log("Delete table " + %atrim(instruction.structure_name) + "TEMP")
+                    useTempTable = 1
+                    call DoDeleteTable
+                    useTempTable = 0
+                    doForceCommit = true
+                end
+
                 (REPLICATION_INSTRUCTION.CHANGE_INTERVAL),
                 begin
                     Logger.Log("Change processing interval")
@@ -736,17 +768,17 @@ proc
                         Settings.SleepTime = %integer(%atrim(instruction.record))
                         if (Settings.SleepTime >= 1) then
                         begin
-                            Logger.Log(" - Interval changed from " + %string(oldSleepTime) + " to " + %string(Settings.SleepTime) + " seconds")
+                            Logger.Log("Interval changed from " + %string(oldSleepTime) + " to " + %string(Settings.SleepTime) + " seconds")
                         end
                         else
                         begin
-                            Logger.ErrorLog(" - Invalid interval of " + %string(Settings.SleepTime) + " seconds requested")
+                            Logger.ErrorLog("Invalid interval of " + %string(Settings.SleepTime) + " seconds requested")
                             Settings.SleepTime = oldSleepTime
                         end
                     end
                     catch (ex)
                     begin
-                        Logger.ErrorLog(" - Invalid interval " + %atrim(instruction.record) + " requested")
+                        Logger.ErrorLog("Invalid interval " + %atrim(instruction.record) + " requested")
                         Settings.SleepTime = oldSleepTime
                     end
                     endtry
@@ -1017,7 +1049,7 @@ proc
     ;
 CommitTransaction,
 
-    Logger.VerboseLog(" - Committing transaction batch with " + %string(Counters.BatchCounter) + " change(s)")
+    Logger.VerboseLog("Committing transaction with " + %string(Counters.BatchCounter) + " change(s)")
 
     using Settings.DatabaseConnectMode select
 
@@ -1168,7 +1200,7 @@ CheckFileTable,
         structure_data.structure_keynum = %xsubr(functionName)
 
         ;Report the key that will be used
-        Logger.VerboseLog(" - Key " + %string(structure_data.structure_keynum) + " will be used to synchronize data")
+        Logger.VerboseLog("Key " + %string(structure_data.structure_keynum) + " will be used to synchronize data")
 
         ;And save the structure name
         structure_data.structure_name = instruction.structure_name
@@ -1180,7 +1212,7 @@ CheckFileTable,
     ("RELATIVE"),
     begin
         ;Report that record numbers will be used
-        Logger.VerboseLog(" - Record numbers will be used to synchronize data")
+        Logger.VerboseLog("Record numbers will be used to synchronize data")
 
         ;Set the key number to -1 to prevent it being used accidentally
         structure_data.structure_keynum = -1
@@ -1201,7 +1233,7 @@ CheckFileTable,
     ;
 CheckTable,
 
-    Logger.VerboseLog(" - Checking if table exists")
+    Logger.VerboseLog("Checking if table exists")
 
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
@@ -1217,13 +1249,13 @@ CheckTable,
         doReturn = false
         try
         begin
-            status = %xsubr(functionName,dberrtxt)
+            status = %xsubr(functionName,useTempTable,dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1238,6 +1270,11 @@ CheckTable,
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             doReturn = true ;Can't return out of a try in .NET
         end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            doReturn = true ;Can't return out of a try in .NET
+        end
         endtry
 
         if (doReturn)
@@ -1247,11 +1284,11 @@ CheckTable,
     using status select
     (1),
     begin
-        Logger.VerboseLog(" - Table exists")
+        Logger.VerboseLog("Table exists")
     end
     (0),
     begin
-        Logger.VerboseLog(" - Table not found!")
+        Logger.VerboseLog("Table not found!")
         call CreateTable
     end
     (<0),
@@ -1270,7 +1307,7 @@ CheckTable,
     ;
 CreateTable,
 
-    Logger.Log(" - Creating table")
+    Logger.Log("Creating table")
 
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
@@ -1286,13 +1323,13 @@ CreateTable,
         doReturn = false
         try
         begin
-            status = %xsubr(functionName,dberrtxt)
+            status = %xsubr(functionName,useTempTable,dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1305,6 +1342,11 @@ CreateTable,
         catch (ex, @SynException)
         begin
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+            doReturn = true ;Can't return from a TRY in .NET
+        end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
             doReturn = true ;Can't return from a TRY in .NET
         end
         endtry
@@ -1391,8 +1433,8 @@ LoadTable,
 
             if (status) then
             begin
-                Logger.Log(" - " + %string(successCount) + " rows inserted, " + %string(failCount) + " failed.")
-
+                Logger.Log("Load complete at " + %TimeNow)
+                Logger.Log(%string(successCount) + " rows inserted, " + %string(failCount) + " rows failed.")
                 Counters.Inserts += successCount
                 Counters.Errors  += failCount
 
@@ -1422,7 +1464,7 @@ LoadTable,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1470,9 +1512,9 @@ BulkLoadTable,
         return
 
     if (bulkCopy) then
-        Logger.Log(" - Bulk copy starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
+        Logger.Log("Bulk copy starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
     else if (bulkLoad)
-        Logger.Log(" - Bulk load starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
+        Logger.Log("Bulk load starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
 
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
@@ -1507,11 +1549,11 @@ BulkLoadTable,
             data totalRows, int, 0
             data failRows,  int, 0
 
-            status = %xsubr(functionName,maxRowsToLoad,totalRows,failRows,dberrtxt)
+            status = %xsubr(functionName,maxRowsToLoad,useTempTable,totalRows,failRows,dberrtxt)
 
             if (status) then
             begin
-                Logger.Log("   - " + %string(totalRows) + " rows inserted, " + %string(failRows) + " failed.")
+                Logger.Log(%string(totalRows) + " rows inserted, " + %string(failRows) + " failed.")
 
                 Counters.Inserts += totalRows - failRows
                 Counters.Errors  += failRows
@@ -1542,7 +1584,7 @@ BulkLoadTable,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1557,11 +1599,25 @@ BulkLoadTable,
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             exitloop
         end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            exitloop
+        end
         endtry
     end
 
-    ;Now add alternate key indexes
+    ;;If the bulk load worked, and we're in batch commit mode, commit the bulk
+    ;;load before adding indexex. This will ensure that the bulk loaded data
+    ;;will remain in the table even if errors occur during indexing.
     if (ok && status)
+    begin
+        Counters.BatchCounter = Counters.Inserts
+        call CommitTransaction
+    end
+
+    ;;Now add alternate key indexes
+    if (ok && status && !useTempTable)
     begin
         call DoAddIndexes
     end
@@ -1575,7 +1631,7 @@ DoInsert,
 
     if (switchMode) then
     begin
-        Logger.VerboseLog(" - Insert row in table " + %atrim(instruction.structure_name))
+        Logger.VerboseLog("Insert row in table " + %atrim(instruction.structure_name))
         switchMode = false
     end
     else
@@ -1584,7 +1640,7 @@ DoInsert,
         begin
             functionName = %atrim(instruction.structure_name) + "KeyVal"
             status = %xsubr(functionName,instruction.record,keyValue,keyLength)
-            Logger.VerboseLog(" - Key: " + keyValue(1:keyLength))
+            Logger.VerboseLog("Key: " + keyValue(1:keyLength))
         end
     end
 
@@ -1608,7 +1664,7 @@ DoInsert,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1621,6 +1677,11 @@ DoInsert,
         catch (ex, @SynException)
         begin
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+            doReturn = true ;Can't return from a TRY in .NET
+        end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
             doReturn = true ;Can't return from a TRY in .NET
         end
         endtry
@@ -1636,16 +1697,16 @@ DoInsert,
     end
     (1),
     begin
-        Logger.VerboseLog(" - Row inserted")
+        Logger.VerboseLog("Row inserted")
         Counters.Inserts += 1
     end
     (2),
     begin
-        Logger.VerboseLog(" - Row exists, switching to UPDATE")
+        Logger.VerboseLog("Row exists, switching to UPDATE")
         status = 1
         if (switchDone) then
         begin
-            Logger.ErrorLog(" - Too many INSERT/UPDATE mode switches!")
+            Logger.ErrorLog("Too many INSERT/UPDATE mode switches!")
         end
         else
         begin
@@ -1664,17 +1725,17 @@ DoInsertRelative,
 
     if (switchMode) then
     begin
-        Logger.VerboseLog(" - Insert row in table " + %atrim(instruction.structure_name))
+        Logger.VerboseLog("Insert row in table " + %atrim(instruction.structure_name))
         switchMode = false
     end
     else
     begin
         if (Settings.LogKeyValues)
         begin
-            data pos,   i4, %instr(1,instruction.record,":")
+            data pos, i4, %instr(1,instruction.record,":")
             recordNumber = instruction.record(1:pos-1)
             instruction.record = instruction.record(pos+1:structure_data.structure_size)
-            Logger.VerboseLog(" - Record #: " + %string(recordNumber))
+            Logger.VerboseLog("Record #: " + %string(recordNumber))
         end
     end
 
@@ -1698,7 +1759,7 @@ DoInsertRelative,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1711,6 +1772,11 @@ DoInsertRelative,
         catch (ex, @SynException)
         begin
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+            doReturn = true ;Can't return from a TRY in .NET
+        end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
             doReturn = true ;Can't return from a TRY in .NET
         end
         endtry
@@ -1726,16 +1792,16 @@ DoInsertRelative,
     end
     (1),
     begin
-        Logger.VerboseLog(" - Row inserted")
+        Logger.VerboseLog("Row inserted")
         Counters.Inserts += 1
     end
     (2),
     begin
-        Logger.VerboseLog(" - Row exists, switching to UPDATE")
+        Logger.VerboseLog("Row exists, switching to UPDATE")
         status = 1
         if (switchDone) then
         begin
-            Logger.ErrorLog(" - Too many INSERT/UPDATE mode switches!")
+            Logger.ErrorLog("Too many INSERT/UPDATE mode switches!")
         end
         else
         begin
@@ -1754,7 +1820,7 @@ DoUpdate,
     
     if (switchMode) then
     begin
-        Logger.VerboseLog(" - Update row in table " + %atrim(instruction.structure_name))
+        Logger.VerboseLog("Update row in table " + %atrim(instruction.structure_name))
         switchMode = false
     end
     else
@@ -1763,7 +1829,7 @@ DoUpdate,
         begin
             functionName = %atrim(instruction.structure_name) + "KeyVal"
             status = %xsubr(functionName,instruction.record,keyValue,keyLength)
-            Logger.VerboseLog(" - Key: " + keyValue(1:keyLength))
+            Logger.VerboseLog("Key: " + keyValue(1:keyLength))
         end
     end
 
@@ -1787,7 +1853,7 @@ DoUpdate,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1802,6 +1868,11 @@ DoUpdate,
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             doReturn = true ;Can't return from a TRY in .NET
         end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            doReturn = true ;Can't return from a TRY in .NET
+        end
         endtry
 
         if (doReturn)
@@ -1812,16 +1883,16 @@ DoUpdate,
     begin
         if (rows) then
         begin
-            Logger.VerboseLog(" - Row updated")
+            Logger.VerboseLog("Row updated")
             Counters.Updates += 1
         end
         else
         begin
-            Logger.VerboseLog(" - Row not found, switching to INSERT")
+            Logger.VerboseLog("Row not found, switching to INSERT")
             status = 1
             if (switchDone) then
             begin
-                Logger.ErrorLog(" - Too many INSERT/UPDATE mode switches!")
+                Logger.ErrorLog("Too many INSERT/UPDATE mode switches!")
             end
             else
             begin
@@ -1844,17 +1915,17 @@ DoUpdateRelative,
 
     if (switchMode) then
     begin
-        Logger.VerboseLog(" - Update row in table " + %atrim(instruction.structure_name))
+        Logger.VerboseLog("Update row in table " + %atrim(instruction.structure_name))
         switchMode = false
     end
     else
     begin
         if (Settings.LogKeyValues)
         begin
-            data pos,   i4, %instr(1,instruction.record,":")
+            data pos, i4, %instr(1,instruction.record,":")
             recordNumber = instruction.record(1:pos-1)
             instruction.record = instruction.record(pos+1:structure_data.structure_size)
-            Logger.VerboseLog(" - Record #: " + %string(recordNumber))
+            Logger.VerboseLog("Record #: " + %string(recordNumber))
         end
     end
 
@@ -1878,7 +1949,7 @@ DoUpdateRelative,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1893,6 +1964,11 @@ DoUpdateRelative,
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             doReturn = true ;Can't return from a TRY in .NET
         end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            doReturn = true ;Can't return from a TRY in .NET
+        end
         endtry
 
         if (doReturn)
@@ -1903,16 +1979,16 @@ DoUpdateRelative,
     begin
         if (rows) then
         begin
-            Logger.VerboseLog(" - Row updated")
+            Logger.VerboseLog("Row updated")
             Counters.Updates += 1
         end
         else
         begin
-            Logger.VerboseLog(" - Row not found, switching to INSERT")
+            Logger.VerboseLog("Row not found, switching to INSERT")
             status = 1
             if (switchDone) then
             begin
-                Logger.ErrorLog(" - Too many INSERT/UPDATE mode switches!")
+                Logger.ErrorLog("Too many INSERT/UPDATE mode switches!")
             end
             else
             begin
@@ -1938,7 +2014,7 @@ DoDelete,
 
     if (Settings.LogKeyValues)
     begin
-        Logger.VerboseLog(" - Key: " + keyValue(1:keyLength))
+        Logger.VerboseLog("Key: " + keyValue(1:keyLength))
     end
 
     using Settings.DatabaseConnectMode select
@@ -1958,12 +2034,12 @@ DoDelete,
 
             if (status) then
             begin
-                Logger.VerboseLog(" - Row deleted")
+                Logger.VerboseLog("Row deleted")
                 Counters.Deletes += 1
             end
             else
             begin
-                Logger.VerboseLog(" - " + dberrtxt)
+                Logger.VerboseLog(dberrtxt)
                 Logger.LogFunctionError(functionName,status,dberrtxt)
             end
             exitloop
@@ -1971,7 +2047,7 @@ DoDelete,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -1984,6 +2060,11 @@ DoDelete,
         catch (ex, @SynException)
         begin
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+            exitloop
+        end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
             exitloop
         end
         endtry
@@ -1999,7 +2080,7 @@ DoCreateTable,
     ;Create a new table (only)
     ;If the table already exists, do nothing
 
-    Logger.VerboseLog(" - Checking if table exists")
+    Logger.VerboseLog("Checking if table exists")
 
     repeat
     begin
@@ -2019,12 +2100,12 @@ DoCreateTable,
             using status select
             (1),
             begin
-                Logger.VerboseLog(" - Table exists!")
+                Logger.VerboseLog("Table exists!")
                 exitloop
             end
             (0),
             begin
-                Logger.VerboseLog(" - Creating table")
+                Logger.VerboseLog("Creating table")
 
                 repeat
                 begin
@@ -2059,7 +2140,7 @@ DoCreateTable,
                     catch (ex, @DatabaseCommunicationException)
                     begin
                         ;Attempt to disconnect from and re-connect to the database
-                        if (%DatabaseReconnect) then
+                        if (%DatabaseReconnect(ex)) then
                         begin
                             ;Re-connected, retry the previous operation
                             nextloop
@@ -2088,7 +2169,7 @@ DoCreateTable,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -2103,6 +2184,11 @@ DoCreateTable,
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             exitloop
         end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            exitloop
+        end
         endtry
     end
 
@@ -2115,7 +2201,7 @@ DoLoadTable,
 
     ;Do a full load of an existing table with new data
 
-    Logger.VerboseLog(" - Checking if table exists")
+    Logger.VerboseLog("Checking if table exists")
 
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
@@ -2137,7 +2223,7 @@ DoLoadTable,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -2152,6 +2238,11 @@ DoLoadTable,
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             doReturn = true ;Can't return from a TRY in .NET
         end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            doReturn = true ;Can't return from a TRY in .NET
+        end
         endtry
 
         if (doReturn)
@@ -2161,7 +2252,7 @@ DoLoadTable,
     using status select
     (1),
     begin
-        Logger.VerboseLog(" - Table exists")
+        Logger.VerboseLog("Table exists")
 
         ;Delete any and all existing data before loading new data
         call DoDeleteAllRows
@@ -2177,7 +2268,7 @@ DoLoadTable,
     end
     (0),
     begin
-        Logger.VerboseLog(" - Table does not exist!")
+        Logger.VerboseLog("Table does not exist!")
     end
     (<0),
     begin
@@ -2203,7 +2294,7 @@ DoCreateAndLoadTable,
     ;
 DoCreateCsv,
 
-    Logger.Log(" - Export starting at " + %TimeNow)
+    Logger.Log("Export starting at " + %TimeNow)
 
     functionName = %atrim(instruction.structure_name) + "Csv"
 
@@ -2215,7 +2306,7 @@ DoCreateCsv,
 
         if (status) then
         begin
-            Logger.VerboseLog(" - Export complete at " + %TimeNow)
+            Logger.VerboseLog("Export complete at " + %TimeNow)
         end
         else
         begin
@@ -2225,6 +2316,10 @@ DoCreateCsv,
     catch (ex, @SynException)
     begin
         ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+    end
+    catch (ex, @Exception)
+    begin
+        ok = Logger.LogFunctionFail(functionName,0,ex.Message)
     end
     endtry
 
@@ -2248,11 +2343,11 @@ DoDeleteAllRows,
     begin
         try
         begin
-            status = %xsubr(functionName,dberrtxt)
+            status = %xsubr(functionName,useTempTable,dberrtxt)
 
             if (status) then
             begin
-                Logger.VerboseLog(" - Table truncated")
+                Logger.VerboseLog("Table truncated")
 
                 if (EmailSettings.CanSendEmail())
                 begin
@@ -2268,8 +2363,8 @@ DoDeleteAllRows,
         end
         catch (ex, @DatabaseCommunicationException)
         begin
-            ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            ;;Attempt to disconnect from and re-connect to the database
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -2284,6 +2379,11 @@ DoDeleteAllRows,
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             exitloop
         end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            exitloop
+        end
         endtry
     end
 
@@ -2294,11 +2394,14 @@ DoDeleteAllRows,
     ;
 DoDeleteTable,
 
-    ;Is the table recorded in the list of open tables?
-    if (nsptr=%nspc_find(Settings.ChannelInfo,instruction.structure_name,structure_data))
+    if (!useTempTable)
     begin
-        ;Yes, remove it
-        xcall nspc_delete(Settings.ChannelInfo,nsptr)
+        ;Is the file in the file table?
+        if (nsptr=%nspc_find(Settings.ChannelInfo,instruction.structure_name,structure_data))
+        begin
+            ;Yes, remove it
+            xcall nspc_delete(Settings.ChannelInfo,nsptr)
+        end
     end
 
     Logger.VerboseLog(" - Checking if table exists")
@@ -2316,7 +2419,7 @@ DoDeleteTable,
 
         try
         begin
-            status = %xsubr(functionName,dberrtxt)
+            status = %xsubr(functionName,useTempTable,dberrtxt)
 
             using status select
             (0),
@@ -2341,7 +2444,7 @@ DoDeleteTable,
 
                     try
                     begin
-                        status = %xsubr(functionName,dberrtxt)
+                        status = %xsubr(functionName,useTempTable,dberrtxt)
 
                         if (status) then
                         begin
@@ -2361,7 +2464,7 @@ DoDeleteTable,
                     catch (ex, @DatabaseCommunicationException)
                     begin
                         ;Attempt to disconnect from and re-connect to the database
-                        if (%DatabaseReconnect) then
+                        if (%DatabaseReconnect(ex)) then
                         begin
                             ;Re-connected, retry the previous operation
                             nextloop
@@ -2390,7 +2493,7 @@ DoDeleteTable,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -2404,6 +2507,11 @@ DoDeleteTable,
         begin
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             exitloop
+        end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            doReturn = true ;Can't return from a TRY in .NET
         end
         endtry
     end
@@ -2432,7 +2540,7 @@ DoAddIndexes,
 
             if (status) then
             begin
-                Logger.VerboseLog(" - Indexes added")
+                Logger.VerboseLog("Indexes added")
 
                 if (EmailSettings.CanSendEmail())
                 begin
@@ -2449,7 +2557,7 @@ DoAddIndexes,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -2461,12 +2569,17 @@ DoAddIndexes,
         end
         catch (ex, @RoutineNotFound)
         begin
-            Logger.VerboseLog(" - Addining indexes is not enabled for this table.")
+            Logger.VerboseLog("Addining indexes is not enabled for this table.")
             exitloop
         end
         catch (ex, @SynException)
         begin
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
+            exitloop
+        end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
             exitloop
         end
         endtry
@@ -2496,7 +2609,7 @@ DoDeleteIndexes,
 
             if (status) then
             begin
-                Logger.VerboseLog(" - Indexes removed")
+                Logger.VerboseLog("Indexes removed")
 
                 if (EmailSettings.CanSendEmail())
                 begin
@@ -2513,7 +2626,7 @@ DoDeleteIndexes,
         catch (ex, @DatabaseCommunicationException)
         begin
             ;Attempt to disconnect from and re-connect to the database
-            if (%DatabaseReconnect) then
+            if (%DatabaseReconnect(ex)) then
             begin
                 ;Re-connected, retry the previous operation
                 nextloop
@@ -2525,7 +2638,7 @@ DoDeleteIndexes,
         end
         catch (ex, @RoutineNotFound)
         begin
-            Logger.VerboseLog(" - Removing indexes is not enabled for this table.")
+            Logger.VerboseLog("Removing indexes is not enabled for this table.")
             exitloop
         end
         catch (ex, @SynException)
@@ -2533,7 +2646,41 @@ DoDeleteIndexes,
             ok = Logger.LogFunctionFail(functionName,ex.Errno,ex.Message)
             exitloop
         end
+        catch (ex, @Exception)
+        begin
+            ok = Logger.LogFunctionFail(functionName,0,ex.Message)
+            exitloop
+        end
         endtry
+    end
+
+    return
+
+;;-----------------------------------------------------------------------------
+;; Load new data into existing table
+;;
+DoBulkLoadToTempTable,
+
+    call CheckTable
+
+    using status select
+    (0),
+    begin
+        ;Not found
+        noLoadOnCreate = 1
+        call CreateTable
+        noLoadOnCreate = 0
+    end
+    (1),
+    begin
+        ;Exists
+        call DoDeleteAllRows
+    end
+    endusing
+
+    if (status==1)
+    begin
+        call BulkLoadTable
     end
 
     return

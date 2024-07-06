@@ -57,7 +57,7 @@ proc
         ok = false
         if (%ssc_getemsg(a_dbchn,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to commit transaction"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        xcall ThrowOnCommunicationError("CommitTransactionSqlConnection",dberror,errtxt)
     end
 
     freturn ok

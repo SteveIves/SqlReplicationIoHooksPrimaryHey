@@ -41,12 +41,16 @@ namespace ReplicationLibrary
     public class DatabaseCommunicationException extends Exception
 
         public method DatabaseCommunicationException
+            required in aRoutine, string
             required in aDatabaseErrorNumber, int
             required in aDatabaseErrorMessage, string
         proc
+            this.FailingRoutine = aRoutine
             this.DatabaseErrorNumber = aDatabaseErrorNumber
             this.DatabaseErrorMessage = aDatabaseErrorMessage
         endmethod
+
+        public readwrite property FailingRoutine, string
 
         public readwrite property DatabaseErrorNumber, int
 

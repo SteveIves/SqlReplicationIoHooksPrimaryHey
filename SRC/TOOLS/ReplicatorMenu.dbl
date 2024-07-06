@@ -908,6 +908,19 @@ proc
                     xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_COPY_TABLE,(a)tableName)
                 end
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
+            end
+            else
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
+        end
+
+        ("BT"),
+        begin
+            if (tableName) then
+            begin
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.BULK_LOAD_TO_TEMP_TABLE,tableName)
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.SHUTDOWN)
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued. Replicator will stop after the bulk load completes!")
             end
             else
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
@@ -1025,6 +1038,17 @@ proc
                 begin
                     xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_TABLE,(a)tableName)
                 end
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
+            end
+            else
+                xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Invalid option!")
+        end
+
+        ("DT"),
+        begin
+            if (tableName) then
+            begin
+                xcall Replicate(Settings.InstanceName,REPLICATION_INSTRUCTION.DELETE_TEMP_TABLE,tableName)
                 xcall w_disp(mainwnd,WD_POS,23,2,WD_CLR,WDC_EOL,"Command queued")
             end
             else

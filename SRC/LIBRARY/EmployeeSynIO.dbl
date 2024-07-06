@@ -45,11 +45,11 @@ import System.Text
 .define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
 
 ;*****************************************************************************
-; <summary>
-; Determines if REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM exists in the replicated data set.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
+;;; <summary>
+;;; Determines if REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM exists in the replicated data set.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
 
 function Employee$Exists, ^val
     required out errorMessage, a
@@ -77,11 +77,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Creates REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM in the replicated data set.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Creates REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM in the replicated data set.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$Create, ^val
     required out errorMessage, a
@@ -99,11 +99,11 @@ proc
     try
     begin
         xcall isamc("REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM,FIXED,COMPRESS,DENSITY=50,PAGE=1024",300,5,
-        & "START=1,LENGTH=8,NAME=EMP_ID,TYPE=ALPHA,ASCEND,DENSITY=50,DUPS,NOATEND,NOMODIFY",
+        & "START=1,LENGTH=8,NAME=EMP_ID,TYPE=DECIMAL,ORDER=A,DENSITY=50,DUPS,NOATEND,NOMODIFY",
         & "START=49,LENGTH=15,NAME=EMP_DEPT,ASCEND,DENSITY=50,NODUPS,MODIFY",
         & "START=29,LENGTH=20,NAME=EMP_LAST_NAME,TYPE=NOCASE,ORDER=A,DENSITY=50,NODUPS,MODIFY",
         & "START=218,LENGTH=2,NAME=STATE_CODE,TYPE=ALPHA,ORDER=A,DENSITY=50,NODUPS,MODIFY",
-        & "START=220,LENGTH=5,NAME=ZIP_CODE,TYPE=ALPHA,ORDER=A,DENSITY=50,NODUPS,MODIFY"
+        & "START=220,LENGTH=5,NAME=ZIP_CODE,TYPE=DECIMAL,ORDER=A,DENSITY=50,NODUPS,MODIFY"
         & )
     end
     catch (ex, @Exception)
@@ -118,11 +118,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Not used in the SDMS replication use case.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Not used in the SDMS replication use case.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$Index, ^val
     required out errorMessage, a
@@ -132,11 +132,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Not used in the SDMS replication use case.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Not used in the SDMS replication use case.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$UnIndex, ^val
     required out errorMessage, a
@@ -146,12 +146,12 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Insert a record into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
-; </summary>
-; <param name="recordData">Record to be inserted.</param>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
+;;; <summary>
+;;; Insert a record into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
+;;; </summary>
+;;; <param name="recordData">Record to be inserted.</param>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
 function Employee$Insert, ^val
     required in  recordData,   a
@@ -204,13 +204,13 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Inserts multiple records into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
-; </summary>
-; <param name="recordsHandle">Memory handle containing one or more rows to insert.</param>
-; <param name="errorMessage">Returned error text.</param>
-; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Inserts multiple records into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
+;;; </summary>
+;;; <param name="recordsHandle">Memory handle containing one or more rows to insert.</param>
+;;; <param name="errorMessage">Returned error text.</param>
+;;; <param name="exceptionRecordsHandle">Memory handle to load exception data records into.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$InsertRows, ^val
     required in  recordsHandle, D_HANDLE
@@ -300,13 +300,13 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Updates a record in REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
-; </summary>
-; <param name="dataRecord">Record containing data to update.</param>
-; <param name="recordsUpdated">Returned number of rows affected.</param>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Updates a record in REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM.
+;;; </summary>
+;;; <param name="dataRecord">Record containing data to update.</param>
+;;; <param name="recordsUpdated">Returned number of rows affected.</param>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$Update, ^val
     required in  dataRecord, a
@@ -389,12 +389,12 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Deletes a record from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM
-; </summary>
-; <param name="keyValue">Unique key of record to be deleted.</param>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes a record from REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM
+;;; </summary>
+;;; <param name="keyValue">Unique key of record to be deleted.</param>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$Delete, ^val
     required in  keyValue, a
@@ -447,11 +447,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Deletes all rows from the Employee table.
-; </summary>
-; <param name="errorMessage">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes all rows from the Employee table.
+;;; </summary>
+;;; <param name="errorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$Clear, ^val
     required out errorMessage, a
@@ -492,11 +492,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Deletes the Employee table from the database.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes the Employee table from the database.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$Drop, ^val
     required out errorMessage, a
@@ -534,14 +534,14 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Load all data from the original file into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM
-; </summary>
-; <param name="a_maxrows">Maximum number of rows to load.</param>
-; <param name="a_added">Number of successful inserts.</param>
-; <param name="a_failed">Number of failed inserts.</param>
-; <param name="errorMessage">Returned error message (if return value is false).</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Load all data from the original file into REPLICATOR_SAMPLE_DATA:EMPLOYEE.ISM
+;;; </summary>
+;;; <param name="a_maxrows">Maximum number of rows to load.</param>
+;;; <param name="a_added">Number of successful inserts.</param>
+;;; <param name="a_failed">Number of failed inserts.</param>
+;;; <param name="errorMessage">Returned error message (if return value is false).</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Employee$Load, ^val
     required in  a_maxrows, n
@@ -604,9 +604,9 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Close cursors associated with the Employee table.
-; </summary>
+;;; <summary>
+;;; Close cursors associated with the Employee table.
+;;; </summary>
 
 subroutine Employee$Close
     external common

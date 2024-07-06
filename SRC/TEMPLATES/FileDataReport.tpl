@@ -1,4 +1,4 @@
-<CODEGEN_FILENAME><STRUCTURE_NAME>_DATA_REPORT.dbl</CODEGEN_FILENAME>
+<CODEGEN_FILENAME><STRUCTURE_NAME>_DATA_REPORT.DBL</CODEGEN_FILENAME>
 
 import Synergex.SynergyDE.Select
 
@@ -190,7 +190,7 @@ proc
         saveRecord = true
     end
     field = fieldName
-    writes(log," - " + field + " " + errorMessage + " " + fieldData)
+    writes(log,field + " " + errorMessage + " " + fieldData)
     errors += 1
     xreturn
 endsubroutine

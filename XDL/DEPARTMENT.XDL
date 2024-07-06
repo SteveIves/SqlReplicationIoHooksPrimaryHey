@@ -1,4 +1,4 @@
-!	Synergy ISAM XDL File created Thu Mar  7 14:50:12 2024
+!	Synergy ISAM XDL File created Fri Jul  5 14:31:24 2024
 FILE
 	NAME		"DEPARTMENT.ISM"
 	ADDRESSING	32
@@ -16,10 +16,10 @@ RECORD
 	!Static vectoring enabled
 	!Default R6 file attributes:
 	!  Static RFAs enabled (Required)
-	!Creation version 12.2.1.1010 {Compat Level 6.0}
+	!Creation version 12.3.1.1014 {Compat Level 6.0}
 	!0 of 32 byte file text allocation in use, @0x1698
 	!Update revision count 0
-	!File created on Thu Mar  7 14:49:26 2024
+	!File created on Fri Jul  5 14:31:11 2024
 	!15 byte longest key
 	!0 free index blocks, 0x0 free list head
 	!0 records, 0 free
@@ -42,7 +42,7 @@ KEY 1
 	!Alternate key #1
 	START		66
 	LENGTH		8
-	TYPE		alpha
+	TYPE		decimal
 	ORDER		ascending
 	NAME		"DEPT_MANAGER"
 	DUPLICATES	yes

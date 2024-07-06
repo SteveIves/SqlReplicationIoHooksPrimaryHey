@@ -59,7 +59,7 @@ proc
         ok = false
         if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
             errtxt="Failed to start transaction"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        xcall ThrowOnCommunicationError("StartTransactionSqlConnection",dberror,errtxt)
     end
 
     freturn ok

@@ -79,23 +79,26 @@ import System.Text
 .include "<STRUCTURE_NOALIAS>" repository, structure="str<StructureName>", end
 .endc
 
-.define writelog(x) if Settings.LogFileChannel && %chopen(Settings.LogFileChannel) writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX") + " " + x)
-.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,"   - " + %string(^d(now(9:8)),"XX:XX:XX.XX") + " " + x)
+.define writelog(x) if Settings.LogFileChannel writes(Settings.LogFileChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
+.define writett(x)  if Settings.TerminalChannel writes(Settings.TerminalChannel,%string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX ") + x)
 
 ;*****************************************************************************
-; <summary>
-; Determines if the <StructureName> table exists in the database.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
+;;; <summary>
+;;; Determines if the <StructureName> table exists in the database.
+;;; </summary>
+;;; <param name="a_temp_table">Create a TEMP table.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
 function <StructureName>Exists, ^val
+    required in a_temp_table, n
     required out a_errtxt, a
     endparams
 
     .include "CONNECTDIR:ssql.def"
 
     stack record local_data
+        sql         ,string ;SQL statement
         error       ,int    ;Returned error number
         dberror     ,int    ;Database error number
         cursor      ,int    ;Database cursor
@@ -108,13 +111,20 @@ proc
 
     init local_data
 
+    if (a_temp_table) then
+        sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>TEMP'"
+    else
+        sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>'"
+
     ;Open a cursor for the SELECT statement
 
-    if (%ssc_open(Settings.DatabaseChannel,cursor,"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>'",SSQL_SELECT)==SSQL_FAILURE)
+    if (%ssc_open(Settings.DatabaseChannel,cursor,sql,SSQL_SELECT)==SSQL_FAILURE)
     begin
         error=-1
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to open cursor"
+        else
+            xcall ThrowOnCommunicationError("<StructureName>Exists",dberror,errtxt)
     end
 
     ;Bind host variables to receive the data
@@ -124,8 +134,10 @@ proc
         if (%ssc_define(Settings.DatabaseChannel,cursor,1,table_name)==SSQL_FAILURE)
         begin
             error=-1
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variable"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Exists",dberror,errtxt)
         end
     end
 
@@ -139,11 +151,10 @@ proc
         end
         else
         begin
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
-            begin
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to execute SQL Statement"
-            end
-            xcall ThrowOnCommunicationError(dberror,errtxt)
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Exists",dberror,errtxt)
         end
     end
 
@@ -156,8 +167,10 @@ proc
             if (!error)
             begin
                 error=-1
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>Exists",dberror,errtxt)
             end
         end
     end
@@ -174,13 +187,15 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Creates the <StructureName> table in the database.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Creates the <StructureName> table in the database.
+;;; </summary>
+;;; <param name="a_temp_table">Create a TEMP table.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Create, ^val
+    required in a_temp_table, n
     required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
@@ -188,6 +203,7 @@ function <StructureName>Create, ^val
     .align
     stack record local_data
         sql         ,string     ;SQL statement
+        tableName   ,string     ;Table to create
         ok          ,boolean    ;Return status
         dberror     ,int        ;Database error number
         cursor      ,int        ;Database cursor
@@ -212,7 +228,12 @@ proc
 
     if (ok)
     begin
-        sql = 'CREATE TABLE "<StructureName>" ('
+        if (a_temp_table) then
+            tableName = "<StructureName>TEMP"
+        else
+            tableName = "<StructureName>"
+
+        sql = 'CREATE TABLE ' + tableName + ' ('
 ;//
 ;// Columns
 ;//
@@ -244,9 +265,9 @@ proc
 ;// Primary key constraint
 ;//
 <IF STRUCTURE_ISAM AND STRUCTURE_HAS_UNIQUE_PK>
-        & + 'CONSTRAINT PK_<StructureName> PRIMARY KEY CLUSTERED(<PRIMARY_KEY><SEGMENT_LOOP>"<FieldSqlName>" <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>)'
+        & + 'CONSTRAINT PK_' + tableName + ' PRIMARY KEY CLUSTERED(<PRIMARY_KEY><SEGMENT_LOOP>"<FieldSqlName>" <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>)'
 <ELSE STRUCTURE_RELATIVE>
-        & + 'CONSTRAINT PK_<StructureName> PRIMARY KEY CLUSTERED("RecordNumber" ASC)'
+        & + 'CONSTRAINT PK_' + tableName + ' PRIMARY KEY CLUSTERED("RecordNumber" ASC)'
 </IF STRUCTURE_ISAM>
         & + ')'
 
@@ -270,7 +291,7 @@ proc
 
     if (ok)
     begin
-        sql = 'GRANT ALL ON "<StructureName>" TO PUBLIC'
+        sql = 'GRANT ALL ON ' + tableName + ' TO PUBLIC'
 
         call open_cursor
 
@@ -311,8 +332,10 @@ open_cursor,
     if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to open cursor"
+        else
+            xcall ThrowOnCommunicationError("<StructureName>Create",dberror,errtxt)
     end
 
     return
@@ -322,9 +345,10 @@ execute_cursor,
     if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to execute SQL statement"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        else
+            xcall ThrowOnCommunicationError("<StructureName>Create",dberror,errtxt)
     end
 
     return
@@ -338,8 +362,10 @@ close_cursor,
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>Create",dberror,errtxt)
             end
         end
         clear cursor
@@ -351,11 +377,11 @@ endfunction
 
 <IF STRUCTURE_ISAM>
 ;*****************************************************************************
-; <summary>
-; Add alternate key indexes to the <StructureName> table if they do not exist.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Add alternate key indexes to the <StructureName> table if they do not exist.
+;;; </summary>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Index, ^val
     required out a_errtxt, a
@@ -391,12 +417,14 @@ proc
     if (ok)
     begin
         now = %datetime
-        writelog(" - Setting database timeout to " + %string(Settings.BulkLoadTimeout) + " seconds")
+        writelog("Setting database timeout to " + %string(Settings.BulkLoadTimeout) + " seconds")
         if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.BulkLoadTimeout))==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to set database timeout"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Index",dberror,errtxt)
         end
     end
 
@@ -426,11 +454,11 @@ proc
 
         if (ok) then
         begin
-            writelog(" - Added index IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>")
+            writelog("Added index IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>")
         end
         else
         begin
-            writelog(" - ERROR: Failed to add index IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>")
+            writelog("ERROR: Failed to add index IX_<StructureName>_<PRIMARY_KEY><KeyName></PRIMARY_KEY>")
             ok = true
         end
     end
@@ -462,11 +490,11 @@ proc
 
         if (ok) then
         begin
-            writelog(" - Added index IX_<StructureName>_<KeyName>")
+            writelog("Added index IX_<StructureName>_<KeyName>")
         end
         else
         begin
-            writelog(" - ERROR: Failed to add index IX_<StructureName>_<KeyName>s")
+            writelog("ERROR: Failed to add index IX_<StructureName>_<KeyName>s")
             ok = true
         end
     end
@@ -492,7 +520,7 @@ proc
     ;Set the database timeout back to the regular value
 
     now = %datetime
-    writelog(" - Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
+    writelog("Resetting database timeout to " + %string(Settings.DatabaseTimeout) + " seconds")
     if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.DatabaseTimeout))==SSQL_FAILURE)
         nop
 
@@ -510,8 +538,10 @@ open_cursor,
     if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to open cursor"
+        else
+            xcall ThrowOnCommunicationError("<StructureName>Index",dberror,errtxt)
     end
 
     return
@@ -521,9 +551,10 @@ execute_cursor,
     if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to execute SQL statement"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        else
+            xcall ThrowOnCommunicationError("<StructureName>Index",dberror,errtxt)
     end
 
     return
@@ -537,8 +568,10 @@ close_cursor,
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>Index",dberror,errtxt)
             end
         end
         clear cursor
@@ -549,11 +582,11 @@ close_cursor,
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Removes alternate key indexes from the <StructureName> table in the database.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Removes alternate key indexes from the <StructureName> table in the database.
+;;; </summary>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>UnIndex, ^val
     required out a_errtxt, a
@@ -645,8 +678,10 @@ open_cursor,
     if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to open cursor"
+        else
+            xcall ThrowOnCommunicationError("<StructureName>UnIndex",dberror,errtxt)
     end
 
     return
@@ -656,9 +691,10 @@ execute_cursor,
     if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
     begin
         ok = false
-        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+        if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
             errtxt="Failed to execute SQL statement"
-        xcall ThrowOnCommunicationError(dberror,errtxt)
+        else
+            xcall ThrowOnCommunicationError("<StructureName>UnIndex",dberror,errtxt)
     end
 
     return
@@ -672,8 +708,10 @@ close_cursor,
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>UnIndex",dberror,errtxt)
             end
         end
         clear cursor
@@ -685,15 +723,15 @@ endfunction
 
 </IF STRUCTURE_ISAM>
 ;*****************************************************************************
-; <summary>
-; Insert a row into the <StructureName> table.
-; </summary>
+;;; <summary>
+;;; Insert a row into the <StructureName> table.
+;;; </summary>
 <IF STRUCTURE_RELATIVE>
-; <param name="a_recnum">Relative record number to be inserted.</param>
+;;; <param name="a_recnum">Relative record number to be inserted.</param>
 </IF STRUCTURE_RELATIVE>
-; <param name="a_data">Record to be inserted.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
+;;; <param name="a_data">Record to be inserted.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns 1 if the row was inserted, 2 to indicate the row already exists, or 0 if an error occurred.</returns>
 
 function <StructureName>Insert, ^val
 <IF STRUCTURE_RELATIVE>
@@ -769,6 +807,17 @@ function <StructureName>Insert, ^val
         c1<StructureName>, i4, 0
     endcommon
 
+;//If any fields have a custom data type, declare the functions that convert the value
+<COUNTER_1_RESET><FIELD_LOOP><IF CUSTOM_CONVERT_FUNCTION><COUNTER_1_INCREMENT></IF></FIELD_LOOP>
+<IF COUNTER_1>
+    external function
+  <FIELD_LOOP>
+    <IF CUSTOM_CONVERT_FUNCTION>
+        <FIELD_CUSTOM_CONVERT_FUNCTION>, <FIELD_CUSTOM_DBL_TYPE>
+    </IF>
+  </FIELD_LOOP>
+    endexternal
+</IF>
 proc
     init local_data
     ok = true
@@ -793,8 +842,10 @@ proc
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Insert",dberror,errtxt)
         end
     end
 
@@ -807,8 +858,10 @@ proc
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Insert",dberror,errtxt)
         end
     end
 
@@ -847,8 +900,10 @@ proc
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Insert",dberror,errtxt)
         end
     end
       <COUNTER_1_RESET>
@@ -856,8 +911,10 @@ proc
         begin
             ok = false
             sts = 0
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Insert",dberror,errtxt)
         end
     end
     </IF COUNTER_1_EQ_250>
@@ -971,7 +1028,7 @@ proc
                 end
                 (),
                 begin
-                    nop
+                    xcall ThrowOnCommunicationError("<StructureName>Insert",dberror,errtxt)
                 end
                 endusing
             end
@@ -979,7 +1036,6 @@ proc
             begin
                 errtxt="Failed to execute SQL statement"
             end
-            xcall ThrowOnCommunicationError(dberror,errtxt)
         end
     end
 
@@ -1011,13 +1067,13 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Inserts multiple rows into the <StructureName> table.
-; </summary>
-; <param name="a_data">Memory handle containing one or more rows to insert.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <param name="a_exception">Memory handle to load exception data records into.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Inserts multiple rows into the <StructureName> table.
+;;; </summary>
+;;; <param name="a_data">Memory handle containing one or more rows to insert.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <param name="a_exception">Memory handle to load exception data records into.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>InsertRows, ^val
     required in  a_data,      i
@@ -1100,6 +1156,16 @@ function <StructureName>InsertRows, ^val
         c2<StructureName>, i4
     endcommon
 
+;//If any fields have a custom data type, declare the functions that convert the value
+<COUNTER_1_RESET><FIELD_LOOP><IF CUSTOM_CONVERT_FUNCTION><COUNTER_1_INCREMENT></IF></FIELD_LOOP><IF COUNTER_1>
+    external function
+  <FIELD_LOOP>
+    <IF CUSTOM_CONVERT_FUNCTION>
+        <FIELD_CUSTOM_CONVERT_FUNCTION>, <FIELD_CUSTOM_DBL_TYPE>
+    </IF>
+  </FIELD_LOOP>
+    endexternal
+</IF>
 proc
     init local_data
     ok = true
@@ -1139,8 +1205,10 @@ proc
         if (%ssc_open(Settings.DatabaseChannel,c2<StructureName>,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>InsertRows",dberror,errtxt)
         end
     end
 
@@ -1152,8 +1220,10 @@ proc
         if (%ssc_bind(Settings.DatabaseChannel,c2<StructureName>,1,recordNumber)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>InsertRows",dberror,errtxt)
         end
     end
 
@@ -1189,16 +1259,20 @@ proc
     <IF COUNTER_1_EQ_250>
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>InsertRows",dberror,errtxt)
         end
     end
       <COUNTER_1_RESET>
     <ELSE NOMORE>
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>InsertRows",dberror,errtxt)
         end
     end
     </IF COUNTER_1_EQ_250>
@@ -1303,10 +1377,10 @@ proc
 
             if (%ssc_execute(Settings.DatabaseChannel,c2<StructureName>,SSQL_STANDARD)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to execute SQL statement"
-
-                xcall ThrowOnCommunicationError(dberror,errtxt)
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>InsertRows",dberror,errtxt)
 
                 clear continue
 
@@ -1385,16 +1459,16 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Updates a row in the <StructureName> table.
-; </summary>
+;;; <summary>
+;;; Updates a row in the <StructureName> table.
+;;; </summary>
 <IF STRUCTURE_RELATIVE>
-; <param name="a_recnum">record number.</param>
+;;; <param name="a_recnum">record number.</param>
 </IF STRUCTURE_RELATIVE>
-; <param name="a_data">Record containing data to update.</param>
-; <param name="a_rows">Returned number of rows affected.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <param name="a_data">Record containing data to update.</param>
+;;; <param name="a_rows">Returned number of rows affected.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Update, ^val
 <IF STRUCTURE_RELATIVE>
@@ -1467,6 +1541,17 @@ function <StructureName>Update, ^val
     global common
         c3<StructureName>, i4
     endcommon
+
+;//If any fields have a custom data type, declare the functions that convert the value
+<COUNTER_1_RESET><FIELD_LOOP><IF CUSTOM_CONVERT_FUNCTION><COUNTER_1_INCREMENT></IF></FIELD_LOOP><IF COUNTER_1>
+    external function
+  <FIELD_LOOP>
+    <IF CUSTOM_CONVERT_FUNCTION>
+        <FIELD_CUSTOM_CONVERT_FUNCTION>, <FIELD_CUSTOM_DBL_TYPE>
+    </IF>
+  </FIELD_LOOP>
+    endexternal
+</IF>
 proc
     init local_data
     ok = true
@@ -1497,8 +1582,10 @@ proc
         if (%ssc_open(Settings.DatabaseChannel,c3<StructureName>,sql,SSQL_NONSEL,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Update",dberror,errtxt)
         end
     end
 
@@ -1535,16 +1622,20 @@ proc
     <IF COUNTER_1_EQ_250>
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Update",dberror,errtxt)
         end
     end
       <COUNTER_1_RESET>
     <ELSE NOMORE>
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Update",dberror,errtxt)
         end
     end
     </IF COUNTER_1_EQ_250>
@@ -1562,8 +1653,10 @@ proc
 </IF STRUCTURE_ISAM>
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to bind key variables"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Update",dberror,errtxt)
         end
     end
 
@@ -1651,9 +1744,10 @@ proc
         else
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to execute SQL statement"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Update",dberror,errtxt)
         end
     end
 
@@ -1686,12 +1780,12 @@ endfunction
 
 <IF STRUCTURE_ISAM>
 ;*****************************************************************************
-; <summary>
-; Deletes a row from the <StructureName> table.
-; </summary>
-; <param name="a_key">Unique key of row to be deleted.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes a row from the <StructureName> table.
+;;; </summary>
+;;; <param name="a_key">Unique key of row to be deleted.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Delete, ^val
     required in  a_key,    a
@@ -1755,8 +1849,10 @@ proc
         if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Delete",dberror,errtxt)
         end
     end
 
@@ -1767,9 +1863,10 @@ proc
         if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to execute SQL statement"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Delete",dberror,errtxt)
         end
     end
 
@@ -1782,8 +1879,10 @@ proc
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>Delete",dberror,errtxt)
             end
         end
     end
@@ -1817,13 +1916,15 @@ endfunction
 
 </IF STRUCTURE_ISAM>
 ;*****************************************************************************
-; <summary>
-; Deletes all rows from the <StructureName> table.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes all rows from the <StructureName> table.
+;;; </summary>
+;;; <param name="a_temp_table">Clear TEMP table.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Clear, ^val
+    required in a_temp_table, n
     required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
@@ -1855,12 +1956,18 @@ proc
 
     if (ok)
     begin
-        sql = 'TRUNCATE TABLE "<StructureName>"'
+        if (a_temp_table) then
+            sql = 'TRUNCATE TABLE <StructureName>TEMP'
+        else
+            sql = 'TRUNCATE TABLE <StructureName>'
+
         if (%ssc_open(Settings.DatabaseChannel,cursor,(a)sql,SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Clear",dberror,errtxt)
         end
     end
 
@@ -1871,9 +1978,10 @@ proc
         if (%ssc_execute(Settings.DatabaseChannel,cursor,SSQL_STANDARD)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to execute SQL statement"
-            xcall ThrowOnCommunicationError(dberror,errtxt)
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Clear",dberror,errtxt)
         end
     end
 
@@ -1886,8 +1994,10 @@ proc
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>Clear",dberror,errtxt)
             end
         end
     end
@@ -1920,19 +2030,22 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Deletes the <StructureName> table from the database.
-; </summary>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Deletes the <StructureName> table from the database.
+;;; </summary>
+;;; <param name="a_temp_table">Drop TEMP table.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Drop, ^val
+    required in a_temp_table, n
     required out a_errtxt, a
 
     .include "CONNECTDIR:ssql.def"
 
     stack record local_data
         ok          ,boolean    ;Return status
+        sql         ,string     ;SQL statement
         dberror     ,int        ;Database error number
         cursor      ,int        ;Database cursor
         length      ,int        ;Length of a string
@@ -1960,11 +2073,18 @@ proc
 
     if (ok)
     begin
-        if (%ssc_open(Settings.DatabaseChannel,cursor,"DROP TABLE <StructureName>",SSQL_NONSEL)==SSQL_FAILURE)
+        sql = "DROP TABLE <StructureName>"
+
+        if (a_temp_table)
+            sql = sql + "TEMP"
+
+        if (%ssc_open(Settings.DatabaseChannel,cursor,sql,SSQL_NONSEL)==SSQL_FAILURE)
         begin
             ok = false
-            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+            if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                 errtxt="Failed to open cursor"
+            else
+                xcall ThrowOnCommunicationError("<StructureName>Drop",dberror,errtxt)
         end
     end
 
@@ -1980,14 +2100,16 @@ proc
                 if (dberror==-3701) then
                     clear errtxt
                 else
+                begin
                     ok = false
+                    xcall ThrowOnCommunicationError("<StructureName>Drop",dberror,errtxt)
+                end
             end
             else
             begin
                 errtxt="Failed to execute SQL statement"
                 ok = false
             end
-            xcall ThrowOnCommunicationError(dberror,errtxt)
         end
     end
 
@@ -2000,8 +2122,10 @@ proc
             if (ok)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>Drop",dberror,errtxt)
             end
         end
     end
@@ -2034,14 +2158,14 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
-; </summary>
-; <param name="a_maxrows">Maximum number of rows to load.</param>
-; <param name="a_added">Total number of successful inserts.</param>
-; <param name="a_failed">Total number of failed inserts.</param>
-; <param name="a_errtxt">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Load all data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table.
+;;; </summary>
+;;; <param name="a_maxrows">Maximum number of rows to load.</param>
+;;; <param name="a_added">Total number of successful inserts.</param>
+;;; <param name="a_failed">Total number of failed inserts.</param>
+;;; <param name="a_errtxt">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Load, ^val
     required in  a_maxrows,       n
@@ -2294,7 +2418,7 @@ insert_data,
             ttl_added += attempted
             if (Settings.RunningOnTerminal && Settings.LogLoadProgress)
             begin
-                writes(Settings.TerminalChannel," - " + %string(ttl_added) + " rows inserted")
+                writes(Settings.TerminalChannel,%string(ttl_added) + " rows inserted")
             end
         end
     end
@@ -2306,17 +2430,19 @@ insert_data,
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
-; </summary>
-; <param name="recordsToLoad">Number of records to load (0=all)</param>
-; <param name="a_records">Records loaded</param>
-; <param name="a_exceptions">Records failes</param>
-; <param name="a_errtxt">Error message (if return value is false)</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
+;;; </summary>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="a_temp_table">Load TEMP table</param>
+;;; <param name="a_records">Records loaded</param>
+;;; <param name="a_exceptions">Records failes</param>
+;;; <param name="a_errtxt">Error message (if return value is false)</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>BulkLoad, ^val
     required in recordsToLoad, n
+    required in  a_temp_table, n
     required out a_records,    n
     required out a_exceptions, n
     required out a_errtxt,     a
@@ -2473,7 +2599,14 @@ proc
 
         if (ok)
         begin
-            sql = "BULK INSERT <StructureName> FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + fileToLoad + "_err'"
+            data errorFile = fileToLoad + "_err"
+
+            sql = "BULK INSERT <StructureName>"
+
+            if (a_temp_table)
+                sql = sql + "TEMP"
+
+            sql = sql + " FROM '" + fileToLoad + "' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='" + errorFile + "'"
 
             if (Settings.BulkLoadBatchSize > 0)
             begin
@@ -2487,8 +2620,10 @@ proc
             else
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to open cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>BulkLoad",dberror,errtxt)
             end
         end
 
@@ -2502,8 +2637,10 @@ proc
             if (%ssc_cmd(Settings.DatabaseChannel,,SSQL_TIMEOUT,%string(Settings.BulkLoadTimeout))==SSQL_FAILURE)
             begin
                 ok = false
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to set database timeout"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>BulkLoad",dberror,errtxt)
             end
         end
 
@@ -2519,7 +2656,7 @@ proc
             begin
                 if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_NORMAL) then
                 begin
-                    xcall ThrowOnCommunicationError(dberror,errtxt)
+                    xcall ThrowOnCommunicationError("<StructureName>BulkLoad",dberror,errtxt)
 
                     now = %datetime
                     writelog("Bulk insert error: " + %atrim(errtxt))
@@ -2608,8 +2745,10 @@ proc
         begin
             if (%ssc_close(Settings.DatabaseChannel,cursor)==SSQL_FAILURE)
             begin
-                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE)
+                if (%ssc_getemsg(Settings.DatabaseChannel,errtxt,length,,dberror)==SSQL_FAILURE) then
                     errtxt="Failed to close cursor"
+                else
+                    xcall ThrowOnCommunicationError("<StructureName>BulkLoad",dberror,errtxt)
             end
         end
     end
@@ -2726,7 +2865,6 @@ GetExceptionDetails,
 
                     now = %datetime
                     writelog(%string(exceptionRecords.Length) + " items saved to " + localExceptionsLog)
-                    writelog(" - " + %string(exceptionRecords.Length) + " items saved to " + localExceptionsLog)
                 end
             end
             else
@@ -2775,14 +2913,14 @@ eof,        close ex_ch
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> to a CSV file.
-; </summary>
-; <param name="fileSpec">File to create</param>
-; <param name="maxRecords">Mumber of records to export.</param>
-; <param name="recordCount">Returned number of records exported.</param>
-; <param name="errorMessage">Returned error text.</param>
-; <returns>Returns true on success, otherwise false.</returns>
+;;; <summary>
+;;; Exports <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF> to a CSV file.
+;;; </summary>
+;;; <param name="fileSpec">File to create</param>
+;;; <param name="maxRecords">Mumber of records to export.</param>
+;;; <param name="recordCount">Returned number of records exported.</param>
+;;; <param name="errorMessage">Returned error text.</param>
+;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>Csv, boolean
     required in  fileSpec, a
@@ -3004,13 +3142,13 @@ eof,
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Close cursors associated with the <StructureName> table.
-; This routine is called at the following times;
-; 1. If the table is about to be dropped
-; 2. Before a database disconnect/reconnect
-; 3. Before a replicator shutdown.
-; </summary>
+;;; <summary>
+;;; Close cursors associated with the <StructureName> table.
+;;; This routine is called at the following times;
+;;; 1. If the table is about to be dropped
+;;; 2. Before a database disconnect/reconnect
+;;; 3. Before a replicator shutdown.
+;;; </summary>
 
 subroutine <StructureName>Close
 
@@ -3087,11 +3225,11 @@ proc
 endsubroutine
 
 ;*****************************************************************************
-; <summary>
-; Opens the <FILE_NAME> for input.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns the channel number, or 0 if an error occured.</returns>
+;;; <summary>
+;;; Opens the <FILE_NAME> for input.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
 function <StructureName>OpenInput, ^val
     required out errorMessage, a  ;Returned error text
@@ -3114,11 +3252,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Opens the <FILE_NAME> for update.
-; </summary>
-; <param name="errorMessage">Returned error message.</param>
-; <returns>Returns the channel number, or 0 if an error occured.</returns>
+;;; <summary>
+;;; Opens the <FILE_NAME> for update.
+;;; </summary>
+;;; <param name="errorMessage">Returned error message.</param>
+;;; <returns>Returns the channel number, or 0 if an error occured.</returns>
 
 function <StructureName>OpenUpdate, ^val
     required out errorMessage, a  ;Returned error text
@@ -3142,11 +3280,11 @@ endfunction
 
 <IF STRUCTURE_ISAM>
 ;*****************************************************************************
-; <summary>
-; Loads a unique key value into the respective fields in a record.
-; </summary>
-; <param name="aKeyValue">Unique key value.</param>
-; <returns>Returns a record containig only the unique key segment data.</returns>
+;;; <summary>
+;;; Loads a unique key value into the respective fields in a record.
+;;; </summary>
+;;; <param name="aKeyValue">Unique key value.</param>
+;;; <returns>Returns a record containig only the unique key segment data.</returns>
 
 function <StructureName>KeyToRecord, a
     required in aKeyValue, a
@@ -3187,14 +3325,14 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Extract a key value from the segment fields in a record.
-; This function behaves like %KEYVAL but without requiring an open channel.
-; </summary>
-; <param name="aRecord">Record containing key data</param>
-; <param name="aKeyVal">Returned key value</param>
-; <param name="aKeyLen">Returned key length</param>
-; <returns>Always returns true</returns>
+;;; <summary>
+;;; Extract a key value from the segment fields in a record.
+;;; This function behaves like %KEYVAL but without requiring an open channel.
+;;; </summary>
+;;; <param name="aRecord">Record containing key data</param>
+;;; <param name="aKeyVal">Returned key value</param>
+;;; <param name="aKeyLen">Returned key length</param>
+;;; <returns>Always returns true</returns>
 
 function <StructureName>KeyVal, ^val
     required in  aRecord, a
@@ -3250,10 +3388,10 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; Returns the key number of the first unique key.
-; </summary>
-; <returns>Returned key number.</returns>
+;;; <summary>
+;;; Returns the key number of the first unique key.
+;;; </summary>
+;;; <returns>Returned key number.</returns>
 
 function <StructureName>KeyNum, ^val
 proc
@@ -3263,11 +3401,11 @@ endfunction
 </IF STRUCTURE_ISAM>
 <IF STRUCTURE_MAPPED>
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="<mapped_structure>"></param>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <param name="<mapped_structure>"></param>
+;;; <returns></returns>
 
 function <structure_name>_map, a
     .include "<MAPPED_STRUCTURE>" repository, required in group="<mapped_structure>"
@@ -3283,11 +3421,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="<structure_name>"></param>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <param name="<structure_name>"></param>
+;;; <returns></returns>
 
 function <structure_name>_unmap, a
     .include "<STRUCTURE_NAME>" repository, required in group="<structure_name>"
@@ -3304,10 +3442,10 @@ endfunction
 
 </IF STRUCTURE_MAPPED>
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <returns></returns>
 
 function <StructureName>File, ^val
     required out fileSpec, a
@@ -3317,10 +3455,10 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <returns></returns>
 
 function <StructureName>Length ,^val
 proc
@@ -3328,11 +3466,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="fileType"></param>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <param name="fileType"></param>
+;;; <returns></returns>
 
 function <StructureName>Type, ^val
     required out fileType, a
@@ -3342,10 +3480,10 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <returns></returns>
+;;; <summary>
+;;; Return the number of columns in the <StructureName> table
+;;; </summary>
+;;; <returns>Number of columns</returns>
 
 function <StructureName>Cols ,^val
 proc
@@ -3377,11 +3515,11 @@ proc
 endfunction
 
 ;*****************************************************************************
-; <summary>
-; 
-; </summary>
-; <param name="fileType"></param>
-; <returns></returns>
+;;; <summary>
+;;; 
+;;; </summary>
+;;; <param name="fileType"></param>
+;;; <returns></returns>
 
 function <StructureName>Recs, ^val
     required out recordCount, n

@@ -93,13 +93,16 @@ import System.Text.RegularExpressions
 ;;; <summary>
 ;;; Determines if the <StructureName> table exists in the database.
 ;;; </summary>
+;;; <param name="aTempTable">Create a TEMP table.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns 1 if the table exists, otherwise a number indicating the type of error.</returns>
 
 function <StructureName>_Exists, ^val
+    required in aTempTable, n
     required out aErrorMessage, a
 
     stack record
+        sql, string
         error, int
         errorMessage, string
     endrecord
@@ -107,9 +110,10 @@ proc
     error = 0
     errorMessage = String.Empty
 
+    sql = String.Format("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='Employee{0}'", aTempTable ? "TEMP" : String.Empty)
+
     try
     begin
-        data sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME='<StructureName>'"
         disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
@@ -146,19 +150,23 @@ endfunction
 ;;; <summary>
 ;;; Creates the <StructureName> table in the database.
 ;;; </summary>
+;;; <param name="aTempTable">Create a TEMP table.</param>
 ;;; <param name="aErrorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>_Create, ^val
+    required in aTempTable, n
     required out aErrorMessage, a
 
     stack record
         ok, boolean
+        tableName, string
+        sql, string
         errorMessage, string
     endrecord
 
     literal
-        createTableCommand, string,"CREATE TABLE [<StructureName>] ("
+        createTablePattern, string,"CREATE TABLE [<StructureName>{0}] ("
 <IF STRUCTURE_RELATIVE>
         & + "[RecordNumber] INT NOT NULL,"
 </IF STRUCTURE_RELATIVE>
@@ -184,17 +192,13 @@ function <StructureName>_Create, ^val
   </IF CUSTOM_NOT_REPLICATOR_EXCLUDE>
 </FIELD_LOOP>
 <IF STRUCTURE_ISAM AND STRUCTURE_HAS_UNIQUE_PK>
-        & + "CONSTRAINT [PK_<StructureName>] PRIMARY KEY CLUSTERED(<PRIMARY_KEY><SEGMENT_LOOP>[<FieldSqlName>] <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>)"
+        & + "CONSTRAINT [PK_<StructureName>{0}] PRIMARY KEY CLUSTERED(<PRIMARY_KEY><SEGMENT_LOOP>[<FieldSqlName>] <SEGMENT_ORDER><,></SEGMENT_LOOP></PRIMARY_KEY>)"
 <ELSE STRUCTURE_RELATIVE>
-        & + "CONSTRAINT [PK_<StructureName>] PRIMARY KEY CLUSTERED([RecordNumber] ASC)"
+        & + "CONSTRAINT [PK_<StructureName>{0}] PRIMARY KEY CLUSTERED([RecordNumber] ASC)"
 </IF STRUCTURE_ISAM>
         & + ")"
-        grantCommand, string, "GRANT ALL ON [<StructureName>] TO PUBLIC"
+        grantCommandPattern, string, "GRANT ALL ON [<StructureName>{0}] TO PUBLIC"
     endliteral
-
-    static record
-        finalCreateTableCommand, string
-    endrecord
 
 proc
     ok = true
@@ -209,23 +213,22 @@ proc
 
     ;Define the final CREATE TABLE statement
 
-    if (finalCreateTableCommand == ^null)
-    begin
-        using Settings.DataCompressionMode select
-        (DatabaseDataCompression.Page),
-            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=PAGE)",createTableCommand)
-        (DatabaseDataCompression.Row),
-            finalCreateTableCommand = String.Format("{0} WITH(DATA_COMPRESSION=ROW)",createTableCommand)
-        (),
-            finalCreateTableCommand = createTableCommand
-        endusing
-    end
+    sql = String.Format(createTablePattern,aTempTable ? "TEMP" : String.Empty)
+
+    using Settings.DataCompressionMode select
+    (DatabaseDataCompression.Page),
+        sql = String.Format("{0} WITH(DATA_COMPRESSION=PAGE)",sql)
+    (DatabaseDataCompression.Row),
+        sql = String.Format("{0} WITH(DATA_COMPRESSION=ROW)",sql)
+    endusing
 
     ;Create the database table and primary key constraint
 
+    sql = String.Format(createTablePattern,aTempTable ? "TEMP" : String.Empty)
+
     try
     begin
-        disposable data command = new SqlCommand(finalCreateTableCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+        disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
         if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
         begin
             command.Transaction = Settings.CurrentTransaction
@@ -243,9 +246,11 @@ proc
 
     if (ok)
     begin
+        sql = String.Format(grantCommandPattern,aTempTable ? "TEMP" : String.Empty)
+
         try
         begin
-            disposable data command = new SqlCommand(grantCommand,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
+            disposable data command = new SqlCommand(sql,Settings.DatabaseConnection) { CommandTimeout = Settings.DatabaseTimeout }
             if (Settings.DatabaseCommitMode != DatabaseCommitMode.Automatic)
             begin
                 command.Transaction = Settings.CurrentTransaction
@@ -2005,6 +2010,7 @@ endfunction
 ;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="aTempTable">Load TEMP table</param>
 ;;; <param name="a_records">Records loaded</param>
 ;;; <param name="a_exceptions">Records failes</param>
 ;;; <param name="aErrorMessage">Error message (if return value is false)</param>
@@ -2012,6 +2018,7 @@ endfunction
 
 function <StructureName>_BulkLoad, ^val
     required in recordsToLoad,  n
+    required in aTempTable,     n
     required out a_records,     n
     required out a_exceptions,  n
     required out aErrorMessage, a
@@ -2084,11 +2091,11 @@ proc
         writelog("Deleting local temp files")
         writett("Deleting local temp files")
 
-        if (File.Exists(localCsvFile))
+        if (System.IO.File.Exists(localCsvFile))
         begin
             try
             begin
-                File.Delete(localCsvFile)
+                System.IO.File.Delete(localCsvFile)
             end
             catch (ex)
             begin
@@ -2097,11 +2104,11 @@ proc
             endtry
         end
 
-        if (File.Exists(localExceptionsFile))
+        if (System.IO.File.Exists(localExceptionsFile))
         begin
             try
             begin
-                File.Delete(localExceptionsFile)
+                System.IO.File.Delete(localExceptionsFile)
             end
             catch (ex)
             begin
@@ -2110,11 +2117,11 @@ proc
             endtry
         end
 
-        if (File.Exists(localExceptionsLog))
+        if (System.IO.File.Exists(localExceptionsLog))
         begin
             try
             begin
-                File.Delete(localExceptionsLog)
+                System.IO.File.Delete(localExceptionsLog)
             end
             catch (ex)
             begin
@@ -2198,7 +2205,7 @@ proc
 
     if (ok)
     begin
-        data sql = String.Format("BULK INSERT [<StructureName>] FROM '{0}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{0}_err'",fileToLoad)
+        data sql = String.Format("BULK INSERT <StructureName>{0} FROM '{1}' WITH (FIRSTROW=2,FIELDTERMINATOR='|',ROWTERMINATOR='\n',MAXERRORS=100000000,ERRORFILE='{1}_err'", aTempTable ? "TEMP" : String.Empty, fileToLoad)
 
         if (Settings.BulkLoadBatchSize > 0)
         begin
@@ -2495,6 +2502,7 @@ endfunction
 ;;; Bulk copy data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a delimited text file.
 ;;; </summary>
 ;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="aTempTable">Load TEMP table</param>
 ;;; <param name="a_records">Records loaded</param>
 ;;; <param name="a_exceptions">Records failes</param>
 ;;; <param name="aErrorMessage">Error message (if return value is false)</param>
@@ -2502,6 +2510,7 @@ endfunction
 
 function <StructureName>_BulkCopy, ^val
     required in recordsToLoad,  n
+    required in aTempTable,     n
     required out a_records,     n
     required out a_exceptions,  n
     required out aErrorMessage, a
@@ -2536,11 +2545,11 @@ proc
         writelog("Deleting local temp files")
         writett("Deleting local temp files")
 
-        if (File.Exists(localCsvFile))
+        if (System.IO.File.Exists(localCsvFile))
         begin
             try
             begin
-                File.Delete(localCsvFile)
+                System.IO.File.Delete(localCsvFile)
             end
             catch (ex)
             begin
@@ -2576,7 +2585,7 @@ proc
 
     if (ok)
     begin
-        data bcpCommand = String.Format('bcp {1}.<StructureName> in {2} -S {3} -U {4} -P {5} -d {0} -c -F 1 -t "|" -b {6} -a {7}',
+        data bcpCommand = String.Format('bcp {1}.<StructureName>{8} in {2} -S {3} -U {4} -P {5} -d {0} -c -F 1 -t "|" -b {6} -a {7}',
         &   Settings.DatabaseName,
         &   Settings.DatabaseSchema,
         &   localCsvFile,
@@ -2584,7 +2593,8 @@ proc
         &   Settings.DatabaseUser,
         &   Settings.DatabasePassword,
         &   Settings.DatabaseBcpBatchSize,
-        &   Settings.DatabaseBcpPacketSize)
+        &   Settings.DatabaseBcpPacketSize,
+        &   aTempTable ? "TEMP" : String.Empty)
 
         data psi = new ProcessStartInfo() {
         &   FileName = "cmd.exe",
