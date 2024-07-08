@@ -167,6 +167,9 @@ namespace ReplicationLibrary
                 xcall SendEmail(subject,body,false)
             end
 
+            ;;Increment the error count
+            Counters.Errors += 1
+
             ;;Stop processing?
             if (Settings.StopOnError)
             begin
@@ -216,6 +219,9 @@ namespace ReplicationLibrary
                 body[3] = errorText
                 xcall SendEmail(subject,body,false)
             end
+
+            ;;Increment the error count
+            Counters.Errors += 1
 
             ;;Stop processing?
             if (Settings.StopOnError)
