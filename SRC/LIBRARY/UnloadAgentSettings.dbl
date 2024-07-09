@@ -11,7 +11,9 @@ namespace ReplicationLibrary
         private static configFileSpec, string
 
         public readwrite property KafkaServers, string
+        public readwrite property ConsumerGroup, string
         public readwrite property ConsumerTopic, string
+        public readwrite property ConsumerTimeoutMs, int
         public readwrite property PublisherTopic, string
         public readwrite property ExportDirectory, string
         public readwrite property ZipFileDirectory, string
@@ -59,7 +61,26 @@ namespace ReplicationLibrary
             end
 
             instance.KafkaServers = setting.GetString()
+
+            ;--------------------------------------------------------------------------------------------------------
+            ;ConsumerGroup
+            ;Note that if a consumer group name is sent to KAFKA_INIT then a TWO-WAY pipe is created, but if no
+            ;consumer group is passed then a one-way outbould only connection is created.
+
+            if (!doc.RootElement.TryGetProperty("ConsumerGroup",setting))
+            begin
+                errorMessage = "ConsumerGroup is not defined in " + configFileSpec
+                mreturn ^null
+            end
             
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+            begin
+                errorMessage = "ConsumerGroup setting must be a non-blank string!"
+                mreturn ^null
+            end
+
+            instance.ConsumerGroup = setting.GetString()
+
             ;--------------------------------------------------------------------------------------------------------
             ;ConsumerTopic
 
@@ -76,7 +97,24 @@ namespace ReplicationLibrary
             end
 
             instance.ConsumerTopic = setting.GetString()
+
+            ;--------------------------------------------------------------------------------------------------------
+            ;ConsumerTimeoutMs
+
+            if (!doc.RootElement.TryGetProperty("ConsumerTimeoutMs",setting))
+            begin
+                errorMessage = "ConsumerTimeoutMs is not defined in " + configFileSpec
+                mreturn ^null
+            end
             
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32() < 1)
+            begin
+                errorMessage = "ConsumerTimeoutMs setting must be a positive integer!"
+                mreturn ^null
+            end
+
+            instance.ConsumerTimeoutMs = setting.GetInt32()
+
             ;--------------------------------------------------------------------------------------------------------
             ;PublisherTopic
 
@@ -93,7 +131,7 @@ namespace ReplicationLibrary
             end
 
             instance.PublisherTopic = setting.GetString()
-            
+
             ;--------------------------------------------------------------------------------------------------------
             ;ExportDirectory
 
@@ -110,7 +148,7 @@ namespace ReplicationLibrary
             end
 
             instance.ExportDirectory = setting.GetString()
-            
+
             ;--------------------------------------------------------------------------------------------------------
             ;ZipFileDirectory
 
@@ -127,7 +165,7 @@ namespace ReplicationLibrary
             end
 
             instance.ZipFileDirectory = setting.GetString()
-            
+
             ;--------------------------------------------------------------------------------------------------------
             ;EnvironmentVariables (optional)
 

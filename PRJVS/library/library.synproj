@@ -196,8 +196,8 @@
     <Compile Include="..\..\SRC\LIBRARY\KafkaAPI.dbl">
       <Link>KafkaAPI.dbl</Link>
     </Compile>
-    <Compile Include="..\..\SRC\LIBRARY\KafkaConsumeAPI.dbl">
-      <Link>KafkaConsumeAPI.dbl</Link>
+    <Compile Include="..\..\SRC\LIBRARY\KafkaAPI_VMS.dbl">
+      <Link>KafkaAPI_VMS.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\KafkaMessage.dbl">
       <Link>KafkaMessage.dbl</Link>

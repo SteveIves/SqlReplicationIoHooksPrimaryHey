@@ -1,0 +1,192 @@
+
+;*****************************************************************************
+;
+; File:         KafkaAPI.dbl
+;
+; Description:  A DBL representation of the VMS C routines that are used to
+;               interact with Apache Kafka from the UnloadAgent application
+;
+;               NOTE: These scaffolded routines are only present to make it
+;               possible to build the OpenVMS upload agent code on Windows
+;               for the purpose of initial code validation.
+;
+; Author:       Steve Ives, Synergex Professional Services Group
+;
+;*****************************************************************************
+;
+; Copyright (c) 2024, Synergex International, Inc.
+; All rights reserved.
+;
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions are met:
+;
+; * Redistributions of source code must retain the above copyright notice,
+;   this list of conditions and the following disclaimer.
+;
+; * Redistributions in binary form must reproduce the above copyright notice,
+;   this list of conditions and the following disclaimer in the documentation
+;   and/or other materials provided with the distribution.
+;
+; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+; POSSIBILITY OF SUCH DAMAGE.
+;
+;******************************************************************************
+; SESSION MANAGEMENT
+
+;;; <summary>
+;;; Initiates a connection to Kafka
+;;; <param name="brokers">Semi-colon delimited list of Kafka brokers and port numbers</param>
+;;; <param name="consumer_group_name">Identifies this consumer to the server for the purpose of offset tracking.</param>
+;;; <param name="error_message">Returned error message return status is -1</param>
+;;; <returns>0 is success, -1 is failure</returns>
+function KAFKA_INIT, i
+    required in  brokers, a
+    required in  consumer_group_name, a
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+
+;;; <summary>
+;;; Terminates a connection to Kafka
+;;; </summary>
+;;; <param name="error_message">Returned error message is return status is -1</param>
+;;; <returns>0 is success, -1 is failure</returns>
+function KAFKA_SHUTDOWN, i
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+
+;******************************************************************************
+; SENDING MESSAGES
+
+;;; <summary>
+;;; Initiate senfing a message. When using this routine you should subsequently
+;;; call KAFKA_POLL to ensure message delivery and recieve a delivert receipt.
+;;; </summary>
+;;; <param name="topic">Topic name to send message to</param>
+;;; <param name="message">Message to send</param>
+;;; <param name="error_message">Returned error message is return status is -1</param>
+;;; <returns>0 is success, -1 is failure</returns>
+function KAFKA_SEND, i
+    required in  topic, a
+    required in  message, a
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+
+;;; <summary>
+;;; Actually send the message and recive any ACK for the message
+;;; </summary>
+;;; <param name="timeout_ms"></param>
+;;; <param name="error_message">Returned error message is return status is -1</param>
+;;; <returns>0 is success, -1 is failure</returns>
+function KAFKA_POLL, i
+    required in  timeout_ms, i
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+
+;;; <summary>
+;;; Sending a message and wait for a receipt
+;;; </summary>
+;;; <param name="topic">Topic name to send message to</param>
+;;; <param name="message">Message to send</param>
+;;; <param name="error_message">Returned error message is return status is -1</param>
+;;; <returns>0=SUCCESS, -1=HARD FAILURE (e.g. network error), -2=No ACK received (maye retry? Log the difference).</returns>
+function KAFKA_SEND_BLOCKING, i
+    required in  topic, a
+    required in  message, a
+    required in  timeout_ms, i
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+
+
+;******************************************************************************
+; RECEIVING MESSAGES
+
+;;; <summary>
+;;; Subscribe to a topic to be able to receive messages
+;;; </summary>
+;;; <param name="topic"></param>
+;;; <param name="error_message">Returned error message is return status is -1</param>
+;;; <returns>0 is success, -1 is failure</returns>
+function KAFKA_SUBSCRIBE, i
+    required in  topic, a
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+
+;;; <summary>
+;;; Receive a message from a topic
+;;; </summary>
+;;; <param name="timeout_ms">Timeout period for receive. 0=none, -1=forever, other=ms</param>
+;;; <param name="topic">Name of topic the message came from (could be subscrivbed to multiple topics)</param>
+;;; <param name="buffer">Buffer to receive message in</param>
+;;; <param name="buffer_size">Size of message received</param>
+;;; <param name="partition">Partition number message was received from</param>
+;;; <param name="offset">Offset of received message</param>
+;;; <param name="error_message">Returned error message is return status is -1</param>
+;;; <returns>0=success, -1=failure, -2-timeout</returns>
+function KAFKA_RECEIVE, i
+    required in  timeout_ms, i
+    required out topic, a
+    required out message, a
+    required out message_size, i
+    required out partition, i
+    required out offset, i ;i8
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+
+;;; <summary>
+;;; This tells Kafka that I have completed processing a message I received (i.e. the file has been uploaded)
+;;; </summary>
+;;; <param name="topic">Topic in which to commit</param>
+;;; <param name="partition">Partition # in which to commit</param>
+;;; <param name="offset">Offset to commit? *** UNCLEAR - FROM HERE TO END? ***</param>
+;;; <param name="error_message">Returned error message is return status is -1</param>
+;;; <returns>0 is success, -1 is failure</returns>
+function KAFKA_COMMIT, i
+    required in  topic, a
+    required in  partition, i
+    required in  offset, i ;i8
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+
+;******************************************************************************
+; OTHER FUNCTIONS
+
+;;; <summary>
+;;; Gets the latest offset in a Kafka topic/partition
+;;; </summary>
+;;; <param name="topic">Topic name to get latest offset for</param>
+;;; <param name="partition">Partition # to get latest offset from</param>
+;;; <param name="error_message">Returned error message is return status is -1</param>
+;;; <returns>-1 is error, or the latest offset in the specified topic</returns>
+function KAFKA_LATEST_OFFSET, i
+    required in  topic, a
+    required out partition, i
+    required out error_message, a
+proc
+    freturn 0
+endfunction
+

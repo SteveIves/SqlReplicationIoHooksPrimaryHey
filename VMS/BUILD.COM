@@ -4,19 +4,20 @@ $ SET DEF 'HERE
 $ !
 $ @SETUP.COM
 $ !
-$ !------------------------------------------------------------------------------------
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
 $ WRITE SYS$OUTPUT "Loading repository schema..."
+$ WRITE SYS$OUTPUT ""
 $ !
 $ RPSUTL:==$RPS:RPSUTL.EXE
 $ !
 $ RPSUTL -i [.REPOSITORY]REPLICATION.SCH -ia -ir
 $ !
-$ !------------------------------------------------------------------------------------
-$ WRITE SYS$OUTPUT "Prototyping library routines..."
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$ WRITE SYS$OUTPUT "Building library routines..."
+$ WRITE SYS$OUTPUT ""
 $ !
 $ DBLPROTO -OUT LIBRARY LIBSRC:*.dbl
 $ !
-$ WRITE SYS$OUTPUT "Compiling library routines..."
 $ DIBOL/OPT/OBJ=OBJ:LIBRARY.OBJ -
    LIBSRC:CommandLineParser.dbl -
  + LIBSRC:CommitTransactionSqlConnection.dbl -
@@ -75,7 +76,10 @@ $ DIBOL/OPT/OBJ=OBJ:LIBRARY.OBJ -
  + LIBSRC:UnloadAgentSettings.dbl -
  + LIBSRC:ValidateBasicEnvironment.dbl
 $ !
-$ WRITE SYS$OUTPUT "Creating object library LIBRARY.OLB..."
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$ WRITE SYS$OUTPUT "Building object library..."
+$ WRITE SYS$OUTPUT ""
+$ !
 $ LIB/CREATE OBJ:LIBRARY.OLB OBJ:LIBRARY.OBJ
 $ DELETE/NOLOG OBJ:library.OBJ;*
 $ !
@@ -85,7 +89,10 @@ $ ! WRITE SYS$OUTPUT "Creating shared image LIBRARY.EXE..."
 $ ! MAKESHARE -L OBJ:LIBRARY.OLB -E REPLICATOR_EXE: -Q -SQL -XD
 $ ! @LIBRARY.COM
 $ !
-$ WRITE SYS$OUTPUT "Compiling ZeroMQ interface..."
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$ WRITE SYS$OUTPUT "Building ZeroMQ interface..."
+$ WRITE SYS$OUTPUT ""
+$ !
 $ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: VMSCSRC:DBL_UTILS.C
 $ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: VMSCSRC:MESSAGE_UTILS.C
 $ CC /INCLUDE=(ZMQ$ROOT:[INCLUDE]) /NAMES=(AS_IS,SHORTENED) /OBJECT=OBJ: VMSCSRC:PACKET_UTILS.C
@@ -101,41 +108,77 @@ $ DELETE/NOLOG OBJ:MESSAGE_UTILS.OBJ;*
 $ DELETE/NOLOG OBJ:PACKET_UTILS.OBJ;*
 $ DELETE/NOLOG OBJ:ZMQ_HOOKS.OBJ;*
 $ !
-$ !------------------------------------------------------------------------------------
-$ WRITE SYS$OUTPUT "Compiling replicator and utilities..."
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$ WRITE SYS$OUTPUT "Building replicator..."
+$ WRITE SYS$OUTPUT ""
 $ !
 $ DIBOL/OPT/OBJ=OBJ: REPSRC:replicator.dbl
 $ LINK/THREADS/EXE=REPLICATOR_EXE:REPLICATOR.EXE OBJ:REPLICATOR.OBJ,[]REPLICATOR.OPT
 $ !
-$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:ChangeEveryEmployee.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:ChangeEveryEmployee.exe OBJ:ChangeEveryEmployee.obj,[]REPLICATOR/OPT
+$! WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$! WRITE SYS$OUTPUT "Building ChangeEveryEmployee..."
+$! WRITE SYS$OUTPUT ""
+$!
+$! DIBOL/OPT/OBJ=OBJ: TOOLSRC:ChangeEveryEmployee.dbl
+$! LINK/THREADS/EXE=REPLICATOR_EXE:ChangeEveryEmployee.exe OBJ:ChangeEveryEmployee.obj,[]REPLICATOR/OPT
+$ !
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$ WRITE SYS$OUTPUT "Building DepartmentMaintenance..."
+$ WRITE SYS$OUTPUT ""
 $ !
 $ DIBOL/OPT/OBJ=OBJ: TOOLSRC:DepartmentMaintenance.dbl
 $ LINK/THREADS/EXE=REPLICATOR_EXE:DepartmentMaintenance.exe OBJ:DepartmentMaintenance.obj,[]REPLICATOR/OPT
 $ !
-$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:EmployeeDataReport.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeDataReport.exe OBJ:EmployeeDataReport.obj,[]REPLICATOR/OPT
+$! WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$! WRITE SYS$OUTPUT "Building EmployeeDataReport..."
+$! WRITE SYS$OUTPUT ""
+$!
+$! DIBOL/OPT/OBJ=OBJ: TOOLSRC:EmployeeDataReport.dbl
+$! LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeDataReport.exe OBJ:EmployeeDataReport.obj,[]REPLICATOR/OPT
+$ !
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$ WRITE SYS$OUTPUT "Building EmployeeMaintenance..."
+$ WRITE SYS$OUTPUT ""
 $ !
 $ DIBOL/OPT/OBJ=OBJ: TOOLSRC:EmployeeMaintenance.dbl
 $ LINK/THREADS/EXE=REPLICATOR_EXE:EmployeeMaintenance.exe OBJ:EmployeeMaintenance.obj,[]REPLICATOR/OPT
 $ !
-$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:InstructionCount.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:InstructionCount.exe OBJ:InstructionCount.obj,[]REPLICATOR/OPT
+$! WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$! WRITE SYS$OUTPUT "Building InstructionCount..."
+$! WRITE SYS$OUTPUT ""
+$!
+$! DIBOL/OPT/OBJ=OBJ: TOOLSRC:InstructionCount.dbl
+$! LINK/THREADS/EXE=REPLICATOR_EXE:InstructionCount.exe OBJ:InstructionCount.obj,[]REPLICATOR/OPT
 $ !
-$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:QueueMonitor.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:QueueMonitor.exe OBJ:QueueMonitor.obj,[]REPLICATOR/OPT
+$! WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$! WRITE SYS$OUTPUT "Building QueueMonitor..."
+$! WRITE SYS$OUTPUT ""
+$!
+$! DIBOL/OPT/OBJ=OBJ: TOOLSRC:QueueMonitor.dbl
+$! LINK/THREADS/EXE=REPLICATOR_EXE:QueueMonitor.exe OBJ:QueueMonitor.obj,[]REPLICATOR/OPT
+$ !
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$ WRITE SYS$OUTPUT "Building ReplicatorMenu..."
+$ WRITE SYS$OUTPUT ""
 $ !
 $ DIBOL/OPT/OBJ=OBJ: TOOLSRC:ReplicatorMenu.dbl
 $ LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorMenu.exe OBJ:ReplicatorMenu.obj,[]REPLICATOR/OPT
 $ !
-$ DIBOL/OPT/OBJ=OBJ: TOOLSRC:ReplicatorStop.dbl
-$ LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorStop.exe OBJ:ReplicatorStop.obj,[]REPLICATOR/OPT
+$! WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$! WRITE SYS$OUTPUT "Building ReplicatorStop..."
+$! WRITE SYS$OUTPUT ""
+$!
+$! DIBOL/OPT/OBJ=OBJ: TOOLSRC:ReplicatorStop.dbl
+$! LINK/THREADS/EXE=REPLICATOR_EXE:ReplicatorStop.exe OBJ:ReplicatorStop.obj,[]REPLICATOR/OPT
+$ !
+$ WRITE SYS$OUTPUT "-------------------------------------------------------------------------------"
+$ WRITE SYS$OUTPUT "Building UnloadAgent..."
+$ WRITE SYS$OUTPUT ""
 $ !
 $ DIBOL/OPT/OBJ=OBJ: TOOLSRC:UnloadAgent.dbl
 $ LINK/THREADS/EXE=REPLICATOR_EXE:UnloadAgent.exe OBJ:UnloadAgent.obj,[]REPLICATOR/OPT
 $ !
 $ !------------------------------------------------------------------------------------
-$ WRITE SYS$OUTPUT "Cleaning up..."
 $ !
 $ PURGE/NOCONFIRM/NOLOG [...]
 $ !
