@@ -70,6 +70,7 @@ echo put RPS\REPLICATION.SCH >> ftp.tmp
 echo cd [-.DATA] >> ftp.tmp
 echo put DAT\department.seq >> ftp.tmp
 echo put DAT\employee.seq >> ftp.tmp
+echo put DAT\UnloadAgentConfig.json >> ftp.tmp
 echo cd [-.FDL] >> ftp.tmp
 echo mput VMS\*.fdl >> ftp.tmp
 echo cd [-.SRC.LIBRARY] >> ftp.tmp
@@ -83,7 +84,7 @@ echo cd [-.VMSC] >> ftp.tmp
 echo mput SRC\VMSC\*.* >> ftp.tmp
 echo cd [-.-] >> ftp.tmp
 echo mput VMS\*.COM >> ftp.tmp
-echo put VMS\MAKESHARE.DBL >> ftp.tmp
+rem echo put VMS\MAKESHARE.DBL >> ftp.tmp
 echo put VMS\REPLICATION.FDL >> ftp.tmp
 echo put VMS\REPLICATOR.OPT >> ftp.tmp
 

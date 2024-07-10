@@ -529,6 +529,16 @@ namespace ReplicationLibrary
         public readwrite property KafkaServers, string
 
         ;;; <summary>
+        ;;; The name of the Kafka topic to use to request remot file unload operations
+        ;;; </summary>
+        public readwrite property KafkaUnloadRequestTopic, string
+
+        ;;; <summary>
+        ;;; The name of the Kafka topic to use to receive unload completion messages
+        ;;; </summary>
+        public readwrite property KafkaUnloadResponseTopic, string
+
+        ;;; <summary>
         ;;; Where should export files be created locally?
         ;;; </summary>
         public readwrite property LocalExportPath, string

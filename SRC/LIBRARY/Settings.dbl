@@ -31,7 +31,7 @@ namespace ReplicationLibrary
                 RunningOnTerminal       = (%tnmbr >= 0)
                 TerminalChannel         = 0
 .ifdef DBLNET
-            DatabaseConnection  = ^null
+                DatabaseConnection  = ^null
 .endc
                 ;If we're running on a terminal, open the terminal channel
                 if (RunningOnTerminal)
@@ -70,9 +70,9 @@ namespace ReplicationLibrary
                     QueueFileName = "REPLICATOR_DATA:REPLICATION_" + mInstanceName + ".ISM"
                     LogFileName = "REPLICATOR_LOGDIR:REPLICATION_" + mInstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
 .ifdef DBLNET
-                KafkaClientId = "REPLICATOR_" + mInstanceName
-                KafkaTopicName = "REPLICATION_" + mInstanceName
-                KafkaConsumerGroupName = "REPLICATION_" + mInstanceName + "_CONSUMERS"
+                    KafkaClientId = "REPLICATOR_" + mInstanceName
+                    KafkaTopicName = "REPLICATION_" + mInstanceName
+                    KafkaConsumerGroupName = "REPLICATION_" + mInstanceName + "_CONSUMERS"
 .endc
                 endmethod
             endproperty
@@ -185,11 +185,21 @@ namespace ReplicationLibrary
             ;;; </summary>
             public static readwrite property FileServicePort, int
 .ifdef DBLNET
-        ;;; <summary>
-        ;;; The name(s) or IP addresses and ports of the Kafka servers to use (Kafka queue mode only)?
-        ;;; Set automatically to REPLICATION_<InstanceName>
-        ;;; </summary>
-        public static readwrite property KafkaServers, string
+            ;;; <summary>
+            ;;; The name(s) or IP addresses and ports of the Kafka servers to use (Kafka queue mode only)?
+            ;;; Set automatically to REPLICATION_<InstanceName>
+            ;;; </summary>
+            public static readwrite property KafkaServers, string
+
+            ;;; <summary>
+            ;;; The name of the Kafka topic to use to request remot file unload operations
+            ;;; </summary>
+            public static readwrite property KafkaUnloadRequestTopic, string
+
+            ;;; <summary>
+            ;;; The name of the Kafka topic to use to receive unload completion messages
+            ;;; </summary>
+            public static readwrite property KafkaUnloadResponseTopic, string
 .endc
             ;;; <summary>
             ;;; Where should export files be created locally?
@@ -297,15 +307,15 @@ namespace ReplicationLibrary
             public static readwrite property DatabaseConnectString, string
 
 .ifdef DBLNET
-        ;;; <summary>
-        ;;; The connection to the database (Microsoft SqlClient only)
-        ;;; </summary>
-        public static readwrite property DatabaseConnection, @SqlConnection
+            ;;; <summary>
+            ;;; The connection to the database (Microsoft SqlClient only)
+            ;;; </summary>
+            public static readwrite property DatabaseConnection, @SqlConnection
 
-        ;;; <summary>
-        ;;; The current transaction (Microsoft SqlClient mode only)
-        ;;; </summary>
-        public static readwrite property CurrentTransaction, @SqlTransaction
+            ;;; <summary>
+            ;;; The current transaction (Microsoft SqlClient mode only)
+            ;;; </summary>
+            public static readwrite property CurrentTransaction, @SqlTransaction
 .endc
 
             ;;; <summary>
@@ -320,29 +330,29 @@ namespace ReplicationLibrary
 
 .ifdef DBLNET
 
-        ;;; <summary>
-        ;;; A unique identifier for this consumer. (Kafka queue mode only)?
-        ;;; Set automatically to REPLICATOR_<InstanceName>
-        ;;; </summary>
-        public static readwrite property KafkaClientId, string
+            ;;; <summary>
+            ;;; A unique identifier for this consumer. (Kafka queue mode only)?
+            ;;; Set automatically to REPLICATOR_<InstanceName>
+            ;;; </summary>
+            public static readwrite property KafkaClientId, string
 
-        ;;; <summary>
-        ;;; In Kafka queue mode this is the "consumer" that essentially is the
-        ;;; connection to the Kafka queue (topic).
-        ;;; </summary>
-        public static readwrite property KafkaConsumer, @IConsumer<string,string>
+            ;;; <summary>
+            ;;; In Kafka queue mode this is the "consumer" that essentially is the
+            ;;; connection to the Kafka queue (topic).
+            ;;; </summary>
+            public static readwrite property KafkaConsumer, @IConsumer<string,string>
 
-        ;;; <summary>
-        ;;; What is the name of the Kafka consumer group (Kafka queue mode only)?
-        ;;; Set automatically to REPLICATION_<InstanceName>_CONSUMERS
-        ;;; </summary>
-        public static readwrite property KafkaConsumerGroupName, string
+            ;;; <summary>
+            ;;; What is the name of the Kafka consumer group (Kafka queue mode only)?
+            ;;; Set automatically to REPLICATION_<InstanceName>_CONSUMERS
+            ;;; </summary>
+            public static readwrite property KafkaConsumerGroupName, string
 
-        ;;; <summary>
-        ;;; What is the name of the Kafka topic (Kafka queue mode only)?
-        ;;; Set automatically to REPLICATION_<InstanceName>
-        ;;; </summary>
-        public static readwrite property KafkaTopicName, string
+            ;;; <summary>
+            ;;; What is the name of the Kafka topic (Kafka queue mode only)?
+            ;;; Set automatically to REPLICATION_<InstanceName>
+            ;;; </summary>
+            public static readwrite property KafkaTopicName, string
 .endc
             ;;; <summary>
             ;;; The file spec of the instances log file
@@ -432,14 +442,14 @@ namespace ReplicationLibrary
                     mreturn DatabaseConnectString.ToLower().StartsWith("net:")
                 end
 .ifdef DBLNET
-            (DatabaseConnectionMode.SqlClient),
-            begin
-                data constr=DatabaseConnectString.ToLower()
-                mreturn (!constr.Contains("data source=.") 
-                &   && !constr.Contains("data source=localhost") 
-                &   && !constr.Contains("data source=(local)") 
-                &   && !constr.Contains(String.Format("data source={0}",Environment.MachineName.ToLower())))
-            end
+                (DatabaseConnectionMode.SqlClient),
+                begin
+                    data constr=DatabaseConnectString.ToLower()
+                    mreturn (!constr.Contains("data source=.") 
+                    &    && !constr.Contains("data source=localhost") 
+                    &    && !constr.Contains("data source=(local)") 
+                    &    && !constr.Contains(String.Format("data source={0}",Environment.MachineName.ToLower())))
+                end
 .endc
                 endusing
             
@@ -801,36 +811,38 @@ namespace ReplicationLibrary
                             end
                         end
                     end
-                    Settings.DatabaseName           = instanceDefaults.DatabaseName
-                    Settings.DatabasePassword       = instanceDefaults.DatabasePassword
-                    Settings.DatabaseRetryDelay     = instanceDefaults.DatabaseRetryDelay
-                    Settings.DatabaseRetryMax       = instanceDefaults.DatabaseRetryMax
-                    Settings.DatabaseSchema         = instanceDefaults.DatabaseSchema
-                    Settings.DatabaseServer         = instanceDefaults.DatabaseServer
-                    Settings.DatabaseTimeout        = instanceDefaults.DatabaseTimeout
-                    Settings.DatabaseUser           = instanceDefaults.DatabaseUser
-                    Settings.DataCompressionMode    = instanceDefaults.DataCompressionMode
-                    Settings.ErrorSleepTime         = instanceDefaults.ErrorSleepTime
-                    Settings.FileServiceEnabled     = instanceDefaults.FileServiceEnabled
-                    Settings.FileServiceHost        = instanceDefaults.FileServiceHost
-                    Settings.FileServicePort        = instanceDefaults.FileServicePort
+                    Settings.DatabaseName               = instanceDefaults.DatabaseName
+                    Settings.DatabasePassword           = instanceDefaults.DatabasePassword
+                    Settings.DatabaseRetryDelay         = instanceDefaults.DatabaseRetryDelay
+                    Settings.DatabaseRetryMax           = instanceDefaults.DatabaseRetryMax
+                    Settings.DatabaseSchema             = instanceDefaults.DatabaseSchema
+                    Settings.DatabaseServer             = instanceDefaults.DatabaseServer
+                    Settings.DatabaseTimeout            = instanceDefaults.DatabaseTimeout
+                    Settings.DatabaseUser               = instanceDefaults.DatabaseUser
+                    Settings.DataCompressionMode        = instanceDefaults.DataCompressionMode
+                    Settings.ErrorSleepTime             = instanceDefaults.ErrorSleepTime
+                    Settings.FileServiceEnabled         = instanceDefaults.FileServiceEnabled
+                    Settings.FileServiceHost            = instanceDefaults.FileServiceHost
+                    Settings.FileServicePort            = instanceDefaults.FileServicePort
 .ifdef DBLNET
-                    Settings.KafkaServers           = instanceDefaults.KafkaServers
+                    Settings.KafkaServers               = instanceDefaults.KafkaServers
+                    Settings.KafkaUnloadRequestTopic    = instanceDefaults.KafkaUnloadRequestTopic
+                    Settings.KafkaUnloadResponseTopic   = instanceDefaults.KafkaUnloadResponseTopic
 .endc
-                    Settings.LocalExportPath        = instanceDefaults.LocalExportPath
-                    Settings.LogBulkLoadExceptions  = instanceDefaults.LogBulkLoadExceptions
-                    Settings.LogKeyValues           = instanceDefaults.LogKeyValues
-                    Settings.LogLoadProgress        = instanceDefaults.LogLoadProgress
-                    Settings.MaxColumns             = instanceDefaults.MaxColumns
-                    Settings.MaxCursors             = instanceDefaults.MaxCursors
-                    Settings.QueueReconnectAttempts = instanceDefaults.QueueReconnectAttempts
-                    Settings.QueueReconnectDelay    = instanceDefaults.QueueReconnectDelay
-                    Settings.QueueType              = instanceDefaults.QueueType
-                    Settings.SleepTime              = instanceDefaults.SleepTime
-                    Settings.SqlCommandReuse        = instanceDefaults.SqlCommandReuse
-                    Settings.StopOnError            = instanceDefaults.StopOnError
-                    Settings.SystemLogging          = instanceDefaults.SystemLogging
-                    Settings.VerboseLogging         = instanceDefaults.VerboseLogging
+                    Settings.LocalExportPath            = instanceDefaults.LocalExportPath
+                    Settings.LogBulkLoadExceptions      = instanceDefaults.LogBulkLoadExceptions
+                    Settings.LogKeyValues               = instanceDefaults.LogKeyValues
+                    Settings.LogLoadProgress            = instanceDefaults.LogLoadProgress
+                    Settings.MaxColumns                 = instanceDefaults.MaxColumns
+                    Settings.MaxCursors                 = instanceDefaults.MaxCursors
+                    Settings.QueueReconnectAttempts     = instanceDefaults.QueueReconnectAttempts
+                    Settings.QueueReconnectDelay        = instanceDefaults.QueueReconnectDelay
+                    Settings.QueueType                  = instanceDefaults.QueueType
+                    Settings.SleepTime                  = instanceDefaults.SleepTime
+                    Settings.SqlCommandReuse            = instanceDefaults.SqlCommandReuse
+                    Settings.StopOnError                = instanceDefaults.StopOnError
+                    Settings.SystemLogging              = instanceDefaults.SystemLogging
+                    Settings.VerboseLogging             = instanceDefaults.VerboseLogging
                 end
 
                 ;--------------------------------------------------------------------------------------------------------
@@ -1208,8 +1220,8 @@ namespace ReplicationLibrary
                     end
                     if (!ok) exit
 
-                    ;KafkaServers
 .ifdef DBLNET
+                    ;KafkaServers
                     if (ok)
                     begin
                         if (instance.TryGetProperty("KafkaServers",setting))
@@ -1222,6 +1234,40 @@ namespace ReplicationLibrary
                             else
                             begin
                                 Settings.KafkaServers = setting.GetString()
+                            end
+                        end
+                    end
+
+                    ;KafkaUnloadRequestTopic
+                    if (ok)
+                    begin
+                        if (instance.TryGetProperty("KafkaUnloadRequestTopic",setting))
+                        begin
+                            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                            begin
+                                errorMessage = "KafkaUnloadRequestTopic must have a non-blank string value!"
+                                ok = false
+                            end
+                            else
+                            begin
+                                Settings.KafkaUnloadRequestTopic = setting.GetString()
+                            end
+                        end
+                    end
+
+                    ;KafkaUnloadResponseTopic
+                    if (ok)
+                    begin
+                        if (instance.TryGetProperty("KafkaUnloadResponseTopic",setting))
+                        begin
+                            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
+                            begin
+                                errorMessage = "KafkaUnloadResponseTopic must have a non-blank string value!"
+                                ok = false
+                            end
+                            else
+                            begin
+                                Settings.KafkaUnloadResponseTopic = setting.GetString()
                             end
                         end
                     end

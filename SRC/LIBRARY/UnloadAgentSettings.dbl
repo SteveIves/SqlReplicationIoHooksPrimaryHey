@@ -10,11 +10,11 @@ namespace ReplicationLibrary
 
         private static configFileSpec, string
 
-        public readwrite property KafkaServers, string
+        public readwrite property KafkaBrokers, string
         public readwrite property ConsumerGroup, string
-        public readwrite property ConsumerTopic, string
-        public readwrite property ConsumerTimeoutMs, int
-        public readwrite property PublisherTopic, string
+        public readwrite property RequestTopic, string
+        public readwrite property RequestTimeoutMs, int
+        public readwrite property ResponseTopic, string
         public readwrite property ExportDirectory, string
         public readwrite property ZipFileDirectory, string
         public readwrite property EnvironmentVariables, [#]@EnvironmentVariable
@@ -46,21 +46,21 @@ namespace ReplicationLibrary
             instance = new UnloadAgentSettings()
 
             ;--------------------------------------------------------------------------------------------------------
-            ;KafkaServers
+            ;KafkaBrokers
 
-            if (!doc.RootElement.TryGetProperty("KafkaServers",setting))
+            if (!doc.RootElement.TryGetProperty("KafkaBrokers",setting))
             begin
-                errorMessage = "KafkaServers is not defined in " + configFileSpec
+                errorMessage = "KafkaBrokers is not defined in " + configFileSpec
                 mreturn ^null
             end
             
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
             begin
-                errorMessage = "KafkaServers setting must be a non-blank string!"
+                errorMessage = "KafkaBrokers setting must be a non-blank string!"
                 mreturn ^null
             end
 
-            instance.KafkaServers = setting.GetString()
+            instance.KafkaBrokers = setting.GetString()
 
             ;--------------------------------------------------------------------------------------------------------
             ;ConsumerGroup
@@ -82,55 +82,55 @@ namespace ReplicationLibrary
             instance.ConsumerGroup = setting.GetString()
 
             ;--------------------------------------------------------------------------------------------------------
-            ;ConsumerTopic
+            ;RequestTopic
 
-            if (!doc.RootElement.TryGetProperty("ConsumerTopic",setting))
+            if (!doc.RootElement.TryGetProperty("RequestTopic",setting))
             begin
-                errorMessage = "ConsumerTopic is not defined in " + configFileSpec
+                errorMessage = "RequestTopic is not defined in " + configFileSpec
                 mreturn ^null
             end
             
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
             begin
-                errorMessage = "ConsumerTopic setting must be a non-blank string!"
+                errorMessage = "RequestTopic setting must be a non-blank string!"
                 mreturn ^null
             end
 
-            instance.ConsumerTopic = setting.GetString()
+            instance.RequestTopic = setting.GetString()
 
             ;--------------------------------------------------------------------------------------------------------
-            ;ConsumerTimeoutMs
+            ;RequestTimeoutMs
 
-            if (!doc.RootElement.TryGetProperty("ConsumerTimeoutMs",setting))
+            if (!doc.RootElement.TryGetProperty("RequestTimeoutMs",setting))
             begin
-                errorMessage = "ConsumerTimeoutMs is not defined in " + configFileSpec
+                errorMessage = "RequestTimeoutMs is not defined in " + configFileSpec
                 mreturn ^null
             end
             
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32() < 1)
             begin
-                errorMessage = "ConsumerTimeoutMs setting must be a positive integer!"
+                errorMessage = "RequestTimeoutMs setting must be a positive integer!"
                 mreturn ^null
             end
 
-            instance.ConsumerTimeoutMs = setting.GetInt32()
+            instance.RequestTimeoutMs = setting.GetInt32()
 
             ;--------------------------------------------------------------------------------------------------------
-            ;PublisherTopic
+            ;ResponseTopic
 
-            if (!doc.RootElement.TryGetProperty("PublisherTopic",setting))
+            if (!doc.RootElement.TryGetProperty("ResponseTopic",setting))
             begin
-                errorMessage = "PublisherTopic is not defined in " + configFileSpec
+                errorMessage = "ResponseTopic is not defined in " + configFileSpec
                 mreturn ^null
             end
             
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
             begin
-                errorMessage = "PublisherTopic setting must be a non-blank string!"
+                errorMessage = "ResponseTopic setting must be a non-blank string!"
                 mreturn ^null
             end
 
-            instance.PublisherTopic = setting.GetString()
+            instance.ResponseTopic = setting.GetString()
 
             ;--------------------------------------------------------------------------------------------------------
             ;ExportDirectory

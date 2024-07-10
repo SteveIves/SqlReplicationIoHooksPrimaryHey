@@ -114,8 +114,11 @@ Project("{BBD0F5D1-1CC4-42FD-BA4C-A96779C64378}") = "NetUnloadAgent", "NetUnload
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "VMSC", "VMSC", "{02631B6B-01EB-4297-B7FA-F139F9E5E943}"
 	ProjectSection(SolutionItems) = preProject
+		SRC\VMSC\dbl_kafka.c = SRC\VMSC\dbl_kafka.c
 		SRC\VMSC\dbl_utils.c = SRC\VMSC\dbl_utils.c
 		SRC\VMSC\dbl_utils.h = SRC\VMSC\dbl_utils.h
+		SRC\VMSC\kafka_utils.c = SRC\VMSC\kafka_utils.c
+		SRC\VMSC\kafka_utils.h = SRC\VMSC\kafka_utils.h
 		SRC\VMSC\message_utils.c = SRC\VMSC\message_utils.c
 		SRC\VMSC\message_utils.h = SRC\VMSC\message_utils.h
 		SRC\VMSC\packet_utils.c = SRC\VMSC\packet_utils.c

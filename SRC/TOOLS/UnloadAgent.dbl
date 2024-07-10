@@ -49,7 +49,6 @@ proc
 
     ;Load configuration
 
-    Console.WriteLine("Loading configuration...")
     agentSettings = UnloadAgentSettings.Load(errorMessage)
     if (agentSettings == ^null)
     begin
@@ -71,15 +70,30 @@ proc
         end
     end
 
+    ;Report configuration
+
+    Console.WriteLine("")
+    Console.WriteLine("")
+    Console.WriteLine("File Unload Agent")
+    Console.WriteLine("")
+    Console.WriteLine("Kafka brokers      : " + agentSettings.KafkaBrokers)
+    Console.WriteLine("Consumer group     : " + agentSettings.ConsumerGroup)
+    Console.WriteLine("Request topic      : " + agentSettings.RequestTopic)
+    Console.WriteLine("Response topic     : " + agentSettings.ResponseTopic)
+    Console.WriteLine("Consumer timeout   : " + %string(agentSettings.RequestTimeoutMs) + "ms")
+    Console.WriteLine("Export directory   : " + agentSettings.ExportDirectory)
+    Console.WriteLine("Zip file directory : " + agentSettings.ZipFileDirectory)
+    Console.WriteLine("")
+
     ;Connect to Kafka 
 
     if (ok)
     begin
         Console.WriteLine("Connecting to Kafka...")
 
-        if (%KAFKA_INIT(agentSettings.KafkaServers,agentSettings.ConsumerGroup,errorText) == -1) then
+        if (%KAFKA_INIT(agentSettings.KafkaBrokers,agentSettings.ConsumerGroup,errorText) == -1) then
         begin
-            Console.WriteLine("ERROR: Failed to connect to Kafka. Error was " + %atrim(errorText))
+            Console.WriteLine("ERROR: Connect failed: " + %atrim(errorText))
             ok = false
         end
         else
@@ -92,11 +106,11 @@ proc
 
     if (ok)
     begin
-        Console.WriteLine("Subscribing to topic " + agentSettings.ConsumerTopic + " for inbound messages...")
+        Console.WriteLine("Subscribing to " + agentSettings.RequestTopic)
 
-        if (%KAFKA_SUBSCRIBE(agentSettings.ConsumerTopic,errorText) == -1)
+        if (%KAFKA_SUBSCRIBE(agentSettings.RequestTopic,errorText) == -1)
         begin
-            Console.WriteLine("ERROR: Failed to subscribe to topic. Error was: " + %atrim(errorText))
+            Console.WriteLine("ERROR: Subscribe failed: " + %atrim(errorText))
             ok = false
         end
     end
@@ -119,51 +133,66 @@ proc
 
             ok = true
 
-            receiveStatus = %KAFKA_RECEIVE(agentSettings.ConsumerTimeoutMs,topic,message,messageSize,partition,offset,errorText)
+            receiveStatus = %KAFKA_RECEIVE(agentSettings.RequestTimeoutMs,topic,message,messageSize,partition,offset,errorText)
 
             if (receiveStatus == -1) then
             begin
-                Console.WriteLine("ERROR: Failed to receive message. Error was: " + %atrim(errorText))
-                ;TODO: What to do now? Disconnect, reconnect & try again?
+                ;Hard error (network error, etc.)
+                Console.WriteLine("ERROR: Receive failed: " + %atrim(errorText))
 
+                ;TODO: Now what? Disconnect, reconnect, try again?
 
 
             end
             else if (receiveStatus == -2) then
             begin
-                ;Failed to receive message because the timeout period expired. Chance to do routine processing, otherwise just try again.
+                ;Timeout. Chance to do routine processing, otherwise just try again.
+                Console.WriteLine("Timeout...")
                 nextloop
             end
-            else if (topic!=agentSettings.ConsumerTopic) then
+            else if (topic!=agentSettings.RequestTopic) then
             begin
                 ;Should never happen because we only subscribed to a single topic, but just incase,
                 ;we'll commit the message so that we never receive it again
-                if (%KAFKA_COMMIT(agentSettings.ConsumerTopic,partition,offset,errorText) == 0) then
+                Console.WriteLine("ERROR: Message from unsubscribed topic: " + %atrim(topic))
+
+                if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset,errorText) == 0) then
+                begin
+                    Console.WriteLine("Message committed")
                     nextloop
+                end
                 else
                 begin
-                    ;TODO: Failed to commit JUNK message. Now what? Disconnect, reconnect, try again?
-
+                    ;Commit failed
+                    Console.WriteLine("ERROR: Commit failed: " + %atrim(errorText))
+                    
+                    ;TODO: Now what? Disconnect, reconnect, try again?
 
 
                 end
             end
             else if (messageSize>=4 && message == "EXIT") then
             begin
-                Console.WriteLine("Shutdown instruction received!")
+                Console.WriteLine("Shutdown requested")
                 ;;Commit the message
-                if (%KAFKA_COMMIT(agentSettings.ConsumerTopic,partition,offset,errorText) == 0) then
+                if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset,errorText) == 0) then
+                begin
+                    Console.WriteLine("Message committed")
                     exitloop
+                end
                 else
                 begin
-                    ;TODO: Failed to commit EXIT message. Now what? Disconnect, reconnect, try again?
+                    ;Commit failed
+                    Console.WriteLine("ERROR: Commit failed: " + %atrim(errorText))
 
+                    ;TODO: Now what? Disconnect, reconnect, try again?
 
 
                 end
             end
-            else if (messageSize>8 && message=="UNLOAD") then
+            else if (messageSize>7 && message=="UNLOAD") then
             begin
+                ;UNLOAD <table>
                 data fileSpec, string
                 data exportFile, string
                 data exportFileSpec, string
@@ -179,15 +208,6 @@ proc
                 
                 data tableName, string, message(8,messageSize)
 
-                ;Do we have a table name?
-
-                if (String.IsNullOrWhitespace(tableName))
-                begin
-                    ;Bad request
-
-
-                end
-
                 ;Do we recognize the table name? ;We don't have vaidi table names in our config!
 
 ;                if (validTableName)
@@ -197,7 +217,7 @@ proc
 ;
 ;                end
 
-                Console.WriteLine("Unload instruction received for table " + tableName)
+                Console.WriteLine("Unload " + tableName)
 
                 ;Determine the file type and record length
 
@@ -230,7 +250,7 @@ proc
 
                 if (ok)
                 begin
-                    Console.WriteLine(" - Opening input file " + fileSpec)
+                    Console.WriteLine(" - Opening " + fileSpec)
 
                     chIn = %xsubr(tableName+"OpenInput",errorText)
 
@@ -242,7 +262,7 @@ proc
                     begin
                         chInOpen = false
                         ok = false
-                        Console.WriteLine(" - Failed to open input file " + fileSpec + " Error was: " + %atrim(errorText))
+                        Console.WriteLine("ERROR: Open failed: " + %atrim(errorText))
                     end
                 end
 
@@ -250,7 +270,7 @@ proc
 
                 if (ok)
                 begin
-                    Console.WriteLine(" - Opening output file " + exportFileSpec)
+                    Console.WriteLine(" - Opening " + exportFileSpec)
 
                     try
                     begin
@@ -261,7 +281,7 @@ proc
                     begin
                         chOutOpen = false
                         ok = false
-                        Console.WriteLine(" - Failed to open input file " + exportFileSpec + " Error was " + e.Message)
+                        Console.WriteLine("ERROR: Open failed: " + e.Message)
                     end
                     endtry
                 end
@@ -275,7 +295,7 @@ proc
 
                     repeat
                     begin
-                        ;TODO: Need stop take into account dd_tag values?
+;TODO: Need stop take into account dd_tag values?
                         reads(chIn,iobuffer(1:recordLength),eof)
                         recs += 1
                         writes(chOut,iobuffer(1:recordLength))
@@ -283,7 +303,7 @@ proc
                 eof,
                     fileExported = true
 
-                    Console.WriteLine(" - " + %string(recs) + " records exported")
+                    Console.WriteLine(" - Exported " + %string(recs) + " records")
                 end
 
                 ;Close the input and output files
@@ -315,7 +335,7 @@ proc
                     catch (e, @Exception)
                     begin
                         ok = false
-                        Console.WriteLine(" - Failed to export file " + fileSpec + " to " + exportFileSpec + " Error was: " + e.Message)
+                        Console.WriteLine("ERROR: Verify failed: " + e.Message)
                         fileExported = false
                         clear tmpch
                     end
@@ -388,15 +408,34 @@ proc
 ;                        end
 ;                        endtry
 ;                    end
+
+                ;;Commit the message
+
+                if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset,errorText) == -1)
+                begin
+                    ;Commit failed
+                    Console.WriteLine("ERROR: Commit failed: " + %atrim(errorText))
+
+                    ;TODO: Now what? Disconnect, reconnect, try again?
+
+
+                end
             end
             else
             begin
-                ;Junk message. We can't just ignore it or we'll receive it again, so commit it.
-                if (%KAFKA_COMMIT(agentSettings.ConsumerTopic,partition,offset,errorText) == 0) then
+                ;Unsupported message.
+
+                Console.WriteLine("ERROR: Unexpected message: " + %atrim(message))
+
+                if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset,errorText) == 0) then
+                begin
+                    Console.WriteLine("Message committed")
                     nextloop
+                end
                 else
                 begin
-                    ;TODO: Failed to commit JUNK message. Now what? Disconnect, reconnect, try again?
+                    ;Commit failed
+                    Console.WriteLine("ERROR: Commit failed: " + %atrim(errorText))
 
 
 

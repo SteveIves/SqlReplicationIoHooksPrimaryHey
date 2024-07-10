@@ -29,6 +29,8 @@
     "FileServiceHost": "localhost",
     "FileServicePort": 8080,
     "KafkaServers": "localhost:19092,localhost:29092,localhost:39092",
+    "KafkaUnloadRequestTopic": "UnloadRequest",
+    "KafkaUnloadResponseTopic": "UnloadResponse",
     "LocalExportPath": "C:\\DEV\\SqlReplication\\CSV\\",
     "LogBulkLoadExceptions": false,
     "LogKeyValues": false,
