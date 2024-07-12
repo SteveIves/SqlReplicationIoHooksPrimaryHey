@@ -1,0 +1,6 @@
+@echo off
+set VMS_IP_ADDRESS=vmsit.synergex.loc
+set VMS_FTP_PORT=21
+set VMS_USERNAME=stevei
+set VMS_PASSWORD=beth5173
+set VMS_DIRECTORY=DKA100:[JEFF.VMS_BROKER]

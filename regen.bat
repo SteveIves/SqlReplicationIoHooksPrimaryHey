@@ -25,4 +25,7 @@ rem Generate code
 rem Generate SQL I/O routines for the structures being replicated
 codegen -s %STRUCTURES% -t SqlIO MscIO SynIO -o "%ROOT%SRC\LIBRARY" %STDOPTS%
 
+rem Generate fake XCALL routines to cause necessary routines to be pulled in from an object library on OpenVMS
+codegen -s %STRUCTURES% -ms -t UnloadAgentFakeCalls -o "%ROOT%SRC\LIBRARY" %STDOPTS%
+
 endlocal

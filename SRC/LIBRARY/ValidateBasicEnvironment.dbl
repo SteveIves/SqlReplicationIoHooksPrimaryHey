@@ -65,6 +65,7 @@ proc
             end
             endusing
         end
+
         if (!ok) exit
 
         ; Is REPLICATOR_DATA: defined?
@@ -79,6 +80,7 @@ proc
             errorMessage = "Pass -datadir or set environment variable REPLICATOR_DATA"
             ok = false
         end
+
         if (!ok) exit
 
         ; Is REPLICATOR_DATA:ReplicatorConfig.json present?
@@ -101,6 +103,7 @@ proc
             end
         end
         endtry
+
         if (!ok) exit
 
         ;Is -logdir is specified?
@@ -124,6 +127,7 @@ proc
             end
             endusing
         end
+
         if (!ok) exit
 
         ; Is REPLICATOR_LOGDIR: defined?
@@ -138,6 +142,7 @@ proc
             errorMessage = "Pass -logdir or set environment variable REPLICATOR_LOGDIR"
             ok = false
         end
+
         if (!ok) exit
 
         ; Does REPLICATOR_LOGDIR point to an actual directory where we can create files?
@@ -155,17 +160,13 @@ proc
         begin
             if (tmpch)
             begin
-                close tmpch
+                purge tmpch
                 tmpch = 0
             end
         end
         endtry
+        
         if (!ok) exit
-
-        ; Delete the temp file we just created
-
-        File.Delete("REPLICATOR_LOGDIR:tmp.tmp")
-
 
         ; Check we have an instance name on the command line
 
@@ -188,6 +189,7 @@ proc
             end
             endusing
         end
+
         if (!ok) exit
 
         ; If not on the command line the instance name can also come from REPLICATOR_INSTANCE

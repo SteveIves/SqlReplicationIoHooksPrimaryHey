@@ -32,7 +32,13 @@ main UnloadAgent
     endexternal
 
 proc
-    ok = true
+    xcall flags(87004000,1)
+    xcall setctl("C",0,"Y",0)
+
+    if (false)
+    begin
+        xcall UnloadAgentFakeCalls
+    end
 
     ;Make sure we're on OpenVMS
 
@@ -53,12 +59,13 @@ proc
     if (agentSettings == ^null)
     begin
         Console.WriteLine("ERROR: Failed to load configuration. Error was: " + errorMessage)
-        ok = false
+        sleep 3
+        stop
     end
 
     ;Set environment variables defined in the configuration file
 
-    if (ok && agentSettings.EnvironmentVariables != ^null)
+    if (agentSettings.EnvironmentVariables != ^null)
     begin
         data envvar, @EnvironmentVariable
         data sts, i4
@@ -80,135 +87,124 @@ proc
     Console.WriteLine("Consumer group     : " + agentSettings.ConsumerGroup)
     Console.WriteLine("Request topic      : " + agentSettings.RequestTopic)
     Console.WriteLine("Response topic     : " + agentSettings.ResponseTopic)
-    Console.WriteLine("Consumer timeout   : " + %string(agentSettings.RequestTimeoutMs) + "ms")
+    Console.WriteLine("Consumer timeout   : " + %string(agentSettings.RequestTimeoutMs) + " ms")
     Console.WriteLine("Export directory   : " + agentSettings.ExportDirectory)
     Console.WriteLine("Zip file directory : " + agentSettings.ZipFileDirectory)
     Console.WriteLine("")
 
     ;Connect to Kafka 
 
-    if (ok)
+    log("Connecting to Kafka")
+
+    if (%KAFKA_INIT(agentSettings.KafkaBrokers,agentSettings.ConsumerGroup,errorText) == 0) then
+        kafkaConnected = true
+    else
+        log("ERROR: Connect failed: " + %atrim(errorText))
+
+    ok = true
+
+    try
     begin
-        Console.WriteLine("Connecting to Kafka...")
+        ;Subscribe to the topic for inbound messages
 
-        if (%KAFKA_INIT(agentSettings.KafkaBrokers,agentSettings.ConsumerGroup,errorText) == -1) then
+        if (ok)
         begin
-            Console.WriteLine("ERROR: Connect failed: " + %atrim(errorText))
-            ok = false
-        end
-        else
-        begin
-            kafkaConnected = true
-        end
-    end
+            log("Subscribing to " + agentSettings.RequestTopic)
 
-    ;Subscribe to the topic for inbound messages
-
-    if (ok)
-    begin
-        Console.WriteLine("Subscribing to " + agentSettings.RequestTopic)
-
-        if (%KAFKA_SUBSCRIBE(agentSettings.RequestTopic,errorText) == -1)
-        begin
-            Console.WriteLine("ERROR: Subscribe failed: " + %atrim(errorText))
-            ok = false
-        end
-    end
-
-    ;Listen for messages. Kafka messages have an (optional) key and a value, but out API does not use key. We will respond to:
-    ;Message            Action
-    ;EXIT               Stop processing and exit
-    ;UNLOAD <table>     Export and upload a file
-
-    if (ok)
-    begin
-        repeat
-        begin
-            data topic, a40
-            data message, a40
-            data messageSize, i4
-            data partition, i4
-            data offset, i8
-            data receiveStatus, i4
-
-            ok = true
-
-            receiveStatus = %KAFKA_RECEIVE(agentSettings.RequestTimeoutMs,topic,message,messageSize,partition,offset,errorText)
-
-            if (receiveStatus == -1) then
+            if (%KAFKA_SUBSCRIBE(agentSettings.RequestTopic,errorText) == -1)
             begin
-                ;Hard error (network error, etc.)
-                Console.WriteLine("ERROR: Receive failed: " + %atrim(errorText))
-
-                ;TODO: Now what? Disconnect, reconnect, try again?
-
-
+                log("ERROR: Subscribe failed: " + %atrim(errorText))
+                ok = false
             end
-            else if (receiveStatus == -2) then
-            begin
-                ;Timeout. Chance to do routine processing, otherwise just try again.
-                Console.WriteLine("Timeout...")
-                nextloop
-            end
-            else if (topic!=agentSettings.RequestTopic) then
-            begin
-                ;Should never happen because we only subscribed to a single topic, but just incase,
-                ;we'll commit the message so that we never receive it again
-                Console.WriteLine("ERROR: Message from unsubscribed topic: " + %atrim(topic))
+        end
 
-                if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset,errorText) == 0) then
+        ;Listen for messages, which have an optional key (we don't use it) and a value. We will respond to:
+        ; EXIT              Stop processing and exit
+        ; UNLOAD <table>    Export and upload a file
+
+        if (ok)
+        begin
+            repeat
+            begin
+                data topic, a40
+                data message, a40, ""
+                data messageSize, i4, ^size(message)
+                data partition, i4
+                data offset, i8
+                data receiveStatus, i4
+
+                ok = true
+
+                receiveStatus = %KAFKA_RECEIVE(agentSettings.RequestTimeoutMs,topic,message,messageSize,partition,offset,errorText)
+
+                upcase message
+
+                if (receiveStatus == -2) then
                 begin
-                    Console.WriteLine("Message committed")
+                    ;Timeout. Chance to do routine processing, otherwise just try again.
                     nextloop
                 end
-                else
+                else if (receiveStatus == -1) then
                 begin
-                    ;Commit failed
-                    Console.WriteLine("ERROR: Commit failed: " + %atrim(errorText))
-                    
+                    ;Hard error (network error, etc.)
+                    log("ERROR: Receive failed: " + %atrim(errorText))
                     ;TODO: Now what? Disconnect, reconnect, try again?
 
 
                 end
-            end
-            else if (messageSize>=4 && message == "EXIT") then
-            begin
-                Console.WriteLine("Shutdown requested")
-                ;;Commit the message
-                if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset,errorText) == 0) then
+                else if (%atrim(topic).ne.agentSettings.RequestTopic) then
                 begin
-                    Console.WriteLine("Message committed")
-                    exitloop
+                    ;Should never happen because we only subscribed to a single topic, but just incase,
+                    ;we'll commit the message so that we never receive it again
+                    log("ERROR: Message from unsubscribed topic: " + %atrim(topic))
+
+                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
+                    begin
+                        nextloop
+                    end
+                    else
+                    begin
+                        log("ERROR: Commit failed: " + %atrim(errorText))
+                        ;TODO: Now what? Disconnect, reconnect, try again?
+
+
+                    end
                 end
-                else
+                else if (messageSize>=4 && message.eq."STOP") then
                 begin
-                    ;Commit failed
-                    Console.WriteLine("ERROR: Commit failed: " + %atrim(errorText))
+                    log("Received STOP instruction")
+                    ;;Commit the message
+                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
+                    begin
+                        exitloop
+                    end
+                    else
+                    begin
+                        log("ERROR: Commit failed: " + %atrim(errorText))
+                        ;TODO: Now what? Disconnect, reconnect, try again?
 
-                    ;TODO: Now what? Disconnect, reconnect, try again?
 
-
+                    end
                 end
-            end
-            else if (messageSize>7 && message=="UNLOAD") then
-            begin
-                ;UNLOAD <table>
-                data fileSpec, string
-                data exportFile, string
-                data exportFileSpec, string
-                data zipName, string 
-                data zipSpec, string
-                data fileType, string
-                data fileExported = false
-                data fileZipped = false
-                data fileUploaded = false
-                data recordLength, int
+                else if (messageSize>7 && message.eq."UNLOAD") then
+                begin
+                    ;UNLOAD <table>
+                    data fileSpec, string
+                    data exportFile, string
+                    data exportFileSpec, string
+                    data zipName, string 
+                    data zipSpec, string
+                    data fileType, string
+                    data fileExported = false
+                    data fileZipped = false
+                    data fileUploaded = false
+                    data recordLength, int
 
-                ;Extact the table name from the message
+                    ;Extact the table name from the message
                 
-                data tableName, string, message(8,messageSize)
+                    data tableName, string, message(8,messageSize)
 
-                ;Do we recognize the table name? ;We don't have vaidi table names in our config!
+                    ;Do we recognize the table name? ;We don't have vaidi table names in our config!
 
 ;                if (validTableName)
 ;                begin
@@ -217,139 +213,139 @@ proc
 ;
 ;                end
 
-                Console.WriteLine("Unload " + tableName)
+                    log("Received UNLOAD instruction for " + tableName)
 
-                ;Determine the file type and record length
+                    ;Determine the file type and record length
 
-                begin
-                    data tmpFileSpec, a80
-                    xcall xsubr(tableName+"File",tmpFileSpec)
-                    fileSpec = %atrimtostring(tmpFileSpec)
-                end
-
-                recordLength = %xsubr(tableName+"Length")
-
-                ;Set the export and zip file names
-
-                begin
-                    exportFile = tableName + ".TXT"
-                    exportFileSpec =agentSettings.ExportDirectory + exportFile
-                    zipName = tableName + ".ZIP"
-                    zipSpec = agentSettings.ZipFileDirectory + zipName
-                end
-
-                ;Determine the file type
-
-                begin
-                    data tmptype, a8
-                    xcall xsubr(tableName+"Type",tmptype)
-                    fileType = tmptype
-                end
-
-                ;Open the input file
-
-                if (ok)
-                begin
-                    Console.WriteLine(" - Opening " + fileSpec)
-
-                    chIn = %xsubr(tableName+"OpenInput",errorText)
-
-                    if (chIn) then
                     begin
-                        chInOpen = true
+                        data tmpFileSpec, a80
+                        xcall xsubr(tableName+"File",tmpFileSpec)
+                        fileSpec = %atrimtostring(tmpFileSpec)
                     end
-                    else
+
+                    recordLength = %xsubr(tableName+"Length")
+
+                    ;Set the export and zip file names
+
                     begin
-                        chInOpen = false
-                        ok = false
-                        Console.WriteLine("ERROR: Open failed: " + %atrim(errorText))
+                        exportFile = tableName + ".TXT"
+                        exportFileSpec =agentSettings.ExportDirectory + exportFile
+                        zipName = tableName + ".ZIP"
+                        zipSpec = agentSettings.ZipFileDirectory + zipName
                     end
-                end
 
-                ;Open the output file
+                    ;Determine the file type
 
-                if (ok)
-                begin
-                    Console.WriteLine(" - Opening " + exportFileSpec)
-
-                    try
                     begin
-                        open(chOut=0,o:s,exportFileSpec)
-                        chOutOpen = true
+                        data tmptype, a8
+                        xcall xsubr(tableName+"Type",tmptype)
+                        fileType = tmptype
                     end
-                    catch (e, @Exception)
+
+                    ;Open the input file
+
+                    if (ok)
                     begin
-                        chOutOpen = false
-                        ok = false
-                        Console.WriteLine("ERROR: Open failed: " + e.Message)
-                    end
-                    endtry
-                end
+                        log(" - Opening " + fileSpec)
 
-                ;Export the input file content
+                        chIn = %xsubr(tableName+"OpenInput",errorText)
 
-                if (ok)
-                begin
-                    data recs = 0
-                    Console.WriteLine(" - Exporting data...")
-
-                    repeat
-                    begin
-;TODO: Need stop take into account dd_tag values?
-                        reads(chIn,iobuffer(1:recordLength),eof)
-                        recs += 1
-                        writes(chOut,iobuffer(1:recordLength))
-                    end
-                eof,
-                    fileExported = true
-
-                    Console.WriteLine(" - Exported " + %string(recs) + " records")
-                end
-
-                ;Close the input and output files
-
-                if (chInOpen && chIn)
-                begin
-                    close chIn
-                    clear chIn
-                end
-
-                if (chOutOpen && chOut)
-                begin
-                    close chOut
-                    clear chOut
-                end
-
-                ;Verify that the output file is present
-
-                if (ok && fileExported)
-                begin
-                    data tmpch, int
-
-                    Console.WriteLine(" - Verifying export file...")
-
-                    try
-                    begin
-                        open(tmpch=0,i:s,exportFileSpec)
-                    end
-                    catch (e, @Exception)
-                    begin
-                        ok = false
-                        Console.WriteLine("ERROR: Verify failed: " + e.Message)
-                        fileExported = false
-                        clear tmpch
-                    end
-                    finally
-                    begin
-                        if (tmpch)
+                        if (chIn) then
                         begin
-                            close tmpch
+                            chInOpen = true
+                        end
+                        else
+                        begin
+                            chInOpen = false
+                            ok = false
+                            log("ERROR: Open failed: " + %atrim(errorText))
                         end
                     end
-                    endtry
-                end
 
-                ;Compress the unloaded file
+                    ;Open the output file
+
+                    if (ok)
+                    begin
+                        log(" - Opening " + exportFileSpec)
+
+                        try
+                        begin
+                            open(chOut=0,o:s,exportFileSpec)
+                            chOutOpen = true
+                        end
+                        catch (e, @Exception)
+                        begin
+                            chOutOpen = false
+                            ok = false
+                            log("ERROR: Open failed: " + e.Message)
+                        end
+                        endtry
+                    end
+
+                    ;Export the input file content
+
+                    if (ok)
+                    begin
+                        data recs = 0
+                        log(" - Exporting data")
+
+                        repeat
+                        begin
+;TODO: Need stop take into account dd_tag values?
+                            reads(chIn,iobuffer(1:recordLength),eof)
+                            recs += 1
+                            writes(chOut,iobuffer(1:recordLength))
+                        end
+                    eof,
+                        fileExported = true
+
+                        log(" - Exported " + %string(recs) + " records")
+                    end
+
+                    ;Close the input and output files
+
+                    if (chInOpen && chIn)
+                    begin
+                        close chIn
+                        clear chIn
+                    end
+
+                    if (chOutOpen && chOut)
+                    begin
+                        close chOut
+                        clear chOut
+                    end
+
+                    ;Verify that the output file is present
+
+                    if (ok && fileExported)
+                    begin
+                        data tmpch, int
+
+                        log(" - Verifying export file")
+
+                        try
+                        begin
+                            open(tmpch=0,i:s,exportFileSpec)
+                        end
+                        catch (e, @Exception)
+                        begin
+                            ok = false
+                            log("ERROR: Verify failed: " + e.Message)
+                            fileExported = false
+                            clear tmpch
+                        end
+                        finally
+                        begin
+                            if (tmpch)
+                            begin
+                                close tmpch
+                            end
+                        end
+                        endtry
+                    end
+
+                    ;Compress the unloaded file
 
 ;                    if (fileExported)
 ;                    begin
@@ -358,14 +354,14 @@ proc
 ;                        fileZipped = true
 ;                    end
 
-                ;Delete the uncompressed file
+                    ;Delete the uncompressed file
 
 ;                    if (fileExported && fileZipped)
 ;                    begin
 ;                        xcall delet(exportFileSpec)
 ;                    end
 
-                ;Upload the compressed file to an S3 bucket
+                    ;Upload the compressed file to an S3 bucket
 
 ;                    if (fileZipped)
 ;                    begin
@@ -373,7 +369,7 @@ proc
 ;                        nop
 ;                    end
 
-                ;Report the outcome to the outbound Kafka topic
+                    ;Report the outcome to the outbound Kafka topic
  
 ;                    if (ok && fileUploaded) then
 ;                    begin
@@ -394,7 +390,7 @@ proc
 ;                        end
 ;                    end
 
-                ;Delete the compressed file
+                    ;Delete the compressed file
 
 ;                    if (fileZipped)
 ;                    begin
@@ -409,60 +405,68 @@ proc
 ;                        endtry
 ;                    end
 
-                ;;Commit the message
+                    ;;Commit the message
 
-                if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset,errorText) == -1)
-                begin
-                    ;Commit failed
-                    Console.WriteLine("ERROR: Commit failed: " + %atrim(errorText))
-
-                    ;TODO: Now what? Disconnect, reconnect, try again?
+                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == -1)
+                    begin
+                        log("ERROR: Commit failed: " + %atrim(errorText))
+                        ;TODO: Now what? Disconnect, reconnect, try again?
 
 
-                end
-            end
-            else
-            begin
-                ;Unsupported message.
-
-                Console.WriteLine("ERROR: Unexpected message: " + %atrim(message))
-
-                if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset,errorText) == 0) then
-                begin
-                    Console.WriteLine("Message committed")
-                    nextloop
+                    end
                 end
                 else
                 begin
-                    ;Commit failed
-                    Console.WriteLine("ERROR: Commit failed: " + %atrim(errorText))
+                    ;Unsupported message.
+
+                    log("WARNING: Ignoring unexpected message: " + %atrim(message))
+
+                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
+                    begin
+                        nextloop
+                    end
+                    else
+                    begin
+                        log("ERROR: Commit failed: " + %atrim(errorText))
+                        ;TODO: Now what? Disconnect, reconnect, try again?
 
 
-
+                    end
                 end
             end
         end
     end
-
-    ;Disconnect from Kafka
-
-    if (kafkaConnected)
+    finally
     begin
-        Console.WriteLine("Disconnecting from Kafka...")
+        ;Disconnect from Kafka
+        if (kafkaConnected)
+        begin
+            log("Disconnecting from Kafka")
 
-        if (%KAFKA_SHUTDOWN(errorText)) then
-        begin
-            kafkaConnected = false
+            if (%KAFKA_SHUTDOWN(errorText) == 0) then
+                kafkaConnected = false
+            else
+                log("ERROR: Failed to disconnect from Kafka: " + %atrim(errorText))
         end
-        else
-        begin
-            Console.WriteLine("ERROR: Failed to disconnect from Kafka! Error message was: " + %atrim(errorText))
-            ok = false
-        end
-        
     end
+    endtry
 
-    Console.WriteLine("Stopping")
+    log("Stopping")
     stop
 
 endmain
+
+;;; <summary>
+;;; Add a message to the console log
+;;; </summary>
+;;; <param name="message">Message to add</param>
+subroutine log
+    required in message, string
+proc
+    begin
+        data now, a20, %datetime
+        data timestamp, string, %string(^d(now(1:14)),"XXXX-XX-XX XX:XX:XX")
+        Console.WriteLine(timestamp + " " + message)
+    end
+    xreturn
+endsubroutine

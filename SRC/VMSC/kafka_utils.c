@@ -171,7 +171,7 @@ int kafka_receive(kafka_state* state, char *out_topic, char *buffer, int* buffer
     if (!rkmessage) 
     {
         snprintf(error_message, error_message_length, "No message received\n");
-        return -1;
+        return -2;
     }
 
     if (rkmessage->err) 

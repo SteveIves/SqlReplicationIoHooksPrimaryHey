@@ -265,6 +265,9 @@
     <Compile Include="..\..\SRC\LIBRARY\Timer.dbl">
       <Link>Timer.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\UnloadAgentFakeCalls.dbl">
+      <Link>UnloadAgentFakeCalls.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\UnloadAgentSettings.dbl">
       <Link>UnloadAgentSettings.dbl</Link>
     </Compile>

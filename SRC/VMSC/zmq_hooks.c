@@ -11,7 +11,7 @@
 
 #include "message_utils.h"
 #include "dbl_utils.h"
-#include "packet_utils.h"
+#include "zmq_hooks.h"
 
 /* array of error info, circular buffer of errors, 
 flag if get_error isnt called when the allocator comes around or stop_txn/stop_file/shutdown are called*/
@@ -22,38 +22,6 @@ flag if get_error isnt called when the allocator comes around or stop_txn/stop_f
         attempt to connect to next replicator
 
 */
-
-#define MAX_HOOK_ERRORS 10
-#define MAX_HOOK_ERROR_LENGTH 1024
-#define MAX_NODE_ADDRESSES 5
-#define SEND_MESSAGE_TIMEOUT 5000
-#define CONNECT_TIMEOUT_MS 5000
-#define CONNECT_ATTEMPTS 3
-#define RESEND_ATTEMPTS 3
-
-typedef struct node_state {
-    char address[MAX_NODE_ADDRESS_LENGTH];
-    void* active_socket;
-    int active_leader;
-} node_state;
-
-typedef int (*ConnectFunc)(char* errorText, int errorTextLength);
-typedef int (*SendPacketFunc)(void* message, replication_ack*, char* errorText, int errorTextLength);
-typedef int (*AllocateMessage)(void** message, char** buffer, int bufferLength);
-
-typedef struct hook_state {
-    void* context;
-    node_state nodes[MAX_NODE_ADDRESSES];
-    string_array* open_files;
-    char errors[MAX_HOOK_ERRORS][MAX_HOOK_ERROR_LENGTH];
-    int request_id;
-    int response_timeout_ms;
-    long long int last_txn_id;
-    ConnectFunc connect;
-    SendPacketFunc send_packet;
-    AllocateMessage allocate;
-} hook_state;
-
 hook_state* g_hook_state;
 
 int reserve_hook_error(char** error, int* errorLength, int* errorIndex)
@@ -87,7 +55,7 @@ int connect_to_replicator(DESC* ret_code)
     }
     else
     {
-        if(g_hook_state->connect(errorText, errorTextLength) != 0)
+        if(g_hook_state->connect(g_hook_state, errorText, errorTextLength) != 0)
         {
             return write_hook_error(errorText, ret_code);
         }
@@ -98,7 +66,7 @@ int connect_to_replicator(DESC* ret_code)
     }
 }
 
-int allocate_message_zmq(void** message, char** buffer, int bufferLength)
+int allocate_message_zmq(hook_state* state, void** message, char** buffer, int bufferLength)
 {
     zmq_msg_t* msg = (zmq_msg_t*)malloc(sizeof(zmq_msg_t));
     if(msg == NULL)
@@ -114,7 +82,7 @@ int allocate_message_zmq(void** message, char** buffer, int bufferLength)
     }
 }
 
-int connect_internal_zmq(char* errorText, int errorTextLength)
+int connect_internal_zmq(hook_state* state, char* errorText, int errorTextLength)
 {
     int attempts = 0;
     int leader_found = 0;
@@ -128,7 +96,7 @@ int connect_internal_zmq(char* errorText, int errorTextLength)
 
         leader_check_message check_msg; 
         check_msg.process_id = pid_helper();
-        check_msg.req_id = g_hook_state->request_id++;
+        check_msg.req_id = state->request_id++;
         check_msg.op_type = OP_TYPE_LEADER;
 
         zmq_pollitem_t items[MAX_NODE_ADDRESSES];
@@ -138,39 +106,39 @@ int connect_internal_zmq(char* errorText, int errorTextLength)
         /* Connect and send the message to all nodes */ 
         for (int i = 0; i < MAX_NODE_ADDRESSES; i++) 
         {
-            if (strlen(g_hook_state->nodes[i].address) > 0) 
+            if (strlen(state->nodes[i].address) > 0) 
             {
                 int hr = 0;
-                void* socket = zmq_socket(g_hook_state->context, ZMQ_REQ);
-                //printf("connecting to index %d at %s\n", i, g_hook_state->nodes[i].address);
-                if(g_hook_state->nodes[i].active_socket != NULL)
+                void* socket = zmq_socket(state->context, ZMQ_REQ);
+                printf("connecting to index %d at %s\n", i, state->nodes[i].address);
+                if(state->nodes[i].active_socket != NULL)
                 {
                     int linger = 0; // Immediate return
-                    zmq_setsockopt(g_hook_state->nodes[i].active_socket, ZMQ_LINGER, &linger, sizeof(linger));
-                    zmq_disconnect (g_hook_state->nodes[i].active_socket, g_hook_state->nodes[i].address);
-                    zmq_close(g_hook_state->nodes[i].active_socket);
+                    zmq_setsockopt(state->nodes[i].active_socket, ZMQ_LINGER, &linger, sizeof(linger));
+                    zmq_disconnect (state->nodes[i].active_socket, state->nodes[i].address);
+                    zmq_close(state->nodes[i].active_socket);
                 }
 
-                g_hook_state->nodes[i].active_socket = socket;
+                state->nodes[i].active_socket = socket;
 
-                if (socket == NULL || zmq_connect(socket, g_hook_state->nodes[i].address) != 0) {
-                    snprintf(errorText, errorTextLength, "Failed to setup ZMQ REQ socket %p at %s with error %s", socket, g_hook_state->nodes[i].address, zmq_strerror(zmq_errno()));
-                    //printf("*****\n\n\n\n\n********\nfailed setup %s", errorText);
+                if (socket == NULL || zmq_connect(socket, state->nodes[i].address) != 0) {
+                    snprintf(errorText, errorTextLength, "Failed to setup ZMQ REQ socket %p at %s with error %s", socket, state->nodes[i].address, zmq_strerror(zmq_errno()));
+                    printf("*****\n\n\n\n\n********\nfailed setup %s", errorText);
                     return -1;
                 }
 
-                //printf("connected to index %d at %s\n", i, g_hook_state->nodes[i].address);
+                printf("connected to index %d at %s\n", i, state->nodes[i].address);
 
                 if ((hr = zmq_send(socket, &check_msg, sizeof(check_msg), 0)) == -1) 
                 {
-                    snprintf(errorText, errorTextLength, "Failed to send message to %s", g_hook_state->nodes[i].address);
-                    //printf("*****\n\n\n\n\n********\nfailed send %s", errorText);
+                    snprintf(errorText, errorTextLength, "Failed to send message to %s", state->nodes[i].address);
+                    printf("*****\n\n\n\n\n********\nfailed send %s", errorText);
                     return -1;
                 }
-                //else
-                //{
-                    //printf("sent leader message with result %d\n", hr);
-                //}
+                else
+                {
+                    printf("sent leader message with result %d\n", hr);
+                }
 
                 items[i].socket = socket;
                 items[i].events = ZMQ_POLLIN;
@@ -181,23 +149,23 @@ int connect_internal_zmq(char* errorText, int errorTextLength)
 
         // Poll the sockets for a response
         
-        //printf("polling\n");
+        printf("polling\n");
         int rc = zmq_poll(items, actual_nodes, CONNECT_TIMEOUT_MS);
-        //printf("polling done with %d\n", rc);
+        printf("polling done with %d\n", rc);
         if (rc == -1) 
         {
             /*shut all the extra sockets and return the error*/
             for (int i = 0; i < MAX_NODE_ADDRESSES; i++) 
             {
-                if(g_hook_state->nodes[i].active_socket != 0)
+                if(state->nodes[i].active_socket != 0)
                 {
                     int linger = 0; // Immediate return
-                    zmq_setsockopt(g_hook_state->nodes[i].active_socket, ZMQ_LINGER, &linger, sizeof(linger));
-                    zmq_disconnect (g_hook_state->nodes[i].active_socket, g_hook_state->nodes[i].address);
-                    zmq_close(g_hook_state->nodes[i].active_socket);
+                    zmq_setsockopt(state->nodes[i].active_socket, ZMQ_LINGER, &linger, sizeof(linger));
+                    zmq_disconnect (state->nodes[i].active_socket, state->nodes[i].address);
+                    zmq_close(state->nodes[i].active_socket);
                 }
 
-                g_hook_state->nodes[i].active_socket = 0;
+                state->nodes[i].active_socket = 0;
             }
 
             snprintf(errorText, errorTextLength, "Polling error");
@@ -209,16 +177,22 @@ int connect_internal_zmq(char* errorText, int errorTextLength)
             {
                 if (items[i].revents & ZMQ_POLLIN) 
                 {
-                    //printf("trying to receive\n");
+                    printf("trying to receive\n");
                     leader_response_message response;
                     if (zmq_recv(items[i].socket, &response, sizeof(response), 0) != -1) 
                     {
+                        printf("received message\n");
                         if (response.leader) 
                         {
+                            printf("leader found\n");
                             // Mark this node as the leader
                             leader_found = 1;
-                            g_hook_state->nodes[i].active_leader = 1;
+                            state->nodes[i].active_leader = 1;
                             break;
+                        }
+                        else
+                        {
+                            printf("not leader\n");
                         }
                     }
                     else
@@ -232,13 +206,14 @@ int connect_internal_zmq(char* errorText, int errorTextLength)
         // Clean up: close all but the leader socket
         for (int i = 0; i < actual_nodes; i++) 
         {
-            if (items[i].socket && g_hook_state->nodes[i].active_leader != 1) 
+            if (items[i].socket && state->nodes[i].active_leader != 1) 
             {
+                printf("closing socket %d because it was not elected leader\n", i);
                 int linger = 0; // Immediate return
-                zmq_setsockopt(g_hook_state->nodes[i].active_socket, ZMQ_LINGER, &linger, sizeof(linger));
-                zmq_disconnect (items[i].socket, g_hook_state->nodes[i].address);
+                zmq_setsockopt(state->nodes[i].active_socket, ZMQ_LINGER, &linger, sizeof(linger));
+                zmq_disconnect (items[i].socket, state->nodes[i].address);
                 zmq_close(items[i].socket);
-                g_hook_state->nodes[i].active_socket = 0;
+                state->nodes[i].active_socket = 0;
             }
         }
     }
@@ -246,7 +221,7 @@ int connect_internal_zmq(char* errorText, int errorTextLength)
     return leader_found ? 0 : -1;
 }
 
-int send_packet_zmq(void* message, replication_ack* ack, char* errorText, int errorTextLength)
+int send_packet_zmq(hook_state* state, void* message, replication_ack* ack, char* errorText, int errorTextLength)
 {
     int hr = 0;
     int attempts = 0;
@@ -258,10 +233,10 @@ int send_packet_zmq(void* message, replication_ack* ack, char* errorText, int er
     {
         for(int i = 0; i < MAX_NODE_ADDRESSES; i++)
         {
-            if(g_hook_state->nodes[i].active_leader == 1)
+            if(state->nodes[i].active_leader == 1)
             {
                 //printf("sending to leader at index %d\n", i);
-                active_socket = g_hook_state->nodes[i].active_socket;
+                active_socket = state->nodes[i].active_socket;
                 break;
             }
         }
@@ -269,7 +244,7 @@ int send_packet_zmq(void* message, replication_ack* ack, char* errorText, int er
         if(active_socket == NULL)
         {
             //printf("no leader found, attempting to reconnect\n");
-            if(g_hook_state->connect(errorText, errorTextLength) != 0)
+            if(state->connect(state, errorText, errorTextLength) != 0)
             {
                 return -1;
             }
@@ -279,7 +254,7 @@ int send_packet_zmq(void* message, replication_ack* ack, char* errorText, int er
 
         if((hr = zmq_sendmsg(active_socket,msg, 0)) == -1)
         {
-            if(g_hook_state->connect(errorText, errorTextLength) != 0)
+            if(state->connect(state, errorText, errorTextLength) != 0)
                 return -1;
             else
                 continue;
@@ -293,14 +268,14 @@ int send_packet_zmq(void* message, replication_ack* ack, char* errorText, int er
         items[0].fd = 0;
 
         /* Poll the socket for a reply with a 5-second timeout */
-        int rc = zmq_poll(items, 1, g_hook_state->response_timeout_ms);
+        int rc = zmq_poll(items, 1, state->response_timeout_ms);
 
         if (rc == -1 || rc == 0) 
         {
             /* Polling failed due to an error or timeout
             run reconnect logic and retry */
             printf("polling failed with retval %d error %d: %s, attempting to reconnect\n", rc, zmq_errno(), zmq_strerror(zmq_errno()));
-            if(g_hook_state->connect(errorText, errorTextLength) != 0)
+            if(state->connect(state, errorText, errorTextLength) != 0)
             {
                 return -1;
             }
@@ -324,7 +299,7 @@ int send_packet_zmq(void* message, replication_ack* ack, char* errorText, int er
             else
             {
                 printf("failed to get ack\n");
-                if(g_hook_state->connect(errorText, errorTextLength) != 0)
+                if(state->connect(state, errorText, errorTextLength) != 0)
                 {
                     return -1;
                 }
@@ -344,92 +319,97 @@ int send_packet_zmq(void* message, replication_ack* ack, char* errorText, int er
     return -1;
 }
 
-/*function write_op(in DHANDLE, in I4, in A, in A, [in A], [in i8]), int*/
-int REP_WRITE_OP(DESC* ret_code, DESC* handle, DESC* op_type, DESC* key_data, DESC* record_data, DESC* original_record_data, DESC* txn_id)
-{
-    char* errorText = NULL;
-    int errorTextLength = 0;
-    int errorIndex = 0;
-    int op_type_value;
-    int file_id;
+int write_op(hook_state* state, int file_id, int op_type, const char* key_data, const char* record_data, const char* original_record_data, long long int txn_id, char** errorText, int* errorTextLength, int* errorIndex) {
     int packet_length;
     char* packet_buffer;
     void* packet;
+
+    packet_length = replication_packet_length(op_type, record_data ? strlen(record_data) : 0);
+    if (state->allocate(state, &packet, &packet_buffer, packet_length) != 0 || packet_buffer == NULL) {
+        *errorText = "write_op: failed to allocate packet buffer";
+        return -1;
+    }
+
+    switch (op_type) {
+        case OP_TYPE_INSERT:
+        case OP_TYPE_INSERT_AC:
+            if (!record_data) {
+                *errorText = "write_op: record_data is not passed or not an alpha descriptor";
+                return -1;
+            }
+            make_replication_packet(state->open_files, packet_buffer, state->request_id, op_type, file_id, txn_id, strlen(record_data), key_data, record_data, NULL);
+            break;
+
+        case OP_TYPE_UPDATE:
+        case OP_TYPE_UPDATE_AC:
+            if (!record_data) {
+                *errorText = "write_op: record_data is not passed or not an alpha descriptor";
+                return -1;
+            }
+            if (!original_record_data) {
+                *errorText = "write_op: original_record_data is not passed or not an alpha descriptor";
+                return -1;
+            }
+            make_replication_packet(state->open_files, packet_buffer, state->request_id, op_type, file_id, txn_id, strlen(record_data), key_data, record_data, original_record_data);
+            break;
+
+        case OP_TYPE_DELETE:
+        case OP_TYPE_DELETE_AC:
+            if (original_record_data)
+                make_replication_packet(state->open_files, packet_buffer, state->request_id, op_type, file_id, txn_id, strlen(original_record_data), key_data, original_record_data, NULL);
+            else
+                make_replication_packet(state->open_files, packet_buffer, state->request_id, op_type, file_id, txn_id, 0, key_data, NULL, NULL);
+            break;
+
+        default:
+            *errorText = "write_op: op_type is not a valid value";
+            return -1;
+    }
+
+    if (reserve_hook_error(errorText, errorTextLength, errorIndex) != 0) {
+        return -1; 
+    } else {
+        replication_ack ack;
+        if (state->send_packet(state, packet, &ack, *errorText, *errorTextLength) != 0) {
+            return -1; 
+        } else {
+            state->last_txn_id = ack.txn_id;
+            return 0; 
+        }
+    }
+}
+
+int REP_WRITE_OP(DESC* ret_code, DESC* handle, DESC* op_type, DESC* key_data, DESC* record_data, DESC* original_record_data, DESC* txn_id) {
+    int op_type_value;
+    int file_id;
     long long int txn_id_value = 0;
 
-    if(read_int_desc(op_type, &op_type_value) != 0)
+    if (read_int_desc(op_type, &op_type_value) != 0)
         return write_hook_error("rep_write_op: op_type is not an integer", ret_code);
 
-    if(read_int_desc(handle, &file_id) != 0 || file_id < 0)
+    if (read_int_desc(handle, &file_id) != 0 || file_id < 0)
         return write_hook_error("rep_write_op: handle is not an integer", ret_code);
 
-    if(op_type_value == OP_TYPE_DELETE || op_type_value == OP_TYPE_INSERT || op_type_value == OP_TYPE_UPDATE)
-    {
-        if(read_i8_desc(txn_id, &txn_id_value) != 0)
+    if (op_type_value == OP_TYPE_DELETE || op_type_value == OP_TYPE_INSERT || op_type_value == OP_TYPE_UPDATE) {
+        if (read_i8_desc(txn_id, &txn_id_value) != 0)
             return write_hook_error("rep_write_op: transaction id was not passed or not an i8", ret_code);
     }
 
-    packet_length = replication_packet_length(op_type_value, record_data != NULL ? record_data->dsc$w_length : 0);
-    if(g_hook_state->allocate(&packet, &packet_buffer, packet_length) != 0 || packet_buffer == NULL)
-        return write_hook_error("rep_write_op: failed to allocate packet buffer", ret_code);
+    const char* key_data_ptr = key_data ? key_data->dsc$a_pointer : NULL;
+    const char* record_data_ptr = record_data ? record_data->dsc$a_pointer : NULL;
+    const char* original_record_data_ptr = original_record_data ? original_record_data->dsc$a_pointer : NULL;
 
-    //printf("writing op with size %d\n", packet_length);
-    switch(op_type_value)
-    {
-        case OP_TYPE_INSERT:
-        case OP_TYPE_INSERT_AC:
-        {
-            if(validate_alpha_desc(record_data) != 0)
-                return write_hook_error("rep_write_op: record_data is not passed or not an alpha descriptor", ret_code);
+    char* errorText = NULL;
+    int errorTextLength = 0;
+    int errorIndex = 0;
 
-            make_replication_packet(g_hook_state->open_files, packet_buffer, g_hook_state->request_id, op_type_value, file_id, txn_id_value, record_data->dsc$w_length, key_data->dsc$a_pointer, record_data->dsc$a_pointer, NULL);
-            break;
-        }
-        case OP_TYPE_UPDATE:
-        case OP_TYPE_UPDATE_AC:
-        {
-            if(validate_alpha_desc(original_record_data) != 0)
-                return write_hook_error("rep_write_op: original_record_data is not passed or not an alpha descriptor", ret_code);
-
-             if(validate_alpha_desc(record_data) != 0)
-                return write_hook_error("rep_write_op: record_data is not passed or not an alpha descriptor", ret_code);
-
-            make_replication_packet(g_hook_state->open_files, packet_buffer, g_hook_state->request_id, op_type_value, file_id, txn_id_value, record_data->dsc$w_length, key_data->dsc$a_pointer, record_data->dsc$a_pointer, original_record_data->dsc$a_pointer);
-            break;
-        }
-        case OP_TYPE_DELETE:
-        case OP_TYPE_DELETE_AC:
-        {
-            if(validate_alpha_desc(original_record_data) != 0)
-                make_replication_packet(g_hook_state->open_files, packet_buffer, g_hook_state->request_id, op_type_value, file_id, txn_id_value, 0, key_data->dsc$a_pointer, NULL, NULL);
-            else
-                make_replication_packet(g_hook_state->open_files, packet_buffer, g_hook_state->request_id, op_type_value, file_id, txn_id_value, original_record_data->dsc$w_length, key_data->dsc$a_pointer, original_record_data->dsc$a_pointer, NULL);
-            break;
-        }
-        default:
-        {
-            return write_hook_error("rep_write_op: op_type is not a valid value", ret_code);
-        }
+    int result = write_op(g_hook_state, file_id, op_type_value, key_data_ptr, record_data_ptr, original_record_data_ptr, txn_id_value, &errorText, &errorTextLength, &errorIndex);
+    
+    if (result != 0) {
+        return write_hook_error(errorText, ret_code);
     }
 
-    if(reserve_hook_error(&errorText, &errorTextLength, &errorIndex) != 0)
-    {
-        return write_int_desc(ret_code, -1); 
-    }
-    else
-    {
-        replication_ack ack;
-        if(g_hook_state->send_packet(packet,  
-            &ack, errorText, errorTextLength) != 0)
-        {
-            return write_hook_error(errorText, ret_code);
-        }
-        else
-        {
-            g_hook_state->last_txn_id = ack.txn_id;
-            return write_int_desc(ret_code, 0); 
-        }
-    }
+    return write_int_desc(ret_code, result);
 }
 
 /*function rep_start_file(in A, out DHANDLE), int*/
@@ -479,7 +459,7 @@ int send_txn_packet(int op_type, DESC* ret_code, DESC* txn_id)
     }
 
     packet_length = replication_packet_length(OP_TYPE_START_TXN, 0);
-    if(g_hook_state->allocate(&packet, &packet_buffer, packet_length) != 0 || packet_buffer == NULL)
+    if(g_hook_state->allocate(g_hook_state, &packet, &packet_buffer, packet_length) != 0 || packet_buffer == NULL)
         return write_hook_error("rep_start_txn: failed to allocate packet buffer", ret_code);
 
     if(read_i8_desc(txn_id, &txn_id_value) != 0)
@@ -488,7 +468,7 @@ int send_txn_packet(int op_type, DESC* ret_code, DESC* txn_id)
     make_txn_packet(packet_buffer, g_hook_state->request_id++, op_type, op_type == OP_TYPE_START_TXN ? 0 : txn_id_value);
 
     replication_ack ack;
-    if(g_hook_state->send_packet(packet,  
+    if(g_hook_state->send_packet(g_hook_state, packet,  
         &ack, errorText, errorTextLength) != 0)
     {
         return write_hook_error(errorText, ret_code);
@@ -513,6 +493,36 @@ int REP_STOP_TXN(DESC* ret_code, DESC* txn_id)
     return send_txn_packet(OP_TYPE_COMMIT, ret_code, txn_id);
 }
 
+void destroy_hook_state(hook_state* state)
+{
+    for(int i = 0; i < MAX_NODE_ADDRESSES; i++)
+    {
+        if(state->nodes[i].active_socket != NULL)
+        {
+            int linger = 0; // Immediate return
+            zmq_setsockopt(state->nodes[i].active_socket, ZMQ_LINGER, &linger, sizeof(linger));
+            zmq_disconnect (state->nodes[i].active_socket, state->nodes[i].address);
+            zmq_close(state->nodes[i].active_socket);
+        }
+    }
+
+    if(state->context != NULL)
+    {
+        zmq_ctx_destroy(state->context);
+    }
+    if(state->open_files != NULL)
+    {
+        for(int i = 0; i < state->open_files->size; i++)
+        {
+            if(state->open_files->items[i].length > 0)
+            {
+                printf("open file was not closed");
+            }
+        }
+        free_string_array(state->open_files);
+    }
+}
+
 /*function rep_shutdown(), int*/
 int REP_SHUTDOWN(DESC* ret_code)
 {
@@ -523,39 +533,7 @@ int REP_SHUTDOWN(DESC* ret_code)
     }
     else
     {
-        for(int i = 0; i < MAX_NODE_ADDRESSES; i++)
-        {
-            if(g_hook_state->nodes[i].active_socket != NULL)
-            {
-                int linger = 0; // Immediate return
-                //printf("shutting down socket at index %d\n", i);
-                zmq_setsockopt(g_hook_state->nodes[i].active_socket, ZMQ_LINGER, &linger, sizeof(linger));
-                //printf("disconnecting from %s\n", g_hook_state->nodes[i].address);
-                zmq_disconnect (g_hook_state->nodes[i].active_socket, g_hook_state->nodes[i].address);
-                //printf("closing socket at index %d\n", i);
-                zmq_close(g_hook_state->nodes[i].active_socket);
-                g_hook_state->nodes[i].active_socket = NULL;
-            }
-        }
-
-        if(g_hook_state->context != NULL)
-        {
-            //printf("destroying context\n");
-            zmq_ctx_destroy(g_hook_state->context);
-        }
-        if(g_hook_state->open_files != NULL)
-        {
-            for(int i = 0; i < g_hook_state->open_files->size; i++)
-            {
-                if(g_hook_state->open_files->items[i].length > 0)
-                {
-                    write_int_desc(ret_code, -1);
-                    printf("rep_shutdown: open file was not closed");
-                }
-            }
-            free_string_array(g_hook_state->open_files);
-            g_hook_state->open_files = NULL;
-        }
+        destroy_hook_state(g_hook_state);
     }
 
     for(int i = 0; i < MAX_HOOK_ERRORS; i++)
@@ -586,6 +564,24 @@ int REP_STARTUP_UT(DESC* ret_code)
     }
 }
 
+void init_hook_state(hook_state* state, char** address_location, int address_count, ConnectFunc connect, SendPacketFunc send_packet, AllocateMessage allocate)
+{
+    state->context = zmq_ctx_new();
+    state->open_files = create_string_array(2);
+    state->request_id = 0;
+    state->response_timeout_ms = SEND_MESSAGE_TIMEOUT;
+    state->last_txn_id = 0;
+    state->connect = connect;
+    state->send_packet = send_packet;
+    state->allocate = allocate;
+
+    for(int i = 0; i < address_count; i++)
+    {
+        address_location[i] = state->nodes[i].address;
+        memset(state->nodes[i].address, 0, MAX_NODE_ADDRESS_LENGTH);
+    }
+}
+
 int REP_STARTUP(DESC* ret_code, DESC* node_addresses)
 {
     //printf("calling startup\n");
@@ -606,24 +602,8 @@ int REP_STARTUP(DESC* ret_code, DESC* node_addresses)
     }
 
     //printf("initializing zmq\n");
-
-    g_hook_state->open_files = create_string_array(2);
-    
-
-    for(int i = 0; i < MAX_NODE_ADDRESSES; i++)
-    {
-        target_node_addresses[i] = g_hook_state->nodes[i].address;
-        memset(g_hook_state->nodes[i].address, 0, MAX_NODE_ADDRESS_LENGTH);
-    }
-
+    init_hook_state(g_hook_state, target_node_addresses, MAX_NODE_ADDRESSES, &connect_internal_zmq, &send_packet_zmq, &allocate_message_zmq);
     node_addresses_length = split_string(node_addresses->dsc$a_pointer, node_addresses->dsc$w_length, target_node_addresses, MAX_NODE_ADDRESSES, MAX_NODE_ADDRESS_LENGTH);
-
-    g_hook_state->context = zmq_ctx_new();
-    //zmq_ctx_set(g_hook_state->context, ZMQ_IO_THREADS, 0);
-    g_hook_state->connect = &connect_internal_zmq;
-    g_hook_state->send_packet = &send_packet_zmq;
-    g_hook_state->allocate = &allocate_message_zmq;
-    g_hook_state->response_timeout_ms = SEND_MESSAGE_TIMEOUT;
     return write_int_desc(ret_code, 0);
 }
 

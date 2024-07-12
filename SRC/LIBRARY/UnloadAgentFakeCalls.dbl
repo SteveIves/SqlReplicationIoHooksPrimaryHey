@@ -1,0 +1,21 @@
+subroutine UnloadAgentFakeCalls
+    stack record
+        tmpa, a1
+    endrecord
+    external function
+        DepartmentFile, ^val
+        DepartmentLength, ^val
+        DepartmentOpenInput, ^val
+        DepartmentType, ^val
+    endexternal
+proc
+    xcall DepartmentFile(tmpa)
+    xcall DepartmentLength
+    xcall DepartmentOpenInput(tmpa)
+    xcall DepartmentType(tmpa)
+    xcall EmployeeFile(tmpa)
+    xcall EmployeeLength
+    xcall EmployeeOpenInput(tmpa)
+    xcall EmployeeType(tmpa)
+	xreturn
+endsubroutine

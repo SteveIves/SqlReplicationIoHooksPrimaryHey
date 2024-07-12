@@ -1,11 +1,6 @@
 #ifndef PACKET_UTILS_H
 #define PACKET_UTILS_H
 
-#include <descrip.h>
-#include <stsdef.h>
-#include <jpidef.h>
-#include <starlet.h>
-#include <lib$routines.h>
 #include "message_utils.h"
 
 #define MAX_NODE_ADDRESS_LENGTH 1024
@@ -21,6 +16,9 @@
 #define OP_TYPE_LEADER_RESPONSE 10
 #define OP_TYPE_REPLICATION_ACK 11
 #define OP_TYPE_ERROR 12
+
+#define ERROR_NO_ERROR 0
+#define ERROR_INVALID_PACKET 1
 
 typedef struct min_message {
     int process_id;
@@ -86,8 +84,12 @@ int op_type_from_packet(char* buffer, int buffer_size);
 void make_replication_ack(char* buffer, int request_id, int op_type, long long int txn_id, int error_number);
 int replication_packet_length(int op_type, int record_length);
 void make_txn_packet(char* buffer, int request_id, int op_type, long long int txn_id);
-void make_replication_packet(string_array* files, char* buffer, int request_id, int op_type, int file_id, long long int txn_id, int record_length, char* key_data, char* record_data, char* record_data_original);
+void make_replication_packet(string_array* files, char* buffer, int request_id, int op_type, int file_id, long long int txn_id, int record_length, const char* key_data, const char* record_data, const char* record_data_original);
 void make_leader_packet(char* buffer, int request_id);
 void make_leader_response(char* buffer, int request_id, int leader, const char* leader_address);
+int read_txn(char* buffer, txn_message** txn);
+int read_replication(char* buffer, replication_message** replication);
+int read_replication_delta(char* buffer, replication_delta_message** replication);
+
 
 #endif // PACKET_UTILS_H

@@ -1,5 +1,11 @@
 #include "packet_utils.h"
 
+#include <descrip.h>
+#include <stsdef.h>
+#include <jpidef.h>
+#include <starlet.h>
+#include <lib$routines.h>
+
 static unsigned long current_process_id;
 
 unsigned long pid_helper()
@@ -76,7 +82,7 @@ void make_txn_packet(char* buffer, int request_id, int op_type, long long int tx
     message->txn_id = txn_id;
 }
 
-void make_replication_packet(string_array* files, char* buffer, int request_id, int op_type, int file_id, long long int txn_id, int record_length, char* key_data, char* record_data, char* record_data_original)
+void make_replication_packet(string_array* files, char* buffer, int request_id, int op_type, int file_id, long long int txn_id, int record_length, const char* key_data, const char* record_data, const char* record_data_original)
 {
     if(op_type == OP_TYPE_UPDATE || op_type == OP_TYPE_UPDATE_AC)
     {
@@ -127,4 +133,38 @@ void make_leader_response(char* buffer, int request_id, int leader, const char* 
     memcpy(message->leader_address, leader_address, strlen(leader_address));
     if(strlen(leader_address) < MAX_NODE_ADDRESS_LENGTH)
         memset(message->leader_address + strlen(leader_address), 0, MAX_NODE_ADDRESS_LENGTH - strlen(leader_address));
+}
+
+int read_txn(char* buffer, txn_message** txn)
+{
+    min_message* message = (min_message*)buffer;
+    if(message->op_type != OP_TYPE_START_TXN && message->op_type != OP_TYPE_COMMIT)
+        return -1;
+    else
+        *txn = (txn_message*)buffer;
+
+    return 0;
+
+}
+int read_replication(char* buffer, replication_message** replication)
+{
+    min_message* message = (min_message*)buffer;
+    if(message->op_type != OP_TYPE_INSERT && message->op_type != OP_TYPE_INSERT_AC && message->op_type != OP_TYPE_UPDATE && message->op_type != OP_TYPE_UPDATE_AC && message->op_type != OP_TYPE_DELETE && message->op_type != OP_TYPE_DELETE_AC)
+        return -1;
+    else
+        *replication = (replication_message*)buffer;
+
+    return 0;
+
+}
+int read_replication_delta(char* buffer, replication_delta_message** replication)
+{
+    min_message* message = (min_message*)buffer;
+    if(message->op_type != OP_TYPE_UPDATE && message->op_type != OP_TYPE_UPDATE_AC)
+        return -1;
+    else
+        *replication = (replication_delta_message*)buffer;
+
+    return 0;
+
 }

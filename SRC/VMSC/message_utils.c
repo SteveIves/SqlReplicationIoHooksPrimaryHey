@@ -67,13 +67,18 @@ int split_string(const char *str, int str_length, char** tokens, int max_tokens,
         }
         str++;
     }
-printf("splitting string found %d\n", token_count);
+
     // Add the last token
     if (token_len > 0 && token_count < max_tokens) 
     {
         strncpy(tokens[token_count], start, token_len);
         tokens[token_count][token_len] = '\0';
         trim_end(tokens[token_count]);
+        printf("splitting string found %d\n", token_count + 1);
+    }
+    else
+    {
+        printf("splitting string found %d\n", token_count);
     }
     
     return token_count;

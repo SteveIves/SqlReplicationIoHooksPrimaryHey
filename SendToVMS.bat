@@ -70,7 +70,8 @@ echo put RPS\REPLICATION.SCH >> ftp.tmp
 echo cd [-.DATA] >> ftp.tmp
 echo put DAT\department.seq >> ftp.tmp
 echo put DAT\employee.seq >> ftp.tmp
-echo put DAT\UnloadAgentConfig.json >> ftp.tmp
+echo put DAT\UnloadAgentConfigSIVMS.json >> ftp.tmp
+echo put DAT\UnloadAgentConfigVMSIT.json >> ftp.tmp
 echo cd [-.FDL] >> ftp.tmp
 echo mput VMS\*.fdl >> ftp.tmp
 echo cd [-.SRC.LIBRARY] >> ftp.tmp
