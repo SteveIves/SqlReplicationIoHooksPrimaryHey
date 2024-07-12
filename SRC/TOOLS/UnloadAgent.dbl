@@ -17,6 +17,7 @@ main UnloadAgent
         errorText, a256
         errorMessage, string
         agentSettings, @UnloadAgentSettings
+        validTables, [#]string
     endrecord
 
     external function
@@ -119,15 +120,16 @@ proc
         end
 
         ;Listen for messages, which have an optional key (we don't use it) and a value. We will respond to:
-        ; EXIT              Stop processing and exit
-        ; UNLOAD <table>    Export and upload a file
+        ; TABLES <table1>,<table2>,...,<tablen>         ;List of valid table names.
+        ; UNLOAD <table>
+        ; EXIT
 
         if (ok)
         begin
             repeat
             begin
                 data topic, a40
-                data message, a40, ""
+                data message, a4096, ""
                 data messageSize, i4, ^size(message)
                 data partition, i4
                 data offset, i8
@@ -139,11 +141,13 @@ proc
 
                 upcase message
 
+                ;------------------------------------------------------------------------------------------------------------------------
                 if (receiveStatus == -2) then
                 begin
                     ;Timeout. Chance to do routine processing, otherwise just try again.
                     nextloop
                 end
+                ;------------------------------------------------------------------------------------------------------------------------
                 else if (receiveStatus == -1) then
                 begin
                     ;Hard error (network error, etc.)
@@ -152,6 +156,7 @@ proc
 
 
                 end
+                ;------------------------------------------------------------------------------------------------------------------------
                 else if (%atrim(topic).ne.agentSettings.RequestTopic) then
                 begin
                     ;Should never happen because we only subscribed to a single topic, but just incase,
@@ -170,6 +175,7 @@ proc
 
                     end
                 end
+                ;------------------------------------------------------------------------------------------------------------------------
                 else if (messageSize>=4 && message.eq."STOP") then
                 begin
                     log("Received STOP instruction")
@@ -186,6 +192,7 @@ proc
 
                     end
                 end
+                ;------------------------------------------------------------------------------------------------------------------------
                 else if (messageSize>7 && message.eq."UNLOAD") then
                 begin
                     ;UNLOAD <table>
@@ -204,29 +211,39 @@ proc
                 
                     data tableName, string, message(8,messageSize)
 
-                    ;Do we recognize the table name? ;We don't have vaidi table names in our config!
+                    ;Do we have vailid table names, and if so is the table name valid
 
-;                if (validTableName)
-;                begin
-;                    ;Bad request
-;
-;
-;                end
-
-                    log("Received UNLOAD instruction for " + tableName)
+                    if (validTables!=^null && validTables.Length>0) then
+                    begin
+                        if (Array.IndexOf(validTables,tableName,1,validTables.Length) >= 1) then
+                        begin
+                            log("Received UNLOAD instruction for " + tableName)
+                        end
+                        else
+                        begin
+                            ok = false
+                            log("ERROR: Received UNLOAD instruction for invalid table " + tableName)
+                        end
+                    end
+                    else
+                    begin
+                        ;Bad request
+                        ok = false
+                        log("ERROR: Can't process UNLOAD requests until valid table names are received")
+                    end
 
                     ;Determine the file type and record length
-
+                    if (ok)
                     begin
                         data tmpFileSpec, a80
                         xcall xsubr(tableName+"File",tmpFileSpec)
                         fileSpec = %atrimtostring(tmpFileSpec)
+
+                        recordLength = %xsubr(tableName+"Length")
                     end
 
-                    recordLength = %xsubr(tableName+"Length")
-
                     ;Set the export and zip file names
-
+                    if (ok)
                     begin
                         exportFile = tableName + ".TXT"
                         exportFileSpec =agentSettings.ExportDirectory + exportFile
@@ -235,7 +252,7 @@ proc
                     end
 
                     ;Determine the file type
-
+                    if (ok)
                     begin
                         data tmptype, a8
                         xcall xsubr(tableName+"Type",tmptype)
@@ -246,10 +263,7 @@ proc
 
                     if (ok)
                     begin
-                        log(" - Opening " + fileSpec)
-
                         chIn = %xsubr(tableName+"OpenInput",errorText)
-
                         if (chIn) then
                         begin
                             chInOpen = true
@@ -258,7 +272,7 @@ proc
                         begin
                             chInOpen = false
                             ok = false
-                            log("ERROR: Open failed: " + %atrim(errorText))
+                            log("ERROR: Failed to open input file: " + %atrim(errorText))
                         end
                     end
 
@@ -266,8 +280,6 @@ proc
 
                     if (ok)
                     begin
-                        log(" - Opening " + exportFileSpec)
-
                         try
                         begin
                             open(chOut=0,o:s,exportFileSpec)
@@ -277,7 +289,7 @@ proc
                         begin
                             chOutOpen = false
                             ok = false
-                            log("ERROR: Open failed: " + e.Message)
+                            log("ERROR: Failed to open output file: " + e.Message)
                         end
                         endtry
                     end
@@ -287,19 +299,21 @@ proc
                     if (ok)
                     begin
                         data recs = 0
-                        log(" - Exporting data")
 
                         repeat
                         begin
+;BIG DEAL!!!
+;
 ;TODO: Need stop take into account dd_tag values?
+;
+;
                             reads(chIn,iobuffer(1:recordLength),eof)
                             recs += 1
                             writes(chOut,iobuffer(1:recordLength))
                         end
                     eof,
                         fileExported = true
-
-                        log(" - Exported " + %string(recs) + " records")
+                        log("Exported " + %string(recs) + " records to " + exportFileSpec)
                     end
 
                     ;Close the input and output files
@@ -316,50 +330,55 @@ proc
                         clear chOut
                     end
 
-                    ;Verify that the output file is present
+                    ;Compress the exported file
 
-                    if (ok && fileExported)
+                    if (fileExported)
                     begin
-                        data tmpch, int
-
-                        log(" - Verifying export file")
-
+                        ;TODO: zip the file
+                        data command = "|@REPLICATOR_EXE:COMPRESS.COM " + exportFileSpec + " " + zipSpec
+                        data pipeCh, i4
+                        data msg, a128
                         try
                         begin
-                            open(tmpch=0,i:s,exportFileSpec)
+                            log("Executing command: " + command)
+                            open(pipeCh=0,i,command)
+                            ;COMPRESS.COM should always display just one message, either "SUCCESS" or "ERROR: <text>"
+                            repeat
+                            begin
+                                reads(pipeCh,msg)
+                                if (msg.eq."SUCCESS") then
+                                begin
+                                    log("Created " + exportFileSpec)
+                                    fileZipped = true
+                                    exitloop
+                                end
+                                else if (msg.eq."ERROR:") then
+                                begin
+                                    ok = false
+                                    log(%atrim(msg))
+                                    exitloop
+                                end
+                                else
+                                begin
+                                    log("ERROR: " + %atrim(msg))
+                                end
+                            end
                         end
-                        catch (e, @Exception)
+                        catch (ex, @EndOfFileException)
+                        begin
+                            log("ERROR: Failed to compress export file")
+                        end
+                        catch (ex, @Exception)
                         begin
                             ok = false
-                            log("ERROR: Verify failed: " + e.Message)
-                            fileExported = false
-                            clear tmpch
+                            log("ERROR: Failed to compress export file: " + ex.Message)
                         end
                         finally
                         begin
-                            if (tmpch)
-                            begin
-                                close tmpch
-                            end
+                            close pipeCh
                         end
                         endtry
                     end
-
-                    ;Compress the unloaded file
-
-;                    if (fileExported)
-;                    begin
-;                        ;TODO: zip the file
-;                        data zipCommand = "zip -q -D " + zipSpec + " " + exportFileSpec
-;                        fileZipped = true
-;                    end
-
-                    ;Delete the uncompressed file
-
-;                    if (fileExported && fileZipped)
-;                    begin
-;                        xcall delet(exportFileSpec)
-;                    end
 
                     ;Upload the compressed file to an S3 bucket
 
@@ -405,7 +424,7 @@ proc
 ;                        endtry
 ;                    end
 
-                    ;;Commit the message
+                    ;;Commit the original message
 
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == -1)
                     begin
@@ -415,6 +434,36 @@ proc
 
                     end
                 end
+                ;------------------------------------------------------------------------------------------------------------------------
+                else if (messageSize>7 && message.eq."TABLES ") then
+                begin
+                    data tableList, string, message(8:messageSize)
+                    if (!tableList.Contains(",")) then
+                    begin
+                        ok = false
+                        log("ERROR: Received incorrectly formatted TABLES message. Table names should be comma-delimited.")
+                    end
+                    else
+                    begin
+                        validTables = tableList.Split(",")
+                        log("Received " + %string(validTables.Length) + " table names")
+                    end
+;
+;TODO: Need to send success or failure confirmation to the UnloadResponse topic
+;
+                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
+                    begin
+                        nextloop
+                    end
+                    else
+                    begin
+                        log("ERROR: Commit failed: " + %atrim(errorText))
+                        ;TODO: Now what? Disconnect, reconnect, try again?
+
+
+                    end
+                end
+                ;------------------------------------------------------------------------------------------------------------------------
                 else
                 begin
                     ;Unsupported message.
@@ -433,6 +482,7 @@ proc
 
                     end
                 end
+                ;------------------------------------------------------------------------------------------------------------------------
             end
         end
     end

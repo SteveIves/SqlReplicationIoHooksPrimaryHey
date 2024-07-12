@@ -72,6 +72,8 @@ echo put DAT\department.seq >> ftp.tmp
 echo put DAT\employee.seq >> ftp.tmp
 echo put DAT\UnloadAgentConfigSIVMS.json >> ftp.tmp
 echo put DAT\UnloadAgentConfigVMSIT.json >> ftp.tmp
+echo cd [-.EXE] >> ftp.tmp
+echo put VMS\COMPRESS.COM >> ftp.tmp
 echo cd [-.FDL] >> ftp.tmp
 echo mput VMS\*.fdl >> ftp.tmp
 echo cd [-.SRC.LIBRARY] >> ftp.tmp
@@ -84,7 +86,12 @@ echo mput SRC\TOOLS\*.dbl >> ftp.tmp
 echo cd [-.VMSC] >> ftp.tmp
 echo mput SRC\VMSC\*.* >> ftp.tmp
 echo cd [-.-] >> ftp.tmp
-echo mput VMS\*.COM >> ftp.tmp
+echo put VMS\BUILD.COM >> ftp.tmp
+echo put VMS\REPLICATOR_DETACH.COM >> ftp.tmp
+echo put VMS\REPLICATOR_RUN.COM >> ftp.tmp
+echo put VMS\REPLICATOR_SETUP.COM >> ftp.tmp
+echo put VMS\REPLICATOR_SETUP_EXAMPLE.COM >> ftp.tmp
+echo put VMS\SETUP.COM >> ftp.tmp
 rem echo put VMS\MAKESHARE.DBL >> ftp.tmp
 echo put VMS\REPLICATION.FDL >> ftp.tmp
 echo put VMS\REPLICATOR.OPT >> ftp.tmp
