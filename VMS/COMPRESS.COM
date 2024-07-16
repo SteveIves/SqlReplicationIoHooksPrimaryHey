@@ -39,26 +39,9 @@ $! If the zip file exists, delete it
 $!
 $ if (f$search(P2).nes."") then delete/nolog/noconfirm 'P2;*
 $!
-$! Check we have a ZIP symbol and that it runs a program
-$!
-$ on warning then goto nozip
-$ set message/nofacility/noseverity/noid/notext
-$ define/user sys$output NLA0:
-$ define/user sys$error NLA0:
-$ zip
-$ set message/facility/severity/id/text
-$ on warning then exit
-$ goto gotzip
-$!
-$nozip:
-$ set message/facility/severity/id/text
-$ write sys$output "ERROR: No ZIP symbol is defined"
-$ exit
-$!
-$gotzip:
-$!
 $! Zip the file
 $!
+$ zip:==$DKA100:[USR.BIN]ZIP30_I64.EXE
 $ zip -j -q "''P2'" 'P1
 $!
 $ if ($severity.ne.1) .or. (f$search(P2).eqs."")

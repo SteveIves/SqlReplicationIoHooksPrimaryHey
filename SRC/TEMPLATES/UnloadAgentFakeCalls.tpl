@@ -18,5 +18,5 @@ proc
     xcall <StructureName>OpenInput(tmpa)
     xcall <StructureName>Type(tmpa)
 </STRUCTURE_LOOP>
-	xreturn
+    xreturn
 endsubroutine

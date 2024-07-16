@@ -84,8 +84,9 @@ int KAFKA_SEND_BLOCKING(DESC* ret_code, DESC* topic, DESC* message, DESC* timeou
             write_int_desc(ret_code, result);
             return result;
         }
-        else if(g_kafka_state->queue.head == NULL)
+        else if(g_kafka_state->queue.head != NULL)
         {
+            //if there are messages in the queue after the poll it means we havent received a response
             write_int_desc(ret_code, -2);
             return -1;
         }

@@ -74,6 +74,7 @@ echo put DAT\UnloadAgentConfigSIVMS.json >> ftp.tmp
 echo put DAT\UnloadAgentConfigVMSIT.json >> ftp.tmp
 echo cd [-.EXE] >> ftp.tmp
 echo put VMS\COMPRESS.COM >> ftp.tmp
+echo put VMS\S3UPLOAD.PY >> ftp.tmp
 echo cd [-.FDL] >> ftp.tmp
 echo mput VMS\*.fdl >> ftp.tmp
 echo cd [-.SRC.LIBRARY] >> ftp.tmp

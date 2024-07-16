@@ -13,6 +13,7 @@ main UnloadAgent
         chOut, i4
         chInOpen, i4
         chOutOpen, i4
+        kafkaApiResponse, i4
         iobuffer, a32768
         errorText, a256
         errorMessage, string
@@ -24,13 +25,13 @@ main UnloadAgent
         xsubr, ^val
         KAFKA_INIT, i
         KAFKA_SHUTDOWN, i
-        KAFKA_SEND, i
-        KAFKA_POLL, i
+        KAFKA_SEND_BLOCKING, i
         KAFKA_SUBSCRIBE, i
         KAFKA_RECEIVE, i
-        KAFKA_LATEST_OFFSET, i
         KAFKA_COMMIT, i
     endexternal
+
+    .define verboselog(x) if (agentSettings.VerboseLogging) log(x)
 
 proc
     xcall flags(87004000,1)
@@ -87,15 +88,17 @@ proc
     Console.WriteLine("Kafka brokers      : " + agentSettings.KafkaBrokers)
     Console.WriteLine("Consumer group     : " + agentSettings.ConsumerGroup)
     Console.WriteLine("Request topic      : " + agentSettings.RequestTopic)
+    Console.WriteLine("Request timeout    : " + %string(agentSettings.RequestTimeoutMs) + " ms")
     Console.WriteLine("Response topic     : " + agentSettings.ResponseTopic)
-    Console.WriteLine("Consumer timeout   : " + %string(agentSettings.RequestTimeoutMs) + " ms")
+    Console.WriteLine("Response timeout   : " + %string(agentSettings.ResponseTimeoutMs) + " ms")
     Console.WriteLine("Export directory   : " + agentSettings.ExportDirectory)
     Console.WriteLine("Zip file directory : " + agentSettings.ZipFileDirectory)
+    Console.WriteLine("Verbose logging    : " + (agentSettings.VerboseLogging ? "Enabled" : "Disabled"))
     Console.WriteLine("")
 
     ;Connect to Kafka 
 
-    log("Connecting to Kafka")
+    verboselog("Connecting to Kafka")
 
     if (%KAFKA_INIT(agentSettings.KafkaBrokers,agentSettings.ConsumerGroup,errorText) == 0) then
         kafkaConnected = true
@@ -110,7 +113,7 @@ proc
 
         if (ok)
         begin
-            log("Subscribing to " + agentSettings.RequestTopic)
+            verboselog("Subscribing to " + agentSettings.RequestTopic)
 
             if (%KAFKA_SUBSCRIBE(agentSettings.RequestTopic,errorText) == -1)
             begin
@@ -124,8 +127,20 @@ proc
         ; UNLOAD <table>
         ; EXIT
 
+        ;Whenever we receive a request we will akcnownedge by sending a message to the UnloadResponse topic
+        ;
+        ; UNLOAD SUCCESS <tableName> <zipFileName> <exportFileName>
+        ; UNLOAD ERROR <tableName> <error message>
+        ;
+        ; TABLES SUCCESS
+        ; TABLES ERROR <error message>
+        ;
+        ; STOP SUCCESS
+
         if (ok)
         begin
+            verboselog("Entering KAFKA_RECEIVE loop")
+
             repeat
             begin
                 data topic, a40
@@ -142,57 +157,218 @@ proc
                 upcase message
 
                 ;------------------------------------------------------------------------------------------------------------------------
+                ;Receive timeout (normal)
+
                 if (receiveStatus == -2) then
                 begin
-                    ;Timeout. Chance to do routine processing, otherwise just try again.
+                    ;Chance to do routine processing, otherwise just try again.
                     nextloop
                 end
+
                 ;------------------------------------------------------------------------------------------------------------------------
+                ;Hard error (network error, etc.)
+
                 else if (receiveStatus == -1) then
                 begin
-                    ;Hard error (network error, etc.)
+                    verboselog("KAFKA_RECEIVE returned status -1")
                     log("ERROR: Receive failed: " + %atrim(errorText))
-                    ;TODO: Now what? Disconnect, reconnect, try again?
-
-
+;TODO: Now what? Disconnect, reconnect, try again?
                 end
+
                 ;------------------------------------------------------------------------------------------------------------------------
+                ;Messsafe from unsubscribed topic (should never happenbut just incase)
+
                 else if (%atrim(topic).ne.agentSettings.RequestTopic) then
                 begin
-                    ;Should never happen because we only subscribed to a single topic, but just incase,
-                    ;we'll commit the message so that we never receive it again
                     log("ERROR: Message from unsubscribed topic: " + %atrim(topic))
 
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
                     begin
+                        verboselog("Request committed")
                         nextloop
                     end
                     else
                     begin
-                        log("ERROR: Commit failed: " + %atrim(errorText))
-                        ;TODO: Now what? Disconnect, reconnect, try again?
-
-
+                        log("ERROR: Failed to commit request: " + %atrim(errorText))
+;TODO: Now what? Disconnect, reconnect, try again?
                     end
                 end
+
                 ;------------------------------------------------------------------------------------------------------------------------
-                else if (messageSize>=4 && message.eq."STOP") then
+                ;Is it a TABLES message?
+
+                else if (messageSize>7 && message.eq."TABLES ") then
                 begin
-                    log("Received STOP instruction")
-                    ;;Commit the message
+                    data tableList, string, %atrimtostring(message(8:messageSize))
+                    tableList = tableList.Replace(" ","")
+                    if (!tableList.Contains(",")) then
+                    begin
+                        ok = false
+                        log("ERROR: Received incorrectly formatted TABLES message. Table names should be comma-delimited.")
+
+;TODO: Send a failure message to the UnloadResponse topic
+                    end
+                    else
+                    begin
+                        validTables = tableList.Split(",")
+                        log("Received TABLES request for tables: " + tableList)
+                    end
+
+                    ;Verify that we have code for all of the tables by calling the "Length" routine for each
+
+                    if (ok)
+                    begin
+                        data ix, i4
+                        data failed = false
+                        data recordLength, i4
+                        data tmpMessage, string, "Unsupported tables: "
+                        for ix from 1 thru validTables.Length
+                        begin
+                            try
+                            begin
+                                recordLength = %xsubr(validTables[ix]+"Length")
+                            end
+                            catch (e, @Exception)
+                            begin
+                                ;We have no "Length" routine for validTables[ix]
+                                failed = true
+                                tmpMessage = tmpMessage + validTables[ix] + ","
+                            end
+                            endtry
+                        end
+
+                        if (failed) then
+                        begin
+                            data responseMessage, string
+                            
+                            tmpMessage = tmpMessage.Substring(0, tmpMessage.Length-1)
+                            ok = false
+                            log("ERROR: " + tmpMessage)
+
+                            responseMessage = "TABLES ERROR " + tmpMessage
+
+                            ;Send failure message to UnloadResponse topic
+
+                            verboselog("Sending response " + responseMessage)
+
+                            kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
+
+                            using kafkaApiResponse select
+                            (0),
+                            begin
+                                ;Response sent
+                                verboselog("TABLES ERROR response acknowledged")
+                                nop
+                            end
+                            (-2),
+                            begin
+                                ;No ACK received before timeout expired
+                                log("ERROR: TABLES ERROR response sent but not acknowledged before timeout expired")
+;TODO: Now what. Retry?
+                            end
+                            (-1),
+                            begin
+                                ;Hard failure (e.g. network error)
+                                log("ERROR: Failed to send TABLES ERROR response")
+;TODO: Now what? Disconnect, reconnect, try again?
+                            end
+                            endusing
+                        end
+                        else
+                        begin
+                            ;Send success message to UnloadResponse topic
+                            data responseMessage = "TABLES SUCCESS"
+
+                            verboselog("Sending response " + responseMessage)
+
+                            kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
+
+                            using kafkaApiResponse select
+                            (0),
+                            begin
+                                verboselog(responseMessage + " response acknowledged")
+                                nop
+                            end
+                            (-2),
+                            begin
+                                ;No ACK received before timeout expired
+                                log("ERROR: " + responseMessage + " response sent but not acknowledged before timeout exipred")
+;TODO: Now what. Retry?
+                            end
+                            (-1),
+                            begin
+                                ;Hard failure (e.g. network error)
+                                log("ERROR: Failed to send " + responseMessage + " response")
+;TODO: Now what? Disconnect, reconnect, try again?
+                            end
+                            endusing
+                        end
+                    end
+
+                    ;Commit the inbound message so we don't receive it again
+
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
                     begin
+                        verboselog("Request committed")
+                        nextloop
+                    end
+                    else
+                    begin
+                        log("ERROR: Failed to commit request: " + %atrim(errorText))
+;TODO: Now what? Disconnect, reconnect, try again?
+                    end
+                end
+
+                ;------------------------------------------------------------------------------------------------------------------------
+                ;Is it a STOP message?
+
+                else if (messageSize>=4 && message.eq."STOP") then
+                begin
+                    data responseMessage = "STOP SUCCESS"
+
+                    log("Received STOP request")
+
+                    verboselog("Sending response " + responseMessage)
+
+                    kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
+
+                    ;Send success message to UnloadResponse topic
+                    using kafkaApiResponse select
+                    (0),
+                    begin
+                        verboselog(responseMessage + " response acknowledged")
+                    end
+                    (-2),
+                    begin
+                        ;No ACK received before timeout expired
+                        log("ERROR: " + responseMessage + " response sent but not acknowledged before timeout expired")
+;TODO: Now what. Retry?
+                    end
+                    (-1),
+                    begin
+                        ;Hard failure (e.g. network error)
+                        log("ERROR: Failed to send " + responseMessage + " response")
+;TODO: Now what? Disconnect, reconnect, try again?
+                    end
+                    endusing
+
+                    ;Commit the message so that we don't receive it again
+
+                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
+                    begin
+                        verboselog("Request committed")
                         exitloop
                     end
                     else
                     begin
-                        log("ERROR: Commit failed: " + %atrim(errorText))
-                        ;TODO: Now what? Disconnect, reconnect, try again?
-
-
+                        log("ERROR: Failed to commit request: " + %atrim(errorText))
+;TODO: Now what? Disconnect, reconnect, try again?
                     end
                 end
+
                 ;------------------------------------------------------------------------------------------------------------------------
+                ;Is it an UNLOAD message?
+
                 else if (messageSize>7 && message.eq."UNLOAD") then
                 begin
                     ;UNLOAD <table>
@@ -202,6 +378,7 @@ proc
                     data zipName, string 
                     data zipSpec, string
                     data fileType, string
+                    data responseError, string
                     data fileExported = false
                     data fileZipped = false
                     data fileUploaded = false
@@ -222,14 +399,14 @@ proc
                         else
                         begin
                             ok = false
-                            log("ERROR: Received UNLOAD instruction for invalid table " + tableName)
+                            responseError = "Received UNLOAD instruction for invalid table " + tableName
                         end
                     end
                     else
                     begin
                         ;Bad request
                         ok = false
-                        log("ERROR: Can't process UNLOAD requests until valid table names are received")
+                        responseError = "Can't process UNLOAD requests until valid table names are received"
                     end
 
                     ;Determine the file type and record length
@@ -272,7 +449,7 @@ proc
                         begin
                             chInOpen = false
                             ok = false
-                            log("ERROR: Failed to open input file: " + %atrim(errorText))
+                            responseError = "Failed to open input file: " + %atrim(errorText)
                         end
                     end
 
@@ -289,7 +466,7 @@ proc
                         begin
                             chOutOpen = false
                             ok = false
-                            log("ERROR: Failed to open output file: " + e.Message)
+                            responseError = "Failed to open output file: " + e.Message
                         end
                         endtry
                     end
@@ -335,43 +512,36 @@ proc
                     if (fileExported)
                     begin
                         ;TODO: zip the file
-                        data command = "|@REPLICATOR_EXE:COMPRESS.COM " + exportFileSpec + " " + zipSpec
+                        data command = "|@" + agentSettings.ProgramsDirectory + "COMPRESS.COM " + exportFileSpec + " " + zipSpec
                         data pipeCh, i4
                         data msg, a128
                         try
                         begin
                             log("Executing command: " + command)
                             open(pipeCh=0,i,command)
+
                             ;COMPRESS.COM should always display just one message, either "SUCCESS" or "ERROR: <text>"
-                            repeat
+                            reads(pipeCh,msg)
+                            if (msg.eq."SUCCESS") then
                             begin
-                                reads(pipeCh,msg)
-                                if (msg.eq."SUCCESS") then
-                                begin
-                                    log("Created " + exportFileSpec)
-                                    fileZipped = true
-                                    exitloop
-                                end
-                                else if (msg.eq."ERROR:") then
-                                begin
-                                    ok = false
-                                    log(%atrim(msg))
-                                    exitloop
-                                end
-                                else
-                                begin
-                                    log("ERROR: " + %atrim(msg))
-                                end
+                                log("Created " + exportFileSpec)
+                                fileZipped = true
+                            end
+                            else
+                            begin
+                                ok = false
+                                responseError = %atrim(msg)
                             end
                         end
                         catch (ex, @EndOfFileException)
                         begin
-                            log("ERROR: Failed to compress export file")
+                            ok = false
+                            responseError = "Failed to compress export file"
                         end
                         catch (ex, @Exception)
                         begin
                             ok = false
-                            log("ERROR: Failed to compress export file: " + ex.Message)
+                            responseError = "Failed to compress export file: " + ex.Message
                         end
                         finally
                         begin
@@ -388,26 +558,63 @@ proc
 ;                        nop
 ;                    end
 
-                    ;Report the outcome to the outbound Kafka topic
+                    ;Report the outcome to the UnloadResponse topic
  
-;                    if (ok && fileUploaded) then
-;                    begin
-;                        ;Send "load file ready"
-;                        if (!%KafkaPublish(publisher,"UPLOADED",(a)fileSpec))
-;                        begin
-;                            ;TODO: What to do on a publish fail?
-;                            nop
-;                        end
-;                    end
-;                    else
-;                    begin
-;                        ;Send "export failed"
-;                        if (!%KafkaPublish(publisher,"UPLOADFAILED",(a)fileSpec))
-;                        begin
-;                            ;TODO: What to do on a publish fail?
-;                            nop
-;                        end
-;                    end
+                    if (ok && fileUploaded) then
+                    begin
+                        ;Send a SUCCESS response
+                        data responseMessage = "UNLOAD SUCCESS " + tableName + " " + zipName + " " + exportFile
+
+                        kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
+
+                        using kafkaApiResponse select
+                        (0),
+                        begin
+                            verboselog("UNLOAD SUCCESS response acknowledged")
+                        end
+                        (-2),
+                        begin
+                            ;No ACK received before timeout expired
+                            log("ERROR: UNLOAD SUCCESS response sent but not acknowledged before timeout expired")
+;TODO: Now what. Retry?
+                        end
+                        (-1),
+                        begin
+                            ;Hard failure (e.g. network error)
+                            log("ERROR: Failed to send UNLOAD SUCCESS response")
+;TODO: Now what? Disconnect, reconnect, try again?
+                        end
+                        endusing
+                    end
+                    else
+                    begin
+                        ;Send ERROR response
+
+                        data responseMessage = "UNLOAD ERROR " + tableName + " " + responseError
+
+                        log("ERROR: " + responseError)
+
+                        kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
+
+                        using kafkaApiResponse select
+                        (0),
+                        begin
+                            verboselog("UNLOAD ERROR response acknowledged")
+                        end
+                        (-2),
+                        begin
+                            ;No ACK received before timeout expired
+                            log("ERROR: UNLOAD ERROR response sent but not acknowledged before timeout expired")
+;TODO: Now what. Retry?
+                        end
+                        (-1),
+                        begin
+                            ;Hard failure (e.g. network error)
+                            log("ERROR: Failed to send UNLOAD ERROR response")
+;TODO: Now what? Disconnect, reconnect, try again?
+                        end
+                        endusing
+                    end
 
                     ;Delete the compressed file
 
@@ -424,64 +631,38 @@ proc
 ;                        endtry
 ;                    end
 
-                    ;;Commit the original message
+                    ;;Commit the request message so that we don't receive it again
 
-                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == -1)
-                    begin
-                        log("ERROR: Commit failed: " + %atrim(errorText))
-                        ;TODO: Now what? Disconnect, reconnect, try again?
-
-
-                    end
-                end
-                ;------------------------------------------------------------------------------------------------------------------------
-                else if (messageSize>7 && message.eq."TABLES ") then
-                begin
-                    data tableList, string, message(8:messageSize)
-                    if (!tableList.Contains(",")) then
-                    begin
-                        ok = false
-                        log("ERROR: Received incorrectly formatted TABLES message. Table names should be comma-delimited.")
-                    end
-                    else
-                    begin
-                        validTables = tableList.Split(",")
-                        log("Received " + %string(validTables.Length) + " table names")
-                    end
-;
-;TODO: Need to send success or failure confirmation to the UnloadResponse topic
-;
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
                     begin
-                        nextloop
+                        verboselog("Request committed")
                     end
                     else
                     begin
-                        log("ERROR: Commit failed: " + %atrim(errorText))
-                        ;TODO: Now what? Disconnect, reconnect, try again?
-
-
+                        log("ERROR: Failed to commit request: " + %atrim(errorText))
+;TODO: Now what? Disconnect, reconnect, try again?
                     end
                 end
+
                 ;------------------------------------------------------------------------------------------------------------------------
+                ;Unsupported message
+
                 else
                 begin
-                    ;Unsupported message.
-
                     log("WARNING: Ignoring unexpected message: " + %atrim(message))
 
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
                     begin
+                        verboselog("Request committed")
                         nextloop
                     end
                     else
                     begin
-                        log("ERROR: Commit failed: " + %atrim(errorText))
-                        ;TODO: Now what? Disconnect, reconnect, try again?
-
-
+                        log("ERROR: Failed to commit request: " + %atrim(errorText))
+;TODO: Now what? Disconnect, reconnect, try again?
                     end
                 end
+
                 ;------------------------------------------------------------------------------------------------------------------------
             end
         end
@@ -491,17 +672,20 @@ proc
         ;Disconnect from Kafka
         if (kafkaConnected)
         begin
-            log("Disconnecting from Kafka")
+            verboselog("Disconnecting from Kafka")
 
             if (%KAFKA_SHUTDOWN(errorText) == 0) then
+            begin
+                verboselog("Disconnected")
                 kafkaConnected = false
+            end
             else
                 log("ERROR: Failed to disconnect from Kafka: " + %atrim(errorText))
         end
     end
     endtry
 
-    log("Stopping")
+    verboselog("Stopping")
     stop
 
 endmain
@@ -520,3 +704,4 @@ proc
     end
     xreturn
 endsubroutine
+

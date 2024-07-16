@@ -15,8 +15,11 @@ namespace ReplicationLibrary
         public readwrite property RequestTopic, string
         public readwrite property RequestTimeoutMs, int
         public readwrite property ResponseTopic, string
+        public readwrite property ResponseTimeoutMs, int
+        public readwrite property ProgramsDirectory, string
         public readwrite property ExportDirectory, string
         public readwrite property ZipFileDirectory, string
+        public readwrite property VerboseLogging, boolean
         public readwrite property EnvironmentVariables, [#]@EnvironmentVariable
 
         ;;; <summary>
@@ -133,6 +136,40 @@ namespace ReplicationLibrary
             instance.ResponseTopic = setting.GetString()
 
             ;--------------------------------------------------------------------------------------------------------
+            ;ResponseTimeoutMs
+
+            if (!doc.RootElement.TryGetProperty("ResponseTimeoutMs",setting))
+            begin
+                errorMessage = "ResponseTimeoutMs is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32() < 1)
+            begin
+                errorMessage = "ResponseTimeoutMs setting must be a positive integer!"
+                mreturn ^null
+            end
+
+            instance.ResponseTimeoutMs = setting.GetInt32()
+
+            ;--------------------------------------------------------------------------------------------------------
+            ;ProgramsDirectory
+
+            if (!doc.RootElement.TryGetProperty("ProgramsDirectory",setting))
+            begin
+                errorMessage = "ProgramsDirectory is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+            begin
+                errorMessage = "ProgramsDirectory setting must be a non-blank string!"
+                mreturn ^null
+            end
+
+            instance.ProgramsDirectory = setting.GetString()
+
+            ;--------------------------------------------------------------------------------------------------------
             ;ExportDirectory
 
             if (!doc.RootElement.TryGetProperty("ExportDirectory",setting))
@@ -165,6 +202,23 @@ namespace ReplicationLibrary
             end
 
             instance.ZipFileDirectory = setting.GetString()
+
+            ;--------------------------------------------------------------------------------------------------------
+            ;VerboseLogging
+
+            if (!doc.RootElement.TryGetProperty("VerboseLogging",setting))
+            begin
+                errorMessage = "VerboseLogging is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.true && setting.ValueKind!=JsonValueKind.false)
+            begin
+                errorMessage = "VerboseLogging setting must be a boolean value!"
+                mreturn ^null
+            end
+
+            instance.VerboseLogging = setting.GetBoolean()
 
             ;--------------------------------------------------------------------------------------------------------
             ;EnvironmentVariables (optional)
