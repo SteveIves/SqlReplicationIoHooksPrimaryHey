@@ -66,7 +66,7 @@
             txtRequestTopic.Name = "txtRequestTopic";
             txtRequestTopic.Size = new Size(394, 27);
             txtRequestTopic.TabIndex = 2;
-            txtRequestTopic.Text = "UnloadRequest";
+            txtRequestTopic.Text = "UNLOAD_REQUEST";
             // 
             // label2
             // 
