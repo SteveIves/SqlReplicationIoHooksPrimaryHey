@@ -52,6 +52,7 @@ echo mkdir [.SRC.LIBRARY] >> ftp.tmp
 echo mkdir [.SRC.REPLICATOR] >> ftp.tmp
 echo mkdir [.SRC.TOOLS] >> ftp.tmp
 echo mkdir [.SRC.VMSC] >> ftp.tmp
+echo mkdir [.UNLOAD] >> ftp.tmp
 
 rem Delete existing files
 rem echo mdelete [.DATA]*.seq;* >> ftp.tmp
@@ -70,11 +71,6 @@ echo put RPS\REPLICATION.SCH >> ftp.tmp
 echo cd [-.DATA] >> ftp.tmp
 echo put DAT\department.seq >> ftp.tmp
 echo put DAT\employee.seq >> ftp.tmp
-echo put DAT\UnloadAgentConfigSIVMS.json >> ftp.tmp
-echo put DAT\UnloadAgentConfigVMSIT.json >> ftp.tmp
-echo cd [-.EXE] >> ftp.tmp
-echo put VMS\COMPRESS.COM >> ftp.tmp
-echo put VMS\S3UPLOAD.PY >> ftp.tmp
 echo cd [-.FDL] >> ftp.tmp
 echo mput VMS\*.fdl >> ftp.tmp
 echo cd [-.SRC.LIBRARY] >> ftp.tmp
@@ -86,7 +82,12 @@ echo cd [-.TOOLS] >> ftp.tmp
 echo mput SRC\TOOLS\*.dbl >> ftp.tmp
 echo cd [-.VMSC] >> ftp.tmp
 echo mput SRC\VMSC\*.* >> ftp.tmp
-echo cd [-.-] >> ftp.tmp
+echo cd [-.-.UNLOAD] >> ftp.tmp
+echo put VMS\COMPRESS.COM >> ftp.tmp
+echo put VMS\S3UPLOAD.COM >> ftp.tmp
+echo put VMS\S3UPLOAD.PY >> ftp.tmp
+echo put VMS\STREAMLF.FDL >> ftp.tmp
+echo cd [-] >> ftp.tmp
 echo put VMS\BUILD.COM >> ftp.tmp
 echo put VMS\REPLICATOR_DETACH.COM >> ftp.tmp
 echo put VMS\REPLICATOR_RUN.COM >> ftp.tmp

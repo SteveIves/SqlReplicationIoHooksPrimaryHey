@@ -32,7 +32,8 @@ namespace NetUnloadAgentTest
             _producer = new ProducerBuilder<string, string>(producerConfig).Build();
 
             btnSendTables.Enabled = true;
-            btnSendUnload.Enabled = true;
+            btnUnloadDepartment.Enabled = true;
+            btnUnloadEmployee.Enabled = true;
             btnSendStop.Enabled = true;
 
             _connected = true;
@@ -42,7 +43,12 @@ namespace NetUnloadAgentTest
         {
             sendRequest("TABLES DEPARTMENT,EMPLOYEE");
         }
-        private void btnSendUnload_Click(object sender, EventArgs e)
+        private void btnUnloadDepartment_Click(object sender, EventArgs e)
+        {
+            sendRequest("UNLOAD DEPARTMENT");
+        }
+
+        private void btnUnloadEmployee_Click(object sender, EventArgs e)
         {
             sendRequest("UNLOAD EMPLOYEE");
         }
@@ -68,6 +74,5 @@ namespace NetUnloadAgentTest
 
             Application.Exit();
         }
-
     }
 }

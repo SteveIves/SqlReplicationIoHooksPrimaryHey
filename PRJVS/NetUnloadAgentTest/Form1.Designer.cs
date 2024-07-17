@@ -34,9 +34,10 @@
             label2 = new Label();
             btnClose = new Button();
             btnSendTables = new Button();
-            btnSendUnload = new Button();
+            btnUnloadDepartment = new Button();
             btnSendStop = new Button();
             groupBoxRequest = new GroupBox();
+            btnUnloadEmployee = new Button();
             groupBoxServer = new GroupBox();
             btnAttach = new Button();
             groupBoxRequest.SuspendLayout();
@@ -90,48 +91,60 @@
             // btnSendTables
             // 
             btnSendTables.Enabled = false;
-            btnSendTables.Location = new Point(22, 38);
+            btnSendTables.Location = new Point(6, 38);
             btnSendTables.Name = "btnSendTables";
-            btnSendTables.Size = new Size(169, 29);
+            btnSendTables.Size = new Size(82, 29);
             btnSendTables.TabIndex = 10;
-            btnSendTables.Text = "Send &Tables Request";
+            btnSendTables.Text = "&TABLES";
             btnSendTables.UseVisualStyleBackColor = true;
             btnSendTables.Click += btnSendTables_Click;
             // 
-            // btnSendUnload
+            // btnUnloadDepartment
             // 
-            btnSendUnload.Enabled = false;
-            btnSendUnload.Location = new Point(197, 38);
-            btnSendUnload.Name = "btnSendUnload";
-            btnSendUnload.Size = new Size(169, 29);
-            btnSendUnload.TabIndex = 11;
-            btnSendUnload.Text = "Send &Unload Request";
-            btnSendUnload.UseVisualStyleBackColor = true;
-            btnSendUnload.Click += btnSendUnload_Click;
+            btnUnloadDepartment.Enabled = false;
+            btnUnloadDepartment.Location = new Point(94, 38);
+            btnUnloadDepartment.Name = "btnUnloadDepartment";
+            btnUnloadDepartment.Size = new Size(169, 29);
+            btnUnloadDepartment.TabIndex = 11;
+            btnUnloadDepartment.Text = "Unload &DEPARTMENT";
+            btnUnloadDepartment.UseVisualStyleBackColor = true;
+            btnUnloadDepartment.Click += btnUnloadDepartment_Click;
             // 
             // btnSendStop
             // 
             btnSendStop.Enabled = false;
-            btnSendStop.Location = new Point(372, 38);
+            btnSendStop.Location = new Point(444, 38);
             btnSendStop.Name = "btnSendStop";
-            btnSendStop.Size = new Size(169, 29);
+            btnSendStop.Size = new Size(76, 29);
             btnSendStop.TabIndex = 12;
-            btnSendStop.Text = "Send &Stop Request";
+            btnSendStop.Text = "&STOP";
             btnSendStop.UseVisualStyleBackColor = true;
             btnSendStop.Click += btnSendStop_Click;
             // 
             // groupBoxRequest
             // 
+            groupBoxRequest.Controls.Add(btnUnloadEmployee);
             groupBoxRequest.Controls.Add(btnSendTables);
             groupBoxRequest.Controls.Add(btnSendStop);
             groupBoxRequest.Controls.Add(btnClose);
-            groupBoxRequest.Controls.Add(btnSendUnload);
+            groupBoxRequest.Controls.Add(btnUnloadDepartment);
             groupBoxRequest.Location = new Point(12, 133);
             groupBoxRequest.Name = "groupBoxRequest";
             groupBoxRequest.Size = new Size(699, 94);
             groupBoxRequest.TabIndex = 13;
             groupBoxRequest.TabStop = false;
             groupBoxRequest.Text = "Operations";
+            // 
+            // btnUnloadEmployee
+            // 
+            btnUnloadEmployee.Enabled = false;
+            btnUnloadEmployee.Location = new Point(269, 38);
+            btnUnloadEmployee.Name = "btnUnloadEmployee";
+            btnUnloadEmployee.Size = new Size(169, 29);
+            btnUnloadEmployee.TabIndex = 13;
+            btnUnloadEmployee.Text = "Unload &EMPLOYEE";
+            btnUnloadEmployee.UseVisualStyleBackColor = true;
+            btnUnloadEmployee.Click += btnUnloadEmployee_Click;
             // 
             // groupBoxServer
             // 
@@ -185,10 +198,11 @@
         private Label label2;
         private Button btnClose;
         private Button btnSendTables;
-        private Button btnSendUnload;
+        private Button btnUnloadDepartment;
         private Button btnSendStop;
         private GroupBox groupBoxRequest;
         private GroupBox groupBoxServer;
         private Button btnAttach;
+        private Button btnUnloadEmployee;
     }
 }

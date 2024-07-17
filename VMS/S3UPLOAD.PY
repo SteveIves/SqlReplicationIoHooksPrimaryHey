@@ -7,9 +7,15 @@ from botocore.exceptions import NoCredentialsError, PartialCredentialsError, Cli
 from botocore.config import Config
 
 # Enable logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
+#logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 boto3.set_stream_logger(name='botocore')
+
+# Disable boto3 and botocore debug messages
+logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('botocore').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 def create_bucket_if_not_exists(s3_client, bucket_name, region_name):
     """Create an S3 bucket if it does not already exist"""
@@ -39,7 +45,7 @@ def multipart_upload_to_s3(file_name):
     aws_access_key_id = 'YOUR_AWS_ACCESS_KEY_ID'
     aws_secret_access_key = 'YOUR_AWS_SECRET_ACCESS_KEY'
     region_name = 'us-east-1'
-    endpoint_url = 'http://10.1.10.243:8333'
+    endpoint_url = 'http://10.1.10.21:8333'
     bucket_name = 'upload'
     part_size=5*1024*1024
 

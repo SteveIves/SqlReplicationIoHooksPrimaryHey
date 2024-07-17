@@ -16,10 +16,9 @@ namespace ReplicationLibrary
         public readwrite property RequestTimeoutMs, int
         public readwrite property ResponseTopic, string
         public readwrite property ResponseTimeoutMs, int
-        public readwrite property ProgramsDirectory, string
-        public readwrite property ExportDirectory, string
-        public readwrite property ZipFileDirectory, string
+        public readwrite property UnloadAgentDirectory, string
         public readwrite property VerboseLogging, boolean
+        public readwrite property DclLogging, boolean
         public readwrite property EnvironmentVariables, [#]@EnvironmentVariable
 
         ;;; <summary>
@@ -40,7 +39,7 @@ namespace ReplicationLibrary
 
             ;Parse the JSON configuration file
 
-            configFileSpec = "REPLICATOR_DATA:UnloadAgentConfig.json"
+            configFileSpec = "REPLICATOR_UNLOAD:AGENT.CONFIG"
             doc = UnloadAgentSettings.ParseConfigFile(errorMessage)
 
             if (doc == ^null)
@@ -153,55 +152,21 @@ namespace ReplicationLibrary
             instance.ResponseTimeoutMs = setting.GetInt32()
 
             ;--------------------------------------------------------------------------------------------------------
-            ;ProgramsDirectory
+            ;UnloadAgentDirectory
 
-            if (!doc.RootElement.TryGetProperty("ProgramsDirectory",setting))
+            if (!doc.RootElement.TryGetProperty("UnloadAgentDirectory",setting))
             begin
-                errorMessage = "ProgramsDirectory is not defined in " + configFileSpec
+                errorMessage = "UnloadAgentDirectory is not defined in " + configFileSpec
                 mreturn ^null
             end
             
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
             begin
-                errorMessage = "ProgramsDirectory setting must be a non-blank string!"
+                errorMessage = "UnloadAgentDirectory setting must be a non-blank string!"
                 mreturn ^null
             end
 
-            instance.ProgramsDirectory = setting.GetString()
-
-            ;--------------------------------------------------------------------------------------------------------
-            ;ExportDirectory
-
-            if (!doc.RootElement.TryGetProperty("ExportDirectory",setting))
-            begin
-                errorMessage = "ExportDirectory is not defined in " + configFileSpec
-                mreturn ^null
-            end
-            
-            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
-            begin
-                errorMessage = "ExportDirectory setting must be a non-blank string!"
-                mreturn ^null
-            end
-
-            instance.ExportDirectory = setting.GetString()
-
-            ;--------------------------------------------------------------------------------------------------------
-            ;ZipFileDirectory
-
-            if (!doc.RootElement.TryGetProperty("ZipFileDirectory",setting))
-            begin
-                errorMessage = "ZipFileDirectory is not defined in " + configFileSpec
-                mreturn ^null
-            end
-            
-            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
-            begin
-                errorMessage = "ZipFileDirectory setting must be a non-blank string!"
-                mreturn ^null
-            end
-
-            instance.ZipFileDirectory = setting.GetString()
+            instance.UnloadAgentDirectory = setting.GetString()
 
             ;--------------------------------------------------------------------------------------------------------
             ;VerboseLogging
@@ -219,6 +184,23 @@ namespace ReplicationLibrary
             end
 
             instance.VerboseLogging = setting.GetBoolean()
+
+            ;--------------------------------------------------------------------------------------------------------
+            ;DclLogging
+
+            if (!doc.RootElement.TryGetProperty("DclLogging",setting))
+            begin
+                errorMessage = "DclLogging is not defined in " + configFileSpec
+                mreturn ^null
+            end
+            
+            if (setting.ValueKind!=JsonValueKind.true && setting.ValueKind!=JsonValueKind.false)
+            begin
+                errorMessage = "DclLogging setting must be a boolean value!"
+                mreturn ^null
+            end
+
+            instance.DclLogging = setting.GetBoolean()
 
             ;--------------------------------------------------------------------------------------------------------
             ;EnvironmentVariables (optional)

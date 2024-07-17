@@ -6,10 +6,6 @@ $! Author:  Steve Ives, Synergex Professional Services Group, July 2024
 $!
 $! Usage:   @COMPRESS <file-to-compress> <zip-file-spec> [VERBOSE]
 $!
-$! Notes:   A global symbol ZIP must exist and point to the Info-ZIP executable
-$!          for the platform. If the zip file already exists it will be
-$!          deleted.
-$!
 $!=============================================================================
 $!
 $! Check we have two parameters
@@ -61,6 +57,10 @@ $ then
 $	write sys$output "ERROR: Failed to compress file"
 $	exit
 $ endif
+$!
+$ if p3.eqs."VERBOSE" then write sys$output "COMPRESS.COM: Deleting export file"
+$!
+$ delete/noconfirm/nolog 'p1;*
 $!
 $! All done
 $!

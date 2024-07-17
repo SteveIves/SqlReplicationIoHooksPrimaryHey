@@ -102,12 +102,6 @@ $     DELETE/NOLOG OBJ:LIBRARY.OBJ;*
 $ !
 $ ENDIF
 $ !
-$ ! We can't use a shared image because of the issue with destructors
-$ ! so unless we find a solution to that problem we'll use an object library.
-$ ! WRITE SYS$OUTPUT "Creating shared image LIBRARY.EXE..."
-$ ! MAKESHARE -L OBJ:LIBRARY.OLB -E REPLICATOR_EXE: -Q -SQL -XD
-$ ! @LIBRARY.COM
-$ !
 $ IF MODE.EQS."ALL" .OR. MODE.EQS."KAFKA"
 $ THEN
 $     WRITE SYS$OUTPUT ""
@@ -165,8 +159,8 @@ $     WRITE SYS$OUTPUT ""
 $     WRITE SYS$OUTPUT "Building UnloadAgent..."
 $     WRITE SYS$OUTPUT ""
 $ !
-$     DIBOL/OPT/OBJ=OBJ: TOOLSRC:UnloadAgent.dbl
-$     LINK/THREADS/EXE=REPLICATOR_EXE:UnloadAgent.exe OBJ:UnloadAgent.obj,[]REPLICATOR/OPT
+$     DIBOL/OPT/OBJ=OBJ: TOOLSRC:UNLOADAGENT.DBL
+$     LINK/THREADS/EXE=REPLICATOR_UNLOAD:UNLOADAGENT.EXE OBJ:UNLOADAGENT.OBJ,[]REPLICATOR/OPT
 $ !
 $ ENDIF
 $ !

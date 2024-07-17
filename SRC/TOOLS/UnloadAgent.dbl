@@ -65,6 +65,51 @@ proc
         stop
     end
 
+    ;Validate that we can move to UnloadAgentDirectory
+
+    if (!%syn_setdir(agentSettings.UnloadAgentDirectory))
+    begin
+        Console.WriteLine("ERROR: Failed to move to UnloadAgentDirectory")
+        sleep 3
+        stop
+    end
+
+    ;Further validate by creating a temporary file in UnloadAgentDirectory
+
+    try
+    begin
+        data tmpch = 0
+        open(tmpch,o:s,%datetime+".TMP")
+        purge tmpch
+    end
+    catch (e, @Exception)
+    begin
+        Console.WriteLine("ERROR: Failed to create file in UnloadAgentDirectory")
+        sleep 3
+        stop
+    end
+    endtry
+
+    ;Validate that COMPRESS.COM, S3UPLOAD.COM and S3UPLOAD.PY are present
+
+    try
+    begin
+        data tmpch, i4
+        open(tmpch=0,i,"COMPRESS.COM")
+        close tmpch
+        open(tmpch=0,i,"S3UPLOAD.COM")
+        close tmpch
+        open(tmpch=0,i,"S3UPLOAD.PY")
+        close tmpch
+    end
+    catch (e, @Exception)
+    begin
+        Console.WriteLine("ERROR: COMPRESS.COM, S3UPLOAD.COM or S3UPLOAD.PY are not present in UnloadAgentDirectory")
+        sleep 3
+        stop
+    end
+    endtry
+
     ;Set environment variables defined in the configuration file
 
     if (agentSettings.EnvironmentVariables != ^null)
@@ -85,15 +130,14 @@ proc
     Console.WriteLine("")
     Console.WriteLine("File Unload Agent")
     Console.WriteLine("")
-    Console.WriteLine("Kafka brokers      : " + agentSettings.KafkaBrokers)
-    Console.WriteLine("Consumer group     : " + agentSettings.ConsumerGroup)
-    Console.WriteLine("Request topic      : " + agentSettings.RequestTopic)
-    Console.WriteLine("Request timeout    : " + %string(agentSettings.RequestTimeoutMs) + " ms")
-    Console.WriteLine("Response topic     : " + agentSettings.ResponseTopic)
-    Console.WriteLine("Response timeout   : " + %string(agentSettings.ResponseTimeoutMs) + " ms")
-    Console.WriteLine("Export directory   : " + agentSettings.ExportDirectory)
-    Console.WriteLine("Zip file directory : " + agentSettings.ZipFileDirectory)
-    Console.WriteLine("Verbose logging    : " + (agentSettings.VerboseLogging ? "Enabled" : "Disabled"))
+    Console.WriteLine("Working directory : " + agentSettings.UnloadAgentDirectory)
+    Console.WriteLine("Kafka brokers     : " + agentSettings.KafkaBrokers)
+    Console.WriteLine("Consumer group    : " + agentSettings.ConsumerGroup)
+    Console.WriteLine("Request topic     : " + agentSettings.RequestTopic)
+    Console.WriteLine("Request timeout   : " + %string(agentSettings.RequestTimeoutMs) + " ms")
+    Console.WriteLine("Response topic    : " + agentSettings.ResponseTopic)
+    Console.WriteLine("Response timeout  : " + %string(agentSettings.ResponseTimeoutMs) + " ms")
+    Console.WriteLine("Verbose logging   : " + (agentSettings.VerboseLogging ? "Enabled" : "Disabled"))
     Console.WriteLine("")
 
     ;Connect to Kafka 
@@ -198,7 +242,6 @@ proc
 
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
                     begin
-                        verboselog("Request committed")
                         nextloop
                     end
                     else
@@ -214,11 +257,14 @@ proc
                 else if (messageSize>7 && message.eq."TABLES ") then
                 begin
                     data tableList, string, %atrimtostring(message(8:messageSize))
-                    verboselog("Received request: " + message)
+
+                    log("Recv " + %atrim(message))
+
                     tableList = tableList.Replace(" ","")
+
                     if (!tableList.Contains(",")) then
                     begin
-                        data responseMessage, string, "Badly formatted TABLES message"
+                        data responseMessage, string, "Badly formatted message"
 
                         ok = false
                         log("ERROR: " + responseMessage)
@@ -229,16 +275,14 @@ proc
 
                         ;Send failure message to UnloadResponse topic
 
-                        verboselog("Sending TABLES ERROR response")
+                        verboselog("Sending " + responseMessage)
 
                         kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
 
                         using kafkaApiResponse select
                         (0),
                         begin
-                            ;Response sent
-                            verboselog("TABLES ERROR response acknowledged")
-                            nop
+                            log("Sent " + responseMessage)
                         end
                         (-2),
                         begin
@@ -257,7 +301,6 @@ proc
                     else
                     begin
                         validTables = tableList.Split(",")
-                        verboselog("Validating tables: " + tableList)
                     end
 
                     ;Verify that we have code for all of the tables by calling the "Length" routine for each
@@ -295,16 +338,14 @@ proc
 
                             ;Send failure message to UnloadResponse topic
 
-                            verboselog("Sending response " + responseMessage)
+                            verboselog("Sending " + responseMessage)
 
                             kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
 
                             using kafkaApiResponse select
                             (0),
                             begin
-                                ;Response sent
-                                verboselog("TABLES ERROR response acknowledged")
-                                nop
+                                log("Sent " + responseMessage)
                             end
                             (-2),
                             begin
@@ -325,15 +366,14 @@ proc
                             ;Send success message to UnloadResponse topic
                             data responseMessage = "TABLES SUCCESS"
 
-                            verboselog("Sending response " + responseMessage)
+                            verboselog("Sending " + responseMessage)
 
                             kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
 
                             using kafkaApiResponse select
                             (0),
                             begin
-                                verboselog(responseMessage + " response acknowledged")
-                                nop
+                                log("Sent " + responseMessage)
                             end
                             (-2),
                             begin
@@ -355,7 +395,6 @@ proc
 
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
                     begin
-                        verboselog("Request committed")
                         nextloop
                     end
                     else
@@ -372,9 +411,9 @@ proc
                 begin
                     data responseMessage = "STOP SUCCESS"
 
-                    log("Received STOP request")
+                    log("Recv STOP")
 
-                    verboselog("Sending response " + responseMessage)
+                    verboselog("Sending " + responseMessage)
 
                     kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
 
@@ -382,7 +421,7 @@ proc
                     using kafkaApiResponse select
                     (0),
                     begin
-                        verboselog(responseMessage + " response acknowledged")
+                        log("Sent " + responseMessage)
                     end
                     (-2),
                     begin
@@ -402,7 +441,6 @@ proc
 
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
                     begin
-                        verboselog("Request committed")
                         exitloop
                     end
                     else
@@ -413,16 +451,14 @@ proc
                 end
 
                 ;------------------------------------------------------------------------------------------------------------------------
-                ;Is it an UNLOAD message?
+                ;Is it an UNLOAD <table> message?
 
                 else if (messageSize>7 && message.eq."UNLOAD") then
                 begin
-                    ;UNLOAD <table>
-                    data fileSpec, string
+                    data now, a20, %datetime
+                    data timestamp, string, %string(^d(now(1:14)),"XXXX-XX-XX-XXXXXX")
                     data exportFile, string
-                    data exportFileSpec, string
-                    data zipName, string 
-                    data zipSpec, string
+                    data zipFile, string 
                     data fileType, string
                     data responseError, string
                     data fileExported = false
@@ -440,7 +476,7 @@ proc
                     begin
                         if (Array.IndexOf(validTables,tableName,1,validTables.Length) >= 1) then
                         begin
-                            log("Received UNLOAD " + tableName)
+                            log("Recv UNLOAD " + tableName)
                         end
                         else
                         begin
@@ -455,23 +491,17 @@ proc
                         responseError = "Must send TABLES list before UNLOAD"
                     end
 
-                    ;Determine the file type and record length
+                    ;Determine record length
                     if (ok)
                     begin
-                        data tmpFileSpec, a80
-                        xcall xsubr(tableName+"File",tmpFileSpec)
-                        fileSpec = %atrimtostring(tmpFileSpec)
-
                         recordLength = %xsubr(tableName+"Length")
                     end
 
                     ;Set the export and zip file names
                     if (ok)
                     begin
-                        exportFile = tableName + ".TXT"
-                        exportFileSpec =agentSettings.ExportDirectory + exportFile
-                        zipName = tableName + ".ZIP"
-                        zipSpec = agentSettings.ZipFileDirectory + zipName
+                        exportFile = tableName + "-" + timestamp + ".TXT"
+                        zipFile = tableName + "-" + timestamp + ".ZIP"
                     end
 
                     ;Determine the file type
@@ -505,7 +535,7 @@ proc
                     begin
                         try
                         begin
-                            open(chOut=0,o:s,exportFileSpec)
+                            open(chOut=0,o:s,exportFile)
                             chOutOpen = true
                         end
                         catch (e, @Exception)
@@ -558,18 +588,17 @@ proc
                     if (fileExported)
                     begin
                         ;TODO: zip the file
-                        data verboseMode = agentSettings.VerboseLogging ? "VERBOSE" : ""
-                        data command = "|@" + agentSettings.ProgramsDirectory + "COMPRESS.COM " + exportFileSpec + " " + zipSpec + " " + verboseMode
+                        data verboseMode = agentSettings.DclLogging ? "VERBOSE" : ""
+                        data command = "|@COMPRESS.COM " + exportFile + " " + zipFile + " " + verboseMode
                         data pipeCh, i4
                         data msg, a1024
                         try
                         begin
-                            verboselog("Compressing exported data")
                             open(pipeCh=0,i,command)
 
                             repeat
                             begin
-                                ;COMPRESS.COM can display INFO: messages and then should always end with either "SUCCESS" or "ERROR: <text>"
+                                ;COMPRESS.COM can display COMPRESS.COM: messages and then should always end with either "SUCCESS" or "ERROR: <text>"
                                 reads(pipeCh,msg)
 
                                 if (msg.eq."ERROR: ") then
@@ -580,7 +609,7 @@ proc
                                 end
                                 else if (msg.eq."SUCCESS") then
                                 begin
-                                    verboselog("Created " + zipName)
+                                    verboselog("Created " + zipFile)
                                     fileZipped = true
                                     exitloop
                                 end
@@ -612,9 +641,55 @@ proc
 
                     if (fileZipped)
                     begin
-;TODO: Upload the ZIP file to S3
-responseError = "S3 upload not implemented yet!"
-                        nop
+                        data verboseMode = agentSettings.DclLogging ? "VERBOSE" : ""
+                        data command = "|@S3UPLOAD.COM " + zipFile + " " + verboseMode
+                        data pipeCh, i4
+                        data msg, a1024
+                        try
+                        begin
+                            open(pipeCh=0,i,command)
+
+                            repeat
+                            begin
+                                ;S3UPLOAD.COM can display S3UPLOAD.COM: messages and then should always end with either "SUCCESS" or "ERROR: <text>"
+                                reads(pipeCh,msg)
+
+                                if (msg.eq."ERROR: ") then
+                                begin
+                                    ok = false
+                                    responseError = %atrim(msg)
+                                    exitloop
+                                end
+                                else if (msg.eq."SUCCESS") then
+                                begin
+                                    verboselog("Uploaded " + zipFile)
+
+
+                                    fileUploaded = true
+                                    exitloop
+                                end
+                                else
+                                begin
+                                    ;S3UPLOAD.COM: or something unexpected
+                                    verboselog(msg)
+                                end
+                            end
+                        end
+                        catch (ex, @EndOfFileException)
+                        begin
+                            ok = false
+                            responseError = "Failed to upload compressed file"
+                        end
+                        catch (ex, @Exception)
+                        begin
+                            ok = false
+                            responseError = "Failed to upload compressed file: " + ex.Message
+                        end
+                        finally
+                        begin
+                            close pipeCh
+                        end
+                        endtry
                     end
 
                     ;Report the outcome to the UnloadResponse topic
@@ -622,14 +697,17 @@ responseError = "S3 upload not implemented yet!"
                     if (ok && fileUploaded) then
                     begin
                         ;Send a SUCCESS response
-                        data responseMessage = "UNLOAD " + tableName + " SUCCESS " + zipName + " " + exportFile
+                        data responseMessage = "UNLOAD " + tableName + " SUCCESS " + zipFile + " " + exportFile
+
+                        verboselog("Sending " + responseMessage)
 
                         kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
 
                         using kafkaApiResponse select
                         (0),
                         begin
-                            verboselog("UNLOAD SUCCESS response acknowledged")
+                            ;Response acknowledged
+                            log("Sent " + responseMessage)
                         end
                         (-2),
                         begin
@@ -651,14 +729,14 @@ responseError = "S3 upload not implemented yet!"
 
                         data responseMessage = "UNLOAD " + tableName + " ERROR " + responseError
 
-                        log("ERROR: " + responseError)
+                        verboselog("Sending " + responseError)
 
                         kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
 
                         using kafkaApiResponse select
                         (0),
                         begin
-                            verboselog("UNLOAD ERROR response acknowledged")
+                            log("Sent " + responseError)
                         end
                         (-2),
                         begin
@@ -692,11 +770,7 @@ responseError = "S3 upload not implemented yet!"
 
                     ;;Commit the request message so that we don't receive it again
 
-                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
-                    begin
-                        verboselog("Request committed")
-                    end
-                    else
+                    if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) != 0)
                     begin
                         log("ERROR: Failed to commit request: " + errorText)
 ;TODO: Now what? Disconnect, reconnect, try again?
@@ -712,7 +786,6 @@ responseError = "S3 upload not implemented yet!"
 
                     if (%KAFKA_COMMIT(agentSettings.RequestTopic,partition,offset+1,errorText) == 0) then
                     begin
-                        verboselog("Request committed")
                         nextloop
                     end
                     else
