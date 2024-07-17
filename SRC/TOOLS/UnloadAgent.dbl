@@ -470,25 +470,26 @@ proc
                 
                     data tableName, string, message(8,messageSize)
 
+                    log("Recv " + %atrim(message))
+
                     ;Do we have vailid table names, and if so is the table name valid
 
-                    if (validTables!=^null && validTables.Length>0) then
-                    begin
-                        if (Array.IndexOf(validTables,tableName,1,validTables.Length) >= 1) then
-                        begin
-                            log("Recv UNLOAD " + tableName)
-                        end
-                        else
-                        begin
-                            ok = false
-                            responseError = "Received UNLOAD for invalid table " + tableName
-                        end
-                    end
-                    else
+                    if (validTables==^null || validTables.Length==0)
                     begin
                         ;Bad request
                         ok = false
                         responseError = "Must send TABLES list before UNLOAD"
+                    end
+
+                    ;Validate the table name is one we know about
+
+                    if (ok)
+                    begin
+                        if (Array.IndexOf(validTables,tableName,1,validTables.Length) < 1)
+                        begin
+                            ok = false
+                            responseError = "Invalid table " + tableName
+                        end
                     end
 
                     ;Determine record length
@@ -729,14 +730,14 @@ proc
 
                         data responseMessage = "UNLOAD " + tableName + " ERROR " + responseError
 
-                        verboselog("Sending " + responseError)
+                        verboselog("Sending " + responseMessage)
 
                         kafkaApiResponse = %KAFKA_SEND_BLOCKING(agentSettings.ResponseTopic,responseMessage,agentSettings.ResponseTimeoutMs,errorText)
 
                         using kafkaApiResponse select
                         (0),
                         begin
-                            log("Sent " + responseError)
+                            log("Sent " + responseMessage)
                         end
                         (-2),
                         begin
