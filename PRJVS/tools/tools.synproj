@@ -104,8 +104,8 @@
     <Compile Include="..\..\SRC\TOOLS\ReplicatorStop.dbl">
       <Link>ReplicatorStop.dbl</Link>
     </Compile>
-    <Compile Include="..\..\SRC\TOOLS\UnloadAgent.dbl">
-      <Link>UnloadAgent.dbl</Link>
+    <Compile Include="..\..\SRC\TOOLS\UnloadAgentVMS.dbl">
+      <Link>UnloadAgentVMS.dbl</Link>
     </Compile>
   </ItemGroup>
   <ItemGroup>
