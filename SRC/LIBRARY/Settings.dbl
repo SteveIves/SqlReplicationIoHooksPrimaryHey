@@ -70,9 +70,11 @@ namespace ReplicationLibrary
                     QueueFileName = "REPLICATOR_DATA:REPLICATION_" + mInstanceName + ".ISM"
                     LogFileName = "REPLICATOR_LOGDIR:REPLICATION_" + mInstanceName + "_" + now(1:8) + "_" + now(9:6) + ".LOG"
 .ifdef DBLNET
-                    KafkaClientId = "REPLICATOR_" + mInstanceName
-                    KafkaTopicName = "REPLICATION_" + mInstanceName
-                    KafkaConsumerGroupName = "REPLICATION_" + mInstanceName + "_CONSUMERS"
+                    KafkaClientId = mInstanceName + "_REPLICATOR"
+                    KafkaTopicName = mInstanceName + "_REPLICATOR"
+                    KafkaConsumerGroupName = mInstanceName + "REPLICATIOR"
+                    KafkaUnloadRequestTopic = mInstanceName + "_UNLOAD_REQUEST"
+                    KafkaUnloadResponseTopic = mInstanceName + "_UNLOAD_RESPONSE"
 .endc
                 endmethod
             endproperty
@@ -190,16 +192,6 @@ namespace ReplicationLibrary
             ;;; Set automatically to REPLICATION_<InstanceName>
             ;;; </summary>
             public static readwrite property KafkaServers, string
-
-            ;;; <summary>
-            ;;; The name of the Kafka topic to use to request remot file unload operations
-            ;;; </summary>
-            public static readwrite property KafkaUnloadRequestTopic, string
-
-            ;;; <summary>
-            ;;; The name of the Kafka topic to use to receive unload completion messages
-            ;;; </summary>
-            public static readwrite property KafkaUnloadResponseTopic, string
 .endc
             ;;; <summary>
             ;;; Where should export files be created locally?
@@ -353,6 +345,16 @@ namespace ReplicationLibrary
             ;;; Set automatically to REPLICATION_<InstanceName>
             ;;; </summary>
             public static readwrite property KafkaTopicName, string
+
+            ;;; <summary>
+            ;;; The name of the Kafka topic to use to request remot file unload operations
+            ;;; </summary>
+            public static readwrite property KafkaUnloadRequestTopic, string
+
+            ;;; <summary>
+            ;;; The name of the Kafka topic to use to receive unload completion messages
+            ;;; </summary>
+            public static readwrite property KafkaUnloadResponseTopic, string
 .endc
             ;;; <summary>
             ;;; The file spec of the instances log file
@@ -826,8 +828,6 @@ namespace ReplicationLibrary
                     Settings.FileServicePort            = instanceDefaults.FileServicePort
 .ifdef DBLNET
                     Settings.KafkaServers               = instanceDefaults.KafkaServers
-                    Settings.KafkaUnloadRequestTopic    = instanceDefaults.KafkaUnloadRequestTopic
-                    Settings.KafkaUnloadResponseTopic   = instanceDefaults.KafkaUnloadResponseTopic
 .endc
                     Settings.LocalExportPath            = instanceDefaults.LocalExportPath
                     Settings.LogBulkLoadExceptions      = instanceDefaults.LogBulkLoadExceptions
@@ -1234,40 +1234,6 @@ namespace ReplicationLibrary
                             else
                             begin
                                 Settings.KafkaServers = setting.GetString()
-                            end
-                        end
-                    end
-
-                    ;KafkaUnloadRequestTopic
-                    if (ok)
-                    begin
-                        if (instance.TryGetProperty("KafkaUnloadRequestTopic",setting))
-                        begin
-                            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                            begin
-                                errorMessage = "KafkaUnloadRequestTopic must have a non-blank string value!"
-                                ok = false
-                            end
-                            else
-                            begin
-                                Settings.KafkaUnloadRequestTopic = setting.GetString()
-                            end
-                        end
-                    end
-
-                    ;KafkaUnloadResponseTopic
-                    if (ok)
-                    begin
-                        if (instance.TryGetProperty("KafkaUnloadResponseTopic",setting))
-                        begin
-                            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
-                            begin
-                                errorMessage = "KafkaUnloadResponseTopic must have a non-blank string value!"
-                                ok = false
-                            end
-                            else
-                            begin
-                                Settings.KafkaUnloadResponseTopic = setting.GetString()
                             end
                         end
                     end

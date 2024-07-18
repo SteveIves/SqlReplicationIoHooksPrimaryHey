@@ -168,16 +168,17 @@ proc
 
     Console.WriteLine("")
     Console.WriteLine("")
-    Console.WriteLine("File Unload Agent")
+    Console.WriteLine("Replication Unload/Upload Agent Log")
     Console.WriteLine("")
+    Console.WriteLine("Instance name     : " + agentSettings.InstanceName)
     Console.WriteLine("Working directory : " + agentSettings.UnloadAgentDirectory)
     Console.WriteLine("Kafka brokers     : " + agentSettings.KafkaBrokers)
     Console.WriteLine("Consumer group    : " + agentSettings.ConsumerGroup)
     Console.WriteLine("Request topic     : " + agentSettings.RequestTopic)
-    Console.WriteLine("Request timeout   : " + %string(agentSettings.RequestTimeoutMs) + " ms")
     Console.WriteLine("Response topic    : " + agentSettings.ResponseTopic)
-    Console.WriteLine("Response timeout  : " + %string(agentSettings.ResponseTimeoutMs) + " ms")
+    Console.WriteLine("Req/Resp timeout  : " + %string(agentSettings.RequestTimeoutMs) + "ms/" + %string(agentSettings.ResponseTimeoutMs) + "ms")
     Console.WriteLine("Verbose logging   : " + (agentSettings.VerboseLogging ? "Enabled" : "Disabled"))
+    Console.WriteLine("DCL logging       : " + (agentSettings.DclLogging ? "Enabled" : "Disabled"))
     Console.WriteLine("")
 
     ;Connect to Kafka 

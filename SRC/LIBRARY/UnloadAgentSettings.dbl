@@ -10,16 +10,20 @@ namespace ReplicationLibrary
 
         private static configFileSpec, string
 
+        ;Properties set ffrom config file
+        public readwrite property InstanceName, string
         public readwrite property KafkaBrokers, string
-        public readwrite property ConsumerGroup, string
-        public readwrite property RequestTopic, string
         public readwrite property RequestTimeoutMs, int
-        public readwrite property ResponseTopic, string
         public readwrite property ResponseTimeoutMs, int
         public readwrite property UnloadAgentDirectory, string
         public readwrite property VerboseLogging, boolean
         public readwrite property DclLogging, boolean
         public readwrite property EnvironmentVariables, [#]@EnvironmentVariable
+
+        ;Properties set in code
+        public readwrite property ConsumerGroup, string
+        public readwrite property RequestTopic, string
+        public readwrite property ResponseTopic, string
 
         ;;; <summary>
         ;;; Loads settings from the JSON configuration file
@@ -48,6 +52,27 @@ namespace ReplicationLibrary
             instance = new UnloadAgentSettings()
 
             ;--------------------------------------------------------------------------------------------------------
+            ;InstanceName
+
+            if (doc.RootElement.TryGetProperty("InstanceName",setting)) then
+            begin
+                if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
+                begin
+                    errorMessage = "InstanceName setting must be a non-blank string!"
+                    mreturn ^null
+                end
+                instance.InstanceName = setting.GetString()
+            end
+            else
+            begin
+                instance.InstanceName = "DEFAULT"
+            end
+
+            instance.ConsumerGroup = instance.InstanceName + "_UNLOAD_AGENT"
+            instance.RequestTopic = instance.InstanceName + "_UNLOAD_REQUEST"
+            instance.ResponseTopic = instance.InstanceName + "_UNLOAD_RESPONSE"
+
+            ;--------------------------------------------------------------------------------------------------------
             ;KafkaBrokers
 
             if (!doc.RootElement.TryGetProperty("KafkaBrokers",setting))
@@ -55,7 +80,7 @@ namespace ReplicationLibrary
                 errorMessage = "KafkaBrokers is not defined in " + configFileSpec
                 mreturn ^null
             end
-            
+
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
             begin
                 errorMessage = "KafkaBrokers setting must be a non-blank string!"
@@ -65,42 +90,6 @@ namespace ReplicationLibrary
             instance.KafkaBrokers = setting.GetString()
 
             ;--------------------------------------------------------------------------------------------------------
-            ;ConsumerGroup
-            ;Note that if a consumer group name is sent to KAFKA_INIT then a TWO-WAY pipe is created, but if no
-            ;consumer group is passed then a one-way outbould only connection is created.
-
-            if (!doc.RootElement.TryGetProperty("ConsumerGroup",setting))
-            begin
-                errorMessage = "ConsumerGroup is not defined in " + configFileSpec
-                mreturn ^null
-            end
-            
-            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
-            begin
-                errorMessage = "ConsumerGroup setting must be a non-blank string!"
-                mreturn ^null
-            end
-
-            instance.ConsumerGroup = setting.GetString()
-
-            ;--------------------------------------------------------------------------------------------------------
-            ;RequestTopic
-
-            if (!doc.RootElement.TryGetProperty("RequestTopic",setting))
-            begin
-                errorMessage = "RequestTopic is not defined in " + configFileSpec
-                mreturn ^null
-            end
-            
-            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
-            begin
-                errorMessage = "RequestTopic setting must be a non-blank string!"
-                mreturn ^null
-            end
-
-            instance.RequestTopic = setting.GetString()
-
-            ;--------------------------------------------------------------------------------------------------------
             ;RequestTimeoutMs
 
             if (!doc.RootElement.TryGetProperty("RequestTimeoutMs",setting))
@@ -108,7 +97,7 @@ namespace ReplicationLibrary
                 errorMessage = "RequestTimeoutMs is not defined in " + configFileSpec
                 mreturn ^null
             end
-            
+
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32() < 1)
             begin
                 errorMessage = "RequestTimeoutMs setting must be a positive integer!"
@@ -118,23 +107,6 @@ namespace ReplicationLibrary
             instance.RequestTimeoutMs = setting.GetInt32()
 
             ;--------------------------------------------------------------------------------------------------------
-            ;ResponseTopic
-
-            if (!doc.RootElement.TryGetProperty("ResponseTopic",setting))
-            begin
-                errorMessage = "ResponseTopic is not defined in " + configFileSpec
-                mreturn ^null
-            end
-            
-            if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
-            begin
-                errorMessage = "ResponseTopic setting must be a non-blank string!"
-                mreturn ^null
-            end
-
-            instance.ResponseTopic = setting.GetString()
-
-            ;--------------------------------------------------------------------------------------------------------
             ;ResponseTimeoutMs
 
             if (!doc.RootElement.TryGetProperty("ResponseTimeoutMs",setting))
@@ -142,7 +114,7 @@ namespace ReplicationLibrary
                 errorMessage = "ResponseTimeoutMs is not defined in " + configFileSpec
                 mreturn ^null
             end
-            
+
             if (setting.ValueKind!=JsonValueKind.Number || setting.GetInt32() < 1)
             begin
                 errorMessage = "ResponseTimeoutMs setting must be a positive integer!"
@@ -159,7 +131,7 @@ namespace ReplicationLibrary
                 errorMessage = "UnloadAgentDirectory is not defined in " + configFileSpec
                 mreturn ^null
             end
-            
+
             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString()))
             begin
                 errorMessage = "UnloadAgentDirectory setting must be a non-blank string!"
@@ -176,7 +148,7 @@ namespace ReplicationLibrary
                 errorMessage = "VerboseLogging is not defined in " + configFileSpec
                 mreturn ^null
             end
-            
+
             if (setting.ValueKind!=JsonValueKind.true && setting.ValueKind!=JsonValueKind.false)
             begin
                 errorMessage = "VerboseLogging setting must be a boolean value!"
@@ -193,7 +165,7 @@ namespace ReplicationLibrary
                 errorMessage = "DclLogging is not defined in " + configFileSpec
                 mreturn ^null
             end
-            
+
             if (setting.ValueKind!=JsonValueKind.true && setting.ValueKind!=JsonValueKind.false)
             begin
                 errorMessage = "DclLogging setting must be a boolean value!"
