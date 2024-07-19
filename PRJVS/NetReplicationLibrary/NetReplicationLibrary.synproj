@@ -71,6 +71,7 @@
     <Compile Include="..\..\SRC\LIBRARY\EmployeeMscIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmployeeSqlIO.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\EmployeeSynIO.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\EnvironmentVariable.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\File.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\FileChunkReader.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\FileServiceClient.dbl" />
@@ -91,7 +92,9 @@
     <Compile Include="..\..\SRC\LIBRARY\IsTime.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Json.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\KafkaAPI.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\KafkaConsumer.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\KafkaMessage.dbl" />
+    <Compile Include="..\..\SRC\LIBRARY\KafkaReplicationMessage.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\LastRecordCache.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\LoadTestManager.dbl" />
     <Compile Include="..\..\SRC\LIBRARY\Logger.dbl" />

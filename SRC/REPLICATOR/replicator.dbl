@@ -88,7 +88,7 @@ main replicator
         boxedRfa,                   @a                  ;A boxed RFA value
 .ifdef DBLNET
         msg,                        @ConsumeResult<string,string>
-        inst,                       @KafkaMessage
+        inst,                       @KafkaReplicationMessage
 .endc
     endrecord
 
@@ -100,7 +100,7 @@ proc
     ;Check that we have the basic environment that we need
     begin
         data errorMessage, string
-        if (!(ok = %ValidateBasicEnvironment(errorMessage)))
+        if (!(ok = %ValidateBasicEnvironment(true,errorMessage)))
         begin
             Console.WriteLine("Basic environment not established. " + errorMessage)
         end
@@ -207,30 +207,30 @@ proc
                         begin
                             try
                             begin
-                                inst = new KafkaMessage(msg.Value)
+                                inst = new KafkaReplicationMessage(msg.Value)
 
                                 using inst.op_type select
-                                (KafkaMessageType.InsertAc),
+                                (KafkaReplicationMessageType.InsertAc),
                                 begin
                                     ;TODO: Need to add support for INSERT_RELATIVE
                                     instruction.action = (i)REPLICATION_INSTRUCTION.CREATE_ROW
                                     instruction.structure_name = inst.file_id
                                     instruction.record = inst.record_data
                                 end
-                                (KafkaMessageType.UpdateAc),
+                                (KafkaReplicationMessageType.UpdateAc),
                                 begin
                                     ;TODO: Need to add support for UPDATE_RELATIVE
                                     instruction.action = (i)REPLICATION_INSTRUCTION.UPDATE_ROW
                                     instruction.structure_name = inst.file_id
                                     instruction.record = inst.record_data
                                 end
-                                (KafkaMessageType.DeleteAc),
+                                (KafkaReplicationMessageType.DeleteAc),
                                 begin
                                     instruction.action = (i)REPLICATION_INSTRUCTION.DELETE_ROW
                                     instruction.structure_name = inst.file_id
                                     instruction.record = inst.record_data
                                 end
-                                (KafkaMessageType.StartTxn,KafkaMessageType.Insert,KafkaMessageType.Update,KafkaMessageType.Delete,KafkaMessageType.Commit),
+                                (KafkaReplicationMessageType.StartTxn,KafkaReplicationMessageType.Insert,KafkaReplicationMessageType.Update,KafkaReplicationMessageType.Delete,KafkaReplicationMessageType.Commit),
                                 begin
                                     ;TODO: Transactions based on Kafka messages are not implemented yet
                                     Logger.ErrorLog("Support for applicaion controlled transactions is not implemented!")
@@ -1403,7 +1403,7 @@ LoadTable,
     if (doReturn)
         return
 
-    Logger.Log(" - Load starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
+    Logger.Log("Load starting at " + %TimeNow + " with " + %string(recordCount) + " rows")
 
     using Settings.DatabaseConnectMode select
     (DatabaseConnectionMode.SqlConnection),
@@ -1411,7 +1411,10 @@ LoadTable,
     (DatabaseConnectionMode.SqlClient),
         functionName = %atrim(instruction.structure_name) + "_Load"
     (DatabaseConnectionMode.SDMS),
-        functionName = %atrim(instruction.structure_name) + "$Load"
+    begin
+        ;In SDMS mode we only support bulk load
+        return
+    end
     endusing
 
     if (EmailSettings.CanSendEmail())
@@ -1530,7 +1533,7 @@ BulkLoadTable,
     end
     (DatabaseConnectionMode.SDMS),
     begin
-        functionName = %atrim(instruction.structure_name) + "$Load"
+        functionName = %atrim(instruction.structure_name) + "$BulkLoad"
     end
     endusing
 
@@ -2095,7 +2098,7 @@ DoCreateTable,
 
         try
         begin
-            status = %xsubr(functionName,dberrtxt)
+            status = %xsubr(functionName,useTempTable,dberrtxt)
 
             using status select
             (1),
@@ -2120,11 +2123,11 @@ DoCreateTable,
 
                     try
                     begin
-                        status = %xsubr(functionName,dberrtxt)
+                        status = %xsubr(functionName,useTempTable,dberrtxt)
 
                         if (status) then
                         begin
-                            Logger.VerboseLog(" - Table created")
+                            Logger.VerboseLog("Table created")
 
                             if (EmailSettings.CanSendEmail())
                             begin
@@ -2217,7 +2220,7 @@ DoLoadTable,
         doReturn = false
         try
         begin
-            status = %xsubr(functionName,dberrtxt)
+            status = %xsubr(functionName,useTempTable,dberrtxt)
             exitloop
         end
         catch (ex, @DatabaseCommunicationException)
@@ -2404,7 +2407,7 @@ DoDeleteTable,
         end
     end
 
-    Logger.VerboseLog(" - Checking if table exists")
+    Logger.VerboseLog("Checking if table exists")
 
     repeat
     begin
@@ -2424,12 +2427,12 @@ DoDeleteTable,
             using status select
             (0),
             begin
-                Logger.VerboseLog(" - Table does not exist!")
+                Logger.VerboseLog("Table does not exist!")
                 exitloop
             end
             (1),
             begin
-                Logger.VerboseLog(" - Deleting table")
+                Logger.VerboseLog("Deleting table")
 
                 repeat
                 begin
@@ -2448,7 +2451,7 @@ DoDeleteTable,
 
                         if (status) then
                         begin
-                            Logger.VerboseLog(" - Table deleted")
+                            Logger.VerboseLog("Table deleted")
 
                             if (EmailSettings.CanSendEmail())
                             begin

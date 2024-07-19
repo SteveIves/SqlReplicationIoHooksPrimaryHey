@@ -2045,6 +2045,7 @@ function <StructureName>Drop, ^val
 
     stack record local_data
         ok          ,boolean    ;Return status
+.align
         sql         ,string     ;SQL statement
         dberror     ,int        ;Database error number
         cursor      ,int        ;Database cursor

@@ -23,7 +23,7 @@ proc
     data conf = new ConsumerConfig()
     conf.ClientId = Settings.KafkaClientId
     conf.GroupId = Settings.KafkaConsumerGroupName
-    conf.BootstrapServers = Settings.KafkaServers
+    conf.BootstrapServers = Settings.KafkaBrokers
     conf.AutoOffsetReset = AutoOffsetReset.Earliest
 
     ;Disable auto commit so that we can control when kafka messages are committed

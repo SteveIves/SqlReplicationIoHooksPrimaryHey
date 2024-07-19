@@ -108,31 +108,28 @@ import System.Text
 ;;; <summary>
 ;;; Determines if <FILE_NAME> exists in the replicated data set.
 ;;; </summary>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
 ;;; <param name="errorMessage">Returned error message.</param>
-;;; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
+;;; <returns>Returns 1 if the file exists and 0 if it does not.</returns>
 
 function <StructureName>$Exists, ^val
+    required in useTempFile, n ;Not currently implemented
     required out errorMessage, a
-    endparams
 
-    .align
-    stack record localData
-        status,  int    ;Returned status
+    stack record
+        ok, boolean
     endrecord
-
 proc
-    init localData
+    ok = true
     errorMessage = ""
 
-    if (ReplicationLibrary.File.Exists("<FILE_NAME>")) then
-        status = 1
-    else
+    if (!ReplicationLibrary.File.Exists("<FILE_NAME>"))
     begin
-        status = 0
+        ok = false
         errorMessage = "File <FILE_NAME> does not exist!"
     end
 
-    freturn status
+    freturn ok
 
 endfunction
 
@@ -140,15 +137,17 @@ endfunction
 ;;; <summary>
 ;;; Creates <FILE_NAME> in the replicated data set.
 ;;; </summary>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
 ;;; <param name="errorMessage">Returned error message.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Create, ^val
+    required in useTempFile, n ;Not currently implemented
     required out errorMessage, a
 
-    .align
+.align
     stack record localData
-        ok,     boolean    ;Return status
+        ok,     boolean     ;Return status
 <IF STRUCTURE_RELATIVE>
         ch,     int         ;Channel number
 </IF>
@@ -164,9 +163,9 @@ proc
 <IF STRUCTURE_ISAM>
         xcall isamc("<FILE_ISAMC_SPEC>",<STRUCTURE_SIZE>,<STRUCTURE_KEYS>,
   <KEY_LOOP>
-        & "<KEY_ISAMC_SPEC>"<,>
+        &    "<KEY_ISAMC_SPEC>"<,>
   </KEY_LOOP>
-        & )
+        &    )
 <ELSE STRUCTURE_RELATIVE>
         open(ch=0,o:r,"<FILE_NAME>",RECSIZ:<STRUCTURE_SIZE>)
 </IF>
@@ -578,10 +577,12 @@ endfunction
 ;;; <summary>
 ;;; Deletes all rows from the <StructureName> table.
 ;;; </summary>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
 ;;; <param name="errorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Clear, ^val
+    required in useTempFile, n ;Not currently implemented
     required out errorMessage, a
     external common
         ch<StructureName>, int
@@ -591,14 +592,10 @@ proc
 
     ;If the file is open, close it
 
-    if (!ch<StructureName>)
+    if (ch<StructureName>)
     begin
-        ch<StructureName> = <StructureName>OpenUpdate(errorMessage)
-        if (!ch<StructureName>)
-        begin
-            errorMessage = "Failed to open <FILE_NAME>. Error was: " + %atrim(errorMessage)
-            freturn 0
-        end
+        close ch<StructureName>
+        ch<StructureName> = 0
     end
 
     ;Clear the file
@@ -606,7 +603,7 @@ proc
     try
     begin
         data ignored, i4
-        xcall isclr("FILE_NAME",ignored)
+        xcall isclr("<FILE_NAME>",ignored)
         freturn true
     end
     catch (ex, @Exception)
@@ -623,10 +620,12 @@ endfunction
 ;;; <summary>
 ;;; Deletes the <StructureName> table from the database.
 ;;; </summary>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
 ;;; <param name="errorMessage">Returned error message.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function <StructureName>$Drop, ^val
+    required in useTempFile, n ;Not currently implemented
     required out errorMessage, a
     external common
         ch<StructureName>, int
@@ -663,90 +662,76 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Load all data from the original file into <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF>
+;;; Bulk load data from <IF STRUCTURE_MAPPED><MAPPED_FILE><ELSE><FILE_NAME></IF STRUCTURE_MAPPED> into the <StructureName> table via a CSV file.
 ;;; </summary>
-;;; <param name="a_maxrows">Maximum number of rows to load.</param>
-;;; <param name="a_added">Number of successful inserts.</param>
-;;; <param name="a_failed">Number of failed inserts.</param>
-;;; <param name="errorMessage">Returned error message (if return value is false).</param>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
+;;; <param name="recordsLoaded">Records loaded</param>
+;;; <param name="exceptionCount">Records failes</param>
+;;; <param name="errorMessage">Error message (if return value is false)</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function <StructureName>$Load, ^val
-    required in  a_maxrows, n
-    required out a_added, n
-    required out a_failed, n
+function <StructureName>$BulkLoad, ^val
+    required in recordsToLoad, n
+    required in useTempFile, n ;Not currently implemented
+    required out recordsLoaded, n
+    required out exceptionCount, n
     required out errorMessage, a
 
-<IF STRUCTURE_ISAM AND STRUCTURE_MAPPED>
-    ;.include "<MAPPED_STRUCTURE>" repository, structure="inpbuf", end
-<ELSE STRUCTURE_ISAM AND NOT STRUCTURE_MAPPED>
-    ;.include "<STRUCTURE_NOALIAS>" repository, structure="inpbuf", end
-<ELSE STRUCTURE_RELATIVE AND STRUCTURE_MAPPED>
-    ;structure inpbuf
-    ;    recnum, d28
-    ;    .include "<MAPPED_STRUCTURE>" repository, group="inprec"
-    ;endstructure
-<ELSE STRUCTURE_RELATIVE AND NOT STRUCTURE_MAPPED>
-    ;structure inpbuf
-    ;    recnum, d28
-    ;    .include "<STRUCTURE_NOALIAS>" repository, group="inprec"
-    ;endstructure
-    ;.include "<STRUCTURE_NOALIAS>" repository, structure="<STRUCTURE_NAME>", end
-</IF>
-<IF STRUCTURE_MAPPED>
-    ;.include "<MAPPED_STRUCTURE>" repository, stack record="tmprec", end
-<ELSE>
-    ;.include "<STRUCTURE_NOALIAS>" repository, stack record="tmprec", end
-</IF>
-
-    stack record local_data
-        ok          ,boolean    ;Return status
-        now         ,a20        ;Current date and time
-        timer       ,@Timer
-<IF STRUCTURE_RELATIVE>
-        recordNumber,d28
-</IF>
+.align
+     stack record local_data
+        timer,                  @Timer
+        ok,                     boolean
+        now,                    a20
     endrecord
 
-    external common
-        ch<StructureName>, int
-    endcommon
 proc
     init local_data
     ok = true
-    a_added = 0
-    a_failed = 0
-    errorMessage = ""
 
     timer = new Timer()
     timer.Start()
 
+;TODO: Bulk upload needs implementing
+ok = false
+errorMessage = "Bulk load is not implemented yet"
 
-    ;AWSSDK.S3 - package for S3 
-
-    ok = false
-    errorMessage = "Load is not implemented yet!"
-
-
+    ;Send an UNLOAD message to the unload requests topic
 
 
 
-    ;Return totals
-    ;a_added = ?
-    ;a_failed = ?
+    ;Wait for an UNLOAD response on the unload responses topic
+
+
+
+    ;Download the File from S3 storage
+
+
+
+    ;Unzip the file
+
+
+
+    ;Load the data into the file
+
+
+
+    ;Commit the unload response message
+
+
 
     timer.Stop()
     now = %datetime
 
     if (ok) then
     begin
-        writelog("Load COMPLETE after " + timer.ElapsedTimeString)
-        writett("Load COMPLETE after " + timer.ElapsedTimeString)
+        writelog("Bulk load finished in " + timer.ElapsedTimeString)
+        writett("Bulk load finished in " + timer.ElapsedTimeString)
     end
     else
     begin
-        writelog("Load FAILED after " + timer.ElapsedTimeString)
-        writett("Load FAILED after " + timer.ElapsedTimeString)
+        writelog("Bulk load failed after " + timer.ElapsedTimeString)
+        writett("Bulk load failed after " + timer.ElapsedTimeString)
     end
 
     freturn ok

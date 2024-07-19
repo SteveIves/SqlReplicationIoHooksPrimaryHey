@@ -1,0 +1,244 @@
+
+import ReplicationLibrary
+.ifdef DBLNET
+import Confluent.Kafka
+.else
+.endc
+
+namespace ReplicationLibrary
+
+.ifdef DBLNET
+    public class KafkaConsumer implements IDisposable
+.else
+    public class KafkaConsumer
+.endc
+
+        private mBrokers, string
+        private mTopic, string
+        private mClientId, string
+        private mConsumerGroup, string
+        private mReceiveTimeoutSec, int
+
+.ifdef DBLNET
+        private mConsumer, @IConsumer<string,string>
+        private mLastMessage, @ConsumeResult<string,string>
+.else
+.ifndef OS_VMS
+.else
+        private mConnected, boolean
+        private mLastMessagePartition, i4
+        private mLastMessageOffset, i8
+.endc
+.endc
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="brokers"></param>
+        ;;; <param name="clientId"></param>
+        ;;; <param name="consumerGroup"></param>
+        ;;; <param name="topic"></param>
+        ;;; <param name="receiveTimeoutSec"></param>
+        public method KafkaConsumer
+            required in brokers, string
+            required in clientId, string
+            required in consumerGroup, string
+            required in topic, string
+            required in receiveTimeoutSec, int
+.ifdef DBLNET
+.ifndef OS_VMS
+.else
+            external function
+                KAFKA_INIT, i
+                KAFKA_RECEIVE, i
+                KAFKA_COMMIT, i
+            endexternal
+.endc
+.endc
+        proc
+            mBrokers = brokers
+            mClientId = clientId
+            mConsumerGroup = consumerGroup
+            mTopic = topic
+            mReceiveTimeoutSec = receiveTimeoutSec
+
+            ;-----------------------------------------------------------
+            ;.NET
+
+.ifdef DBLNET
+            data conf = new ConsumerConfig()
+            conf.ClientId = mClientId
+            conf.GroupId = mConsumerGroup
+            conf.BootstrapServers = mBrokers
+            conf.AutoOffsetReset = AutoOffsetReset.Earliest
+            conf.EnableAutoCommit = false
+            conf.AllowAutoCreateTopics = false
+
+            mConsumer = new ConsumerBuilder<string,string>(conf).Build()
+;TODO: The subscribe still works when the server is not running!
+            mConsumer.Subscribe(mTopic)
+.else
+            ;-----------------------------------------------------------
+            ;Traditional (Windows and Linux)
+
+.ifndef OS_VMS
+
+.endc
+            ;-----------------------------------------------------------
+            ;Traditional (OpenVMS)
+
+.ifdef OS_VMS
+            begin
+                data errorText, a256
+                if (%KAFKA_INIT(mBrokers,mConsumerGroup,errorText) == -1) then
+                    throw new ApplicationException("Failed to connect to Kafka: " + %atrim(errorText))
+                else
+                begin
+                    mConnected = true
+                    if (%KAFKA_SUBSCRIBE(mTopic,errorText) == -1)
+                    begin
+                        throw new ApplicationException("Failed to subscribe to request topic: " + %atrim(errorText))
+                    end
+                end
+            end
+.endc
+.endc
+        endmethod
+
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <returns></returns>
+        public method WaitForMessage, @KafkaMessage
+.ifdef DBLNET
+.else
+.ifndef OS_VMS
+.else
+            stack record
+                receiveStatus, i4
+                topic, a40
+                message, a4096
+                messageSize, i4
+                partition, i4
+                offset, i8
+                errorText, a256
+                msg, @KafkaMessage
+            endrecord
+.endc
+.endc
+
+        proc
+.ifdef DBLNET
+            mLastMessage = mConsumer.Consume(TimeSpan.FromSeconds(mReceiveTimeoutSec))
+            mreturn (mLastMessage == ^null) ? ^null : new KafkaMessage() { Key=mLastMessage.Key, Value=mLastMessage.Value }
+.else
+.ifndef OS_VMS
+            mreturn ^null
+.else
+            clear message
+            messageSize = ^size(message)
+
+            receiveStatus = %KAFKA_RECEIVE(mReceiveTimeoutSec*1000,topic,message,messageSize,partition,offset,errorText)
+
+            ;Timeout?
+            if (receiveStatus == -2)
+                mreturn ^null
+
+            mLastMessagePartition = partition
+            mLastMessageOffset = offset
+
+            msg = new KafkaMessage() { Value=message(1:messageSize) }
+
+            mreturn msg
+.endc
+.endc
+        endmethod
+
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        ;;; <param name="errorMessage"></param>
+        ;;; <returns></returns>
+        public method CommitLastMessage, boolean
+            required out errorMessage, string
+            stack record
+                ok, boolean
+            endrecord
+.ifdef DBLNET
+.else
+.ifndef OS_VMS
+.else
+            stack record
+               errorText, a256
+            endrecord
+            external function
+                KAFKA_COMMIT, i
+            endexternal
+.endc
+.endc
+        proc
+            ok = true
+            errorMessage = ""
+.ifdef DBLNET
+            try
+            begin
+                mConsumer.Commit(mLastMessage)
+            end
+            catch (ex, @KafkaException)
+            begin
+                ok = false
+                errorMessage = "Failed to suppress/commit unsupported message: " + ex.Message
+            end
+            catch (ex, @TopicPartitionOffsetException)
+            begin
+                ok = false
+                errorMessage = "Failed to suppress/commit unsupported messagw: " + ex.Message
+            end
+            endtry
+.else
+.ifndef OS_VMS
+.else
+            if (%KAFKA_COMMIT(mTopic,mLastMessagePartition,mLastMessageOffset+1,errorText) == -1)
+            begin
+                ok = false
+                errorMessage = "Failed to commit message: " + %atrim(errorText)
+            end
+.endc
+.endc
+            mreturn ok
+        endmethod
+
+.ifdef DBLNET
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        public virtual method Dispose, void
+        proc
+            mConsumer.Close()
+            mConsumer.Dispose()
+            mConsumer = ^null
+        endmethod
+.else
+.ifndef OS_VMS
+.else
+        ;;; <summary>
+        ;;; 
+        ;;; </summary>
+        public method Dispose, void
+            external function
+                KAFKA_SHUTDOWN, i
+            endexternal
+        proc
+            if (mConnected)
+            begin
+                data errorText, a255
+                if (%KAFKA_SHUTDOWN(errorText) == 0)
+                begin
+                    mConnected = false
+                end
+            end
+        endmethod
+.endc
+.endc
+    endclass
+
+endnamespace

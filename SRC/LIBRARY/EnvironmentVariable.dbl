@@ -1,0 +1,13 @@
+
+
+namespace ReplicationLibrary
+
+    public class EnvironmentVariable
+
+        public readwrite property Name, string
+
+        public readwrite property Value, string
+
+    endclass
+
+endnamespace

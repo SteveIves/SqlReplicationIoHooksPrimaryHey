@@ -39,7 +39,6 @@ import ReplicationLibrary
 
 subroutine ConfigureReplication
     required in channel, n
-    optional in kafkaMode, n
 
     stack record
         openMode, a3
@@ -72,7 +71,7 @@ proc
     ;;The third parameter to the I/O Hooks constructor is the REPLICATOR INSTANCE name to replicate to.
     ;;This in turn determines the name of the queue file that instructions are written to.
     
-    if (^passed(kafkaMode) && kafkaMode) then
+    if (Settings.QueueType == MessageQueueType.Kafka) then
     begin
         using fileSpec select
         ("DEPARTMENT.ISM"),

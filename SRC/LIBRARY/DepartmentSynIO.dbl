@@ -48,31 +48,28 @@ import System.Text
 ;;; <summary>
 ;;; Determines if REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM exists in the replicated data set.
 ;;; </summary>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
 ;;; <param name="errorMessage">Returned error message.</param>
-;;; <returns>Returns 1 if the file exists, otherwise a number indicating the type of error.</returns>
+;;; <returns>Returns 1 if the file exists and 0 if it does not.</returns>
 
 function Department$Exists, ^val
+    required in useTempFile, n ;Not currently implemented
     required out errorMessage, a
-    endparams
 
-    .align
-    stack record localData
-        status,  int    ;Returned status
+    stack record
+        ok, boolean
     endrecord
-
 proc
-    init localData
+    ok = true
     errorMessage = ""
 
-    if (ReplicationLibrary.File.Exists("REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM")) then
-        status = 1
-    else
+    if (!ReplicationLibrary.File.Exists("REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM"))
     begin
-        status = 0
+        ok = false
         errorMessage = "File REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM does not exist!"
     end
 
-    freturn status
+    freturn ok
 
 endfunction
 
@@ -80,15 +77,17 @@ endfunction
 ;;; <summary>
 ;;; Creates REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM in the replicated data set.
 ;;; </summary>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
 ;;; <param name="errorMessage">Returned error message.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Department$Create, ^val
+    required in useTempFile, n ;Not currently implemented
     required out errorMessage, a
 
-    .align
+.align
     stack record localData
-        ok,     boolean    ;Return status
+        ok,     boolean     ;Return status
     endrecord
 
 proc
@@ -99,9 +98,9 @@ proc
     try
     begin
         xcall isamc("REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM,FIXED,COMPRESS,DENSITY=50,PAGE=1024",100,2,
-        & "START=1,LENGTH=15,NAME=DEPT_ID,ASCEND,DENSITY=50,DUPS,NOATEND,NOMODIFY",
-        & "START=66,LENGTH=8,NAME=DEPT_MANAGER,TYPE=DECIMAL,ORDER=A,DENSITY=50,NODUPS,MODIFY"
-        & )
+        &    "START=1,LENGTH=15,NAME=DEPT_ID,ASCEND,DENSITY=50,DUPS,NOATEND,NOMODIFY",
+        &    "START=66,LENGTH=8,NAME=DEPT_MANAGER,TYPE=DECIMAL,ORDER=A,DENSITY=50,NODUPS,MODIFY"
+        &    )
     end
     catch (ex, @Exception)
     begin
@@ -447,10 +446,12 @@ endfunction
 ;;; <summary>
 ;;; Deletes all rows from the Department table.
 ;;; </summary>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
 ;;; <param name="errorMessage">Returned error text.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Department$Clear, ^val
+    required in useTempFile, n ;Not currently implemented
     required out errorMessage, a
     external common
         chDepartment, int
@@ -460,14 +461,10 @@ proc
 
     ;If the file is open, close it
 
-    if (!chDepartment)
+    if (chDepartment)
     begin
-        chDepartment = DepartmentOpenUpdate(errorMessage)
-        if (!chDepartment)
-        begin
-            errorMessage = "Failed to open REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM. Error was: " + %atrim(errorMessage)
-            freturn 0
-        end
+        close chDepartment
+        chDepartment = 0
     end
 
     ;Clear the file
@@ -475,7 +472,7 @@ proc
     try
     begin
         data ignored, i4
-        xcall isclr("FILE_NAME",ignored)
+        xcall isclr("REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM",ignored)
         freturn true
     end
     catch (ex, @Exception)
@@ -492,10 +489,12 @@ endfunction
 ;;; <summary>
 ;;; Deletes the Department table from the database.
 ;;; </summary>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
 ;;; <param name="errorMessage">Returned error message.</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
 function Department$Drop, ^val
+    required in useTempFile, n ;Not currently implemented
     required out errorMessage, a
     external common
         chDepartment, int
@@ -532,68 +531,76 @@ endfunction
 
 ;*****************************************************************************
 ;;; <summary>
-;;; Load all data from the original file into REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM
+;;; Bulk load data from REPLICATOR_SAMPLE_DATA:DEPARTMENT.ISM into the Department table via a CSV file.
 ;;; </summary>
-;;; <param name="a_maxrows">Maximum number of rows to load.</param>
-;;; <param name="a_added">Number of successful inserts.</param>
-;;; <param name="a_failed">Number of failed inserts.</param>
-;;; <param name="errorMessage">Returned error message (if return value is false).</param>
+;;; <param name="recordsToLoad">Number of records to load (0=all)</param>
+;;; <param name="useTempFile">Use temporary file (not currently implemented).</param>
+;;; <param name="recordsLoaded">Records loaded</param>
+;;; <param name="exceptionCount">Records failes</param>
+;;; <param name="errorMessage">Error message (if return value is false)</param>
 ;;; <returns>Returns true on success, otherwise false.</returns>
 
-function Department$Load, ^val
-    required in  a_maxrows, n
-    required out a_added, n
-    required out a_failed, n
+function Department$BulkLoad, ^val
+    required in recordsToLoad, n
+    required in useTempFile, n ;Not currently implemented
+    required out recordsLoaded, n
+    required out exceptionCount, n
     required out errorMessage, a
 
-    ;.include "DEPARTMENT" repository, structure="inpbuf", end
-    ;.include "DEPARTMENT" repository, stack record="tmprec", end
-
-    stack record local_data
-        ok          ,boolean    ;Return status
-        now         ,a20        ;Current date and time
-        timer       ,@Timer
+.align
+     stack record local_data
+        timer,                  @Timer
+        ok,                     boolean
+        now,                    a20
     endrecord
 
-    external common
-        chDepartment, int
-    endcommon
 proc
     init local_data
     ok = true
-    a_added = 0
-    a_failed = 0
-    errorMessage = ""
 
     timer = new Timer()
     timer.Start()
 
+;TODO: Bulk upload needs implementing
+ok = false
+errorMessage = "Bulk load is not implemented yet"
 
-    ;AWSSDK.S3 - package for S3 
-
-    ok = false
-    errorMessage = "Load is not implemented yet!"
-
-
+    ;Send an UNLOAD message to the unload requests topic
 
 
 
-    ;Return totals
-    ;a_added = ?
-    ;a_failed = ?
+    ;Wait for an UNLOAD response on the unload responses topic
+
+
+
+    ;Download the File from S3 storage
+
+
+
+    ;Unzip the file
+
+
+
+    ;Load the data into the file
+
+
+
+    ;Commit the unload response message
+
+
 
     timer.Stop()
     now = %datetime
 
     if (ok) then
     begin
-        writelog("Load COMPLETE after " + timer.ElapsedTimeString)
-        writett("Load COMPLETE after " + timer.ElapsedTimeString)
+        writelog("Bulk load finished in " + timer.ElapsedTimeString)
+        writett("Bulk load finished in " + timer.ElapsedTimeString)
     end
     else
     begin
-        writelog("Load FAILED after " + timer.ElapsedTimeString)
-        writett("Load FAILED after " + timer.ElapsedTimeString)
+        writelog("Bulk load failed after " + timer.ElapsedTimeString)
+        writett("Bulk load failed after " + timer.ElapsedTimeString)
     end
 
     freturn ok

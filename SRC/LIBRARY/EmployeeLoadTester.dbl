@@ -119,8 +119,7 @@ namespace ReplicationLibrary
             Monitor.Exit(^typeof(EmployeeLoadTester))
 
             ;Add replication I/O hooks to the channel
-            data queueModeNumber = mQueueMode == MessageQueueType.Kafka ? 1 : 0
-            xcall ConfigureReplication(mChn,queueModeNumber)
+            xcall ConfigureReplication(mChn)
 
             Console.WriteLine("Task {0} has opened REPLICATOR_DATA:EMPLOYEE.ISM on channel {1}",mTaskNumber,mChn)
 

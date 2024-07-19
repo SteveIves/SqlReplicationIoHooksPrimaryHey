@@ -1,0 +1,351 @@
+;*****************************************************************************
+;
+; File:         KafkaReplicationMessage.dbl
+;
+; Description:  Represents a replication message to send to or receive via
+;               a Kafka queue
+;
+; Author:       Steve Ives, Synergex Professional Services Group
+;
+;*****************************************************************************
+;
+; Copyright (c) 2024, Synergex International, Inc.
+; All rights reserved.
+;
+; Redistribution and use in source and binary forms, with or without
+; modification, are permitted provided that the following conditions are met:
+;
+; * Redistributions of source code must retain the above copyright notice,
+;   this list of conditions and the following disclaimer.
+;
+; * Redistributions in binary form must reproduce the above copyright notice,
+;   this list of conditions and the following disclaimer in the documentation
+;   and/or other materials provided with the distribution.
+;
+; THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+; IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+; ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+; LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+; CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+; SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+; CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+; POSSIBILITY OF SUCH DAMAGE.
+;
+;******************************************************************************
+
+.ifndef DBLNET
+import Json
+.endc
+import Synergex.SynergyDE
+import System.Text
+import System.Text.Json
+
+namespace ReplicationLibrary
+    
+    public enum KafkaReplicationMessageType
+        Insert,         1
+        InsertAc,       2
+        Update,         3
+        UpdateAc,       4
+        Delete,         5
+        DeleteAc,       6
+        StartTxn,       7
+        Commit,         8
+        Leader,         9
+        LeaderResponse, 10
+        ReplicationAck, 11
+        Error,          12
+    endenum
+
+    public class KafkaReplicationMessage
+
+        ;-------------------------------------------------------------------------------------------
+        ;Constructors
+
+        ;;; <summary>
+        ;;; Constructs a new empty message.
+        ;;; </summary>
+        public method KafkaReplicationMessage
+        proc
+            
+        endmethod
+
+        ;;; <summary>
+        ;;; Constructs a new message by parsing a JSON object.
+        ;;; </summary>
+        public method KafkaReplicationMessage
+            required in jsonString, string
+            stack record
+                jdoc, @JsonDocument
+.ifdef DBLNET
+                message, JsonElement
+                prop, JsonElement
+.else
+                message, @JsonElement
+                prop, @JsonElement
+.endc
+            endrecord 
+        proc
+            ;Parse the JSON string into a JsonDocument object
+            try
+            begin
+                jdoc = JsonDocument.Parse(jsonString)
+                message = jdoc.RootElement
+            end
+            catch (ex, @Exception)
+            begin
+                throw new ApplicationException("String does not contain valid JSON data. Error was: " + ex.Message)
+            end
+            endtry
+
+            ;Check that message is a JSON object
+            
+            if (message.ValueKind!=JsonValueKind.Object)
+                throw new ApplicationException("String does not contain a JSON object!")
+
+            ;Process properties
+
+            ;process_id (int)
+            if (message.TryGetProperty("process_id",prop))
+            begin
+                if (prop.ValueKind!=JsonValueKind.Number || prop.GetInt32()<0)
+                    throw new ApplicationException("process_id must be a positive integer!")
+                this.process_id = prop.GetInt32()
+            end
+
+            ;req_id (int)
+            if (message.TryGetProperty("req_id",prop))
+            begin
+                if (prop.ValueKind!=JsonValueKind.Number || prop.GetInt32()<0)
+                    throw new ApplicationException("req_id must be a positive integer!")
+                this.req_id = prop.GetInt32()
+            end
+
+            ;op_type (string, KafkaReplicationMessageType)
+            if (message.TryGetProperty("op_type",prop))
+            begin
+                if (prop.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(prop.GetString()))
+                    throw new ApplicationException("op_type is invalid!")
+                using prop.GetString() select
+                ("Insert"),
+                    this.op_type = KafkaReplicationMessageType.Insert
+                ("InsertAc"),
+                    this.op_type = KafkaReplicationMessageType.InsertAc
+                ("Update"),
+                    this.op_type = KafkaReplicationMessageType.Update
+                ("UpdateAc"),
+                    this.op_type = KafkaReplicationMessageType.UpdateAc
+                ("Delete"),
+                    this.op_type = KafkaReplicationMessageType.Delete
+                ("DeleteAc"),
+                    this.op_type = KafkaReplicationMessageType.DeleteAc
+                ("StartTxn"),
+                    this.op_type = KafkaReplicationMessageType.StartTxn
+                ("Commit"),
+                    this.op_type = KafkaReplicationMessageType.Commit
+                ("Leader"),
+                    this.op_type = KafkaReplicationMessageType.Leader
+                ("LeaderResponse"),
+                    this.op_type = KafkaReplicationMessageType.LeaderResponse
+                ("ReplicationAck"),
+                    this.op_type = KafkaReplicationMessageType.ReplicationAck
+                ("Error"),
+                    this.op_type = KafkaReplicationMessageType.Error
+                (),
+                    throw new ApplicationException("op_type is invalid!")
+                endusing
+            end
+
+            ;file_id (string)
+            if (message.TryGetProperty("file_id",prop))
+            begin
+                if (prop.ValueKind!=JsonValueKind.String)
+                    throw new ApplicationException("file_id must be a string!")
+                this.file_id = prop.GetString()
+            end
+
+            ;txn_id (int)
+            if (message.TryGetProperty("txn_id",prop))
+            begin
+                if (prop.ValueKind!=JsonValueKind.Number || prop.GetInt32()<0)
+                    throw new ApplicationException("txn_id must be a positive integer!")
+                this.txn_id = prop.GetInt32()
+            end
+
+
+            ;key_data (string, base64 encoded)
+            if (message.TryGetProperty("key_data",prop))
+            begin
+                if (prop.ValueKind!=JsonValueKind.String)
+                    throw new ApplicationException("key_data must be a base-64 encoded string!")
+                this.key_data = DataEncoding.FromBase64(prop.GetString())
+            end
+
+            ;record_data (string, base64 encoded)
+            if (message.TryGetProperty("record_data",prop))
+            begin
+                if (prop.ValueKind!=JsonValueKind.String)
+                    throw new ApplicationException("record_data must be a base-64 encoded string!")
+                this.record_data = DataEncoding.FromBase64(prop.GetString())
+            end
+
+            ;original_data (string, base64 encoded)
+            if (message.TryGetProperty("original_data",prop))
+            begin
+                if (prop.ValueKind!=JsonValueKind.String)
+                    throw new ApplicationException("original_data must be a base-64 encoded string!")
+                this.original_data = DataEncoding.FromBase64(prop.GetString())
+            end
+
+            ;Validation
+            begin
+                data errorMessage, string
+                if (!this.IsValid(errorMessage))
+                    throw new ApplicationException(errorMessage)
+            end
+
+        endmethod
+
+        ;-------------------------------------------------------------------------------------------
+        ;Public methods
+
+        ;;; <summary>
+        ;;; Validates the current state of the message.
+        ;;; </summary>
+        ;;; <param name="errorMessage">Returned error message if return value is false, otherwise null.</param>
+        ;;; <returns>Returns true if the state of the message is valid, otherwise false.</returns>
+        public method IsValid, boolean
+            required out errorMessage, string
+            static record
+                ok, boolean
+            endrecord
+        proc
+            ok = true
+            errorMessage = ^null
+
+            using this.op_type select
+            (KafkaReplicationMessageType.Insert),
+            begin
+                ;We need txn_id, file_id, key_data and record_data
+                ok = this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data)
+                errorMessage = "Insert operations must inlcude req_id, txn_id, file_id, key_data and record_data."
+            end
+            (KafkaReplicationMessageType.InsertAc),
+            begin
+                ;We need file_id, key_data and record_data
+                ok = !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data)
+                errorMessage = "InsertAc operations must inlcude req_id, file_id, key_data and record_data."
+            end
+            (KafkaReplicationMessageType.Update),
+            begin
+                ;We need txn_id, file_id, key_data, record_data and original_data
+                ok = this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data) && !String.IsNullOrWhiteSpace(this.original_data)
+                errorMessage = "Update operations must inlcude req_id, txn_id, file_id, key_data, record_data and original_data."
+            end
+            (KafkaReplicationMessageType.UpdateAc),
+            begin
+                ;We need file_id, key_data, record_data and original_data
+                ok = !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data) && !String.IsNullOrWhiteSpace(this.original_data)
+                errorMessage = "UpdateAc operations must inlcude req_id, file_id, key_data, record_data and original_data."
+            end
+            (KafkaReplicationMessageType.Delete),
+            begin
+                ;We need txn_id, file_id, key_data, and record_data
+                ;Arguable we should get original_data not record_data but I think that would screw up Jeff's code because of required vs optional
+                ok = this.txn_id && !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data)
+                errorMessage = "Delete operations must inlcude req_id, txn_id, file_id, key_data and record_data."
+            end
+            (KafkaReplicationMessageType.DeleteAc),
+            begin
+                ;We need file_id, key_data, and record_data
+                ;Arguable we should get original_data not record_data but I think that would screw up Jeff's code because of required vs optional
+                ok = !String.IsNullOrWhiteSpace(this.file_id) && !String.IsNullOrWhiteSpace(this.key_data) && !String.IsNullOrWhiteSpace(this.record_data)
+                errorMessage = "DeleteAc operations must inlcude req_id, file_id, key_data and record_data."
+            end
+            (KafkaReplicationMessageType.StartTxn),
+            begin
+                ;We need txn_id
+                ok = this.txn_id
+                errorMessage = "StartTxn operations must inlcude req_id and txn_id."
+            end
+            (KafkaReplicationMessageType.Commit),
+            begin
+                ;We need txn_id
+                ok = this.txn_id
+                errorMessage = "Commit operations must inlcude req_id and txn_id."
+            end
+            (KafkaReplicationMessageType.Leader),
+            begin
+                ;TODO: Is this something we nead to be concerned with?
+                nop
+            end
+            (KafkaReplicationMessageType.LeaderResponse),
+            begin
+                ;TODO: Is this something we nead to be concerned with?
+                nop
+            end
+            (KafkaReplicationMessageType.ReplicationAck),
+            begin
+                ;TODO: Is this something we nead to be concerned with?
+                nop
+            end
+            (KafkaReplicationMessageType.Error),
+            begin
+                ;TODO: Is this something we nead to be concerned with?
+                nop
+            end
+            endusing
+
+            mreturn ok
+
+        endmethod
+
+        ;-------------------------------------------------------------------------------------------
+        ;Public properties
+
+        ;;; <summary>
+        ;;; The process ID of the originating process
+        ;;; </summary>
+        public readwrite property process_id, int
+
+        ;;; <summary>
+        ;;; The unique ID of the message (within the lifetime of the originator)
+        ;;; </summary>
+        public readwrite property req_id, int
+
+        ;;; <summary>
+        ;;; Th type of operation represented by the message
+        ;;; </summary>
+        public readwrite property op_type, KafkaReplicationMessageType
+
+        ;;; <summary>
+        ;;; The type of data (file/table name)
+        ;;; </summary>
+        public readwrite property file_id, string
+
+        ;;; <summary>
+        ;;; The ID of the transaction that the message is a part of
+        ;;; </summary>
+        public readwrite property txn_id, int
+
+        ;;; <summary>
+        ;;; The unique key value of the data
+        ;;; </summary>
+        public readwrite property key_data, string
+
+        ;;; <summary>
+        ;;; The current state of the data
+        ;;; </summary>
+        public readwrite property record_data, string
+
+        ;;; <summary>
+        ;;; The previous state of the data
+        ;;; </summary>
+        public readwrite property original_data, string
+
+    endclass
+
+endnamespace

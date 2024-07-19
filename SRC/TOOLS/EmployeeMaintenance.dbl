@@ -44,7 +44,6 @@ main EmployeeMaintenance
 
     record
         ok,             i4
-        tt,             i4
         ech,            i4
         dch,            i4
         employee,       strEmployee
@@ -58,10 +57,33 @@ main EmployeeMaintenance
 
 proc
     ok = true
-    open(tt=0,i,"tt:")
     xcall flags(7004000,1)
 
-    display(tt,$scr_clr(screen))
+    ;Check that we have the basic environment that we need
+    begin
+        data errorMessage, string
+        if (!%ValidateBasicEnvironment(false,errorMessage))
+        begin
+            Console.WriteLine("ERROR: Basic environment not established. Error was: " + errorMessage)
+            Console.Write("Press ENTER: ")
+            Console.ReadLine()
+            stop
+        end
+    end
+
+    ;Load the replication environment seSettings.TerminalChannelings
+    begin
+        data errorMessage, string
+        if (!Settings.Load(errorMessage))
+        begin
+            Console.WriteLine("ERROR: Failed to load replication environment settings. Error was: " + errorMessage)
+            Console.Write("Press ENTER: ")
+            Console.ReadLine()
+            stop
+        end
+    end
+
+    display(Settings.TerminalChannel,$scr_clr(screen))
 
 .ifdef D_VMS
     ;;On VMS it is necessary to use XCALL OPENELB in order that I/O hooks
@@ -72,7 +94,7 @@ proc
     end
     catch (ex, @Exception)
     begin
-        display(tt,"ERROR: Failed to activate shared image REPLICATOR_SH")
+        display(Settings.TerminalChannel,"ERROR: Failed to activate shared image REPLICATOR_SH")
         stop
     end
     endtry
@@ -83,11 +105,11 @@ proc
         try
         begin
             open(ech=0,u:i,"REPLICATOR_DATA:EMPLOYEE.ISM")
-            xcall ConfigureReplication(ech,1)
+            xcall ConfigureReplication(ech)
         end
         catch (e, @Exception)
         begin
-            display(tt,"Failed to open employee file!")
+            display(Settings.TerminalChannel,"Failed to open employee file!")
             ok = false
         end
         endtry
@@ -101,7 +123,7 @@ proc
         end
         catch (e, @Exception)
         begin
-            display(tt,"Failed to open department file!")
+            display(Settings.TerminalChannel,"Failed to open department file!")
             ok = false
         end
         endtry
@@ -121,8 +143,8 @@ proc
             begin
                 init employee
 
-                display(tt,$scr_pos(4,27),$scr_clr(eol))
-                reads(tt,tmpvar(1:8))
+                display(Settings.TerminalChannel,$scr_pos(4,27),$scr_clr(eol))
+                reads(Settings.TerminalChannel,tmpvar(1:8))
 
                 using tmpvar select
                 (" "),
@@ -145,9 +167,9 @@ proc
                     end
                     else
                     begin
-                        display(tt,$scr_pos(23,2),"Invalid employee number!")
-                        reads(tt,tmpvar(1:1))
-                        display(tt,$scr_pos(23,2),$scr_clr(eol))
+                        display(Settings.TerminalChannel,$scr_pos(23,2),"Invalid employee number!")
+                        reads(Settings.TerminalChannel,tmpvar(1:1))
+                        display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol))
                         nextloop
                     end
                 end
@@ -170,9 +192,9 @@ proc
 
         NotFound,	repeat
                 begin
-                    display(tt,$scr_pos(23,2),$scr_clr(eol),"Not found, create (Y/N) ? ")
-                    reads(tt,tmpvar(1:1))
-                    display(tt,$scr_pos(23,2),$scr_clr(eol))
+                    display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol),"Not found, create (Y/N) ? ")
+                    reads(Settings.TerminalChannel,tmpvar(1:1))
+                    display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol))
 
                     using tmpvar select
                     ("Y"),
@@ -189,9 +211,9 @@ proc
                 end
                 nextloop
 
-        Locked, display(tt,$scr_pos(23,2),"Record locked!")
-                reads(tt,tmpvar(1:1))
-                display(tt,$scr_pos(23,2),$scr_clr(eol))
+        Locked, display(Settings.TerminalChannel,$scr_pos(23,2),"Record locked!")
+                reads(Settings.TerminalChannel,tmpvar(1:1))
+                display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol))
                 nextloop
             end
 
@@ -201,8 +223,8 @@ proc
 
             repeat
             begin
-                display(tt,$scr_pos(23,2),$scr_clr(eol),"Field to edit (D to delete, E to exit) : ")
-                reads(tt,tmpvar(1:2))
+                display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol),"Field to edit (D to delete, E to exit) : ")
+                reads(Settings.TerminalChannel,tmpvar(1:2))
 
                 using tmpvar select
                 ("E ","  "),
@@ -211,15 +233,15 @@ proc
                     try
                     begin
                         write(ech,employee)
-                        display(tt,$scr_pos(23,2),$scr_clr(eol),"Employee record saved")
+                        display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol),"Employee record saved")
                         sleep 0.5
-                        display(tt,$scr_pos(23,2),$scr_clr(eol))
+                        display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol))
                     end
                     catch (e, @Exception)
                     begin
-                        display(tt,$scr_pos(23,2),$scr_clr(eol),e.Message)
-                        reads(tt,tmpvar(1:1))
-                        display(tt,$scr_pos(23,2),$scr_clr(eol))
+                        display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol),e.Message)
+                        reads(Settings.TerminalChannel,tmpvar(1:1))
+                        display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol))
                     end
                     endtry
                     exitloop
@@ -229,8 +251,8 @@ proc
                     ;;Delete
                     repeat
                     begin
-                        display(tt,$scr_pos(23,2),$scr_clr(eol),"Confirm delete (Y/N) ? ")
-                        reads(tt,tmpvar(1:1))
+                        display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol),"Confirm delete (Y/N) ? ")
+                        reads(Settings.TerminalChannel,tmpvar(1:1))
                         using tmpvar select
                         ("Y"),
                         begin
@@ -279,14 +301,14 @@ proc
     if (dch && %chopen(dch))
         close dch
 
-    display(tt,$scr_clr(screen))
-    close tt
+    display(Settings.TerminalChannel,$scr_clr(screen))
+    close Settings.TerminalChannel
 
     stop
 
 DisplayScreen,
 
-    display(tt,$scr_clr(screen),
+    display(Settings.TerminalChannel,$scr_clr(screen),
     &    $scr_pos( 2,2),"Employee Maintenance",
     &    $scr_pos( 4,2),"Employee # (E to exit) :",
     &    $scr_pos( 6,2),"1.   First name :",
@@ -310,7 +332,7 @@ DisplayData,
 
     paid = employee.emp_paid == 1 ? "Hourly" : "Salaried"
 
-    display(tt,
+    display(Settings.TerminalChannel,
     &    $scr_pos( 6,20), employee.emp_first_name,
     &    $scr_pos( 7,20), employee.emp_last_name,
     &    $scr_pos( 8,20), %atrim(employee.emp_dept)," - ",%atrim(department.dept_name),
@@ -322,13 +344,13 @@ DisplayData,
     &    $scr_pos(17,20), %atrim(employee.emp_address_street),", ",%atrim(employee.emp_address_city),", ",employee.emp_address_state,", ",%string(employee.emp_address_zip,"ZZZZZ"))
 
     if (employee.emp_hire_date)
-        display(tt,$scr_pos( 9,20),^a(employee.emp_hire_date(5:2)),"/",^a(employee.emp_hire_date(7:2)),"/",^a(employee.emp_hire_date(1:4)))
+        display(Settings.TerminalChannel,$scr_pos( 9,20),^a(employee.emp_hire_date(5:2)),"/",^a(employee.emp_hire_date(7:2)),"/",^a(employee.emp_hire_date(1:4)))
 
     if (employee.emp_hire_time)
-        display(tt,$scr_pos(10,20),^a(employee.emp_hire_time(1:2)),":",^a(employee.emp_hire_time(3:2)))
+        display(Settings.TerminalChannel,$scr_pos(10,20),^a(employee.emp_hire_time(1:2)),":",^a(employee.emp_hire_time(3:2)))
 
     if (employee.emp_date_of_birth)
-        display(tt,$scr_pos(15,20),^a(employee.emp_date_of_birth(5:2)),"/",^a(employee.emp_date_of_birth(7:2)),"/",^a(employee.emp_date_of_birth(1:4)))
+        display(Settings.TerminalChannel,$scr_pos(15,20),^a(employee.emp_date_of_birth(5:2)),"/",^a(employee.emp_date_of_birth(7:2)),"/",^a(employee.emp_date_of_birth(1:4)))
 
     return
 
@@ -345,8 +367,8 @@ EditField,
 FirstName,
 
     xcall flags(20,1)
-    display(tt,$scr_pos(6,20),$scr_clr(eol))
-    reads(tt,employee.emp_first_name)
+    display(Settings.TerminalChannel,$scr_pos(6,20),$scr_clr(eol))
+    reads(Settings.TerminalChannel,employee.emp_first_name)
     xcall flags(20,0)
 
     return
@@ -354,8 +376,8 @@ FirstName,
 LastName,
 
     xcall flags(20,1)
-    display(tt,$scr_pos(7,20),$scr_clr(eol))
-    reads(tt,employee.emp_last_name)
+    display(Settings.TerminalChannel,$scr_pos(7,20),$scr_clr(eol))
+    reads(Settings.TerminalChannel,employee.emp_last_name)
     xcall flags(20,0)
 
     return
@@ -364,8 +386,8 @@ Department,
 
     repeat
     begin
-        display(tt,$scr_pos(8,20),$scr_clr(eol))
-        reads(tt,employee.emp_dept)
+        display(Settings.TerminalChannel,$scr_pos(8,20),$scr_clr(eol))
+        reads(Settings.TerminalChannel,employee.emp_dept)
 
         ;;Required field
         if (!employee.emp_dept)
@@ -377,13 +399,13 @@ Department,
         using department.dept_name select
         ("Not found!"),
         begin
-            display(tt,$scr_pos(8,40),$scr_clr(eol),%atrim(department.dept_name))
-            reads(tt,tmpvar(1:1))
+            display(Settings.TerminalChannel,$scr_pos(8,40),$scr_clr(eol),%atrim(department.dept_name))
+            reads(Settings.TerminalChannel,tmpvar(1:1))
         end
         (),
         begin
             ;;Valid department
-            display(tt,$scr_pos(8,20),%atrim(employee.emp_dept)," - ",%atrim(department.dept_name))
+            display(Settings.TerminalChannel,$scr_pos(8,20),%atrim(employee.emp_dept)," - ",%atrim(department.dept_name))
             exitloop
         end
         endusing
@@ -416,8 +438,8 @@ CreateNew,
 
     repeat
     begin
-        display(tt,$scr_pos(23,2),$scr_clr(eol),"Save new employee (Y/N) : ")
-        reads(tt,tmpvar(1:1))
+        display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol),"Save new employee (Y/N) : ")
+        reads(Settings.TerminalChannel,tmpvar(1:1))
         using tmpvar select
         ("Y"),
         begin
@@ -428,8 +450,8 @@ CreateNew,
             end
             catch (e, @Exception)
             begin
-                display(tt,$scr_pos(23,2),$scr_clr(eol),"Failed to create employee!")
-                reads(tt,tmpvar(1:1))	
+                display(Settings.TerminalChannel,$scr_pos(23,2),$scr_clr(eol),"Failed to create employee!")
+                reads(Settings.TerminalChannel,tmpvar(1:1))	
             end
             endtry
             exitloop

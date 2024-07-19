@@ -22,7 +22,7 @@ main NetUnloadAgent
         exportDirectory, string, "C:\\TEMP"
         zipFileDirectory, string, "C:\\TEMP"
         s3UploadBucket, string, "UploadFiles"
-        kafkaServers, string, ""
+        kafkaBrokers, string, ""
         kafkaInboundTopic, string, "UnloadRequest"
         kafkaOutboundTopic, string, "UnloadResponse"
         kafkaConsumerClientId, string, ""
@@ -37,7 +37,7 @@ proc
     data cconfig = new ConsumerConfig()
     cconfig.ClientId = kafkaConsumerClientId
     cconfig.GroupId = kafkaConsumerGroupId
-    cconfig.BootstrapServers = kafkaServers
+    cconfig.BootstrapServers = kafkaBrokers
     cconfig.AutoOffsetReset = AutoOffsetReset.Earliest
     cconfig.EnableAutoCommit = false ;Disable auto commit so that we can control when kafka messages are committed
     cconfig.AllowAutoCreateTopics = false
@@ -57,7 +57,7 @@ proc
 
     ;Connect to the Kafka server
     data pconfig = new ProducerConfig()
-    pconfig.BootstrapServers = kafkaServers
+    pconfig.BootstrapServers = kafkaBrokers
     pconfig.EnableIdempotence = true ;ensure delivery of messages in the order specified
 
     data producer, @IProducer<string,string>, new ProducerBuilder<string,string>(pconfig).Build()

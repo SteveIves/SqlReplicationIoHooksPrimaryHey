@@ -17,6 +17,7 @@ import System.Collections
 import System.Text
 
 function ValidateBasicEnvironment, boolean
+    required in openLogFile, boolean
     required out errorMessage, string
     stack record
         ok,             boolean
@@ -215,12 +216,15 @@ proc
 
         ; Get logging up and running
 
-        if (!Logger.OpenLog())
+        if (openLogFile)
         begin
-            errorMessage = "Failed to initiate logging"
-            ok = false
+            if (!Logger.OpenLog())
+            begin
+                errorMessage = "Failed to initiate logging"
+                ok = false
+            end
         end
-        
+       
     end
 
     freturn ok

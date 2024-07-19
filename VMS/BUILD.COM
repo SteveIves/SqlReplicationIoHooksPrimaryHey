@@ -50,6 +50,7 @@ $     DIBOL/OPT/OBJ=OBJ:LIBRARY.OBJ -
     + LIBSRC:DepartmentSqlIO.dbl -
     + LIBSRC:EmailSettings.dbl -
     + LIBSRC:EmployeeSqlIO.dbl -
+    + LIBSRC:EnvironmentVariable.dbl -
     + LIBSRC:File.dbl -
     + LIBSRC:FileChunkReader.dbl -
     + LIBSRC:FileServiceClient.dbl -
@@ -68,6 +69,9 @@ $     DIBOL/OPT/OBJ=OBJ:LIBRARY.OBJ -
     + LIBSRC:IsTime.dbl -
     + LIBSRC:Json.dbl -
     + LIBSRC:KafkaAPI.dbl -
+    + LIBSRC:KafkaConsumer.dbl -
+    + LIBSRC:KafkaMessage.dbl -
+    + LIBSRC:KafkaReplicationMessage.dbl -
     + LIBSRC:LastRecordCache.dbl -
     + LIBSRC:Logger.dbl -
     + LIBSRC:MakeDateForCsv.dbl -

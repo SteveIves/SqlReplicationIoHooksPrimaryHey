@@ -3,7 +3,21 @@
   "Instances": [
     {
       "InstanceName": "DEFAULT",
-      "Enabled": true
+      "Enabled": true,
+      "QueueType": "Kafka",
+      "DatabaseConnectionName": "SDMS_LOCAL",
+      "DatabaseCommitMode": "Manual",
+      "KafkaBrokers": "10.1.10.21:9092",
+      "SleepTime": 2,
+      "StopOnError": false,
+      "SystemLogging": false,
+      "VerboseLogging": true,
+      "EnvironmentVariables": [
+        {
+          "Name": "REPLICATOR_SAMPLE_DATA",
+          "Value": "C:\\TEMP\\ReplicationData"
+        }
+      ]
     }
   ],
   "InstanceDefaults": {
@@ -28,7 +42,7 @@
     "FileServiceEnabled": false,
     "FileServiceHost": "localhost",
     "FileServicePort": 8080,
-    "KafkaServers": "10.1.10.21:9092",
+    "KafkaBrokers": "10.1.10.21:9092",
     "LocalExportPath": "C:\\DEV\\SqlReplication\\CSV\\",
     "LogBulkLoadExceptions": false,
     "LogKeyValues": false,

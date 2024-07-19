@@ -17,5 +17,5 @@ proc
     xcall EmployeeLength
     xcall EmployeeOpenInput(tmpa)
     xcall EmployeeType(tmpa)
-	xreturn
+    xreturn
 endsubroutine

@@ -267,12 +267,12 @@ namespace ReplicationLibrary
                 FileServicePort = setting.GetInt32()
             end
 
-            ;KafkaServers
-            if (defaults.TryGetProperty("KafkaServers",setting))
+            ;KafkaBrokers
+            if (defaults.TryGetProperty("KafkaBrokers",setting))
             begin
                 if (setting.ValueKind!=JsonValueKind.String)
-                    throw new ApplicationException("InstanceDefaults.KafkaServers must have a string value (list of ip address or DNS names and ports)!")
-                KafkaServers = setting.GetString()
+                    throw new ApplicationException("InstanceDefaults.KafkaBrokers must have a string value (list of ip address or DNS names and ports)!")
+                KafkaBrokers = setting.GetString()
             end
 
             ;LocalExportPath
@@ -526,7 +526,7 @@ namespace ReplicationLibrary
         ;;; The name(s) or IP addresses and ports of the Kafka servers to use (Kafka queue mode only)?
         ;;; Set automatically to REPLICATION_<InstanceName>
         ;;; </summary>
-        public readwrite property KafkaServers, string
+        public readwrite property KafkaBrokers, string
 
         ;;; <summary>
         ;;; The name of the Kafka topic to use to request remot file unload operations

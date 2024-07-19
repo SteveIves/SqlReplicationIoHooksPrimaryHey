@@ -142,6 +142,9 @@
     <Compile Include="..\..\SRC\LIBRARY\EmployeeSqlIO.dbl">
       <Link>EmployeeSqlIO.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\EnvironmentVariable.dbl">
+      <Link>EnvironmentVariable.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\File.dbl">
       <Link>File.dbl</Link>
     </Compile>
@@ -199,8 +202,14 @@
     <Compile Include="..\..\SRC\LIBRARY\KafkaAPI_VMS.dbl">
       <Link>KafkaAPI_VMS.dbl</Link>
     </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\KafkaConsumer.dbl">
+      <Link>KafkaConsumer.dbl</Link>
+    </Compile>
     <Compile Include="..\..\SRC\LIBRARY\KafkaMessage.dbl">
       <Link>KafkaMessage.dbl</Link>
+    </Compile>
+    <Compile Include="..\..\SRC\LIBRARY\KafkaReplicationMessage.dbl">
+      <Link>KafkaReplicationMessage.dbl</Link>
     </Compile>
     <Compile Include="..\..\SRC\LIBRARY\LastRecordCache.dbl">
       <Link>LastRecordCache.dbl</Link>

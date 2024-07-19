@@ -168,6 +168,11 @@ namespace ReplicationLibrary
             public static readwrite property Enabled, boolean
 
             ;;; <summary>
+            ;;; Instance specific environment variables
+            ;;; </summary>
+            public static readwrite property EnvironmentVariables, [#]@EnvironmentVariable
+
+            ;;; <summary>
             ;;; How many seconds should we sleep after processing an error?
             ;;; </summary>
             public static readwrite property ErrorSleepTime, decimal
@@ -186,13 +191,13 @@ namespace ReplicationLibrary
             ;;; The IP port number that FileService is listening on
             ;;; </summary>
             public static readwrite property FileServicePort, int
-.ifdef DBLNET
+
             ;;; <summary>
-            ;;; The name(s) or IP addresses and ports of the Kafka servers to use (Kafka queue mode only)?
+            ;;; The name(s) or IP addresses and ports of the Kafka brokers to use (Kafka queue mode only)?
             ;;; Set automatically to REPLICATION_<InstanceName>
             ;;; </summary>
-            public static readwrite property KafkaServers, string
-.endc
+            public static readwrite property KafkaBrokers, string
+
             ;;; <summary>
             ;;; Where should export files be created locally?
             ;;; </summary>
@@ -406,7 +411,7 @@ namespace ReplicationLibrary
             ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
             public static method CanBulkLoad, boolean
             proc
-                if (DatabaseIsRemote()) then
+                if (Settings.DatabaseConnectMode!=DatabaseConnectionMode.SDMS && DatabaseIsRemote()) then
                 begin
                     ;If the database is remote we need file service to be enabled, and have a host name or IP and port number
                     mreturn (
@@ -428,7 +433,7 @@ namespace ReplicationLibrary
             ;;; <returns>Returns true if we have all the data, but does not guarantee that bulk upload will work!</returns>
             public static method CanBulkCopy, boolean
             proc
-                ;TODO: * * * NEEDS IMPLEMENTING ASAP * * *
+;TODO: * * * NEEDS IMPLEMENTING ASAP * * *
                 mreturn true
             endmethod
 
@@ -827,7 +832,7 @@ namespace ReplicationLibrary
                     Settings.FileServiceHost            = instanceDefaults.FileServiceHost
                     Settings.FileServicePort            = instanceDefaults.FileServicePort
 .ifdef DBLNET
-                    Settings.KafkaServers               = instanceDefaults.KafkaServers
+                    Settings.KafkaBrokers               = instanceDefaults.KafkaBrokers
 .endc
                     Settings.LocalExportPath            = instanceDefaults.LocalExportPath
                     Settings.LogBulkLoadExceptions      = instanceDefaults.LogBulkLoadExceptions
@@ -1160,6 +1165,79 @@ namespace ReplicationLibrary
                     end
                     if (!ok) exit
 
+                    ;EnvironmentVariables
+                    if (instance.TryGetProperty("EnvironmentVariables",setting))
+                    begin
+                        if (setting.ValueKind!=JsonValueKind.Array) then
+                        begin
+                            errorMessage = "EnvironmentVariables must be an array of EnvironmentVariable objects!"
+                            ok = false
+                        end
+                        else
+                        begin
+                            data elements = 0
+                            if ((elements=setting.GetArrayLength()) >= 1)
+                            begin
+.ifdef DBLNET
+                                data envVarElement,         JsonElement
+                                data envVarNameElement,     JsonElement
+                                data envVarValueElement,    JsonElement
+.else
+                                data envVarElement,         @JsonElement
+                                data envVarNameElement,     @JsonElement
+                                data envVarValueElement,    @JsonElement
+.endc
+                                data envVarName,            string
+                                data envVarValue,           string
+
+                                data ix = 0
+
+                                Settings.EnvironmentVariables = new EnvironmentVariable[elements]
+
+                                for ix from 0 thru elements-1
+                                begin
+                                    envVarElement = setting[ix]
+
+                                    ;Make sure it is an object
+                                    if (envVarElement.ValueKind!=JsonValueKind.Object)
+                                    begin
+                                        errorMessage = "Invalid EnvironmentVariables member!"
+                                        ok = false
+                                        exitloop
+                                    end
+
+                                    ;Validate and extract the name
+                                    if (!envVarElement.TryGetProperty("Name",envVarNameElement) 
+                                    &   || envVarNameElement.ValueKind!=JsonValueKind.String 
+                                    &   || String.IsNullOrWhiteSpace(envVarName=envVarNameElement.GetString()))
+                                    begin
+                                        errorMessage = "Missing or invalid environment variable name property!"
+                                        ok = false
+                                        exitloop
+                                    end
+
+                                    ;Validate and extract the value (which could be blank to unset a variable)
+                                    if (!envVarElement.TryGetProperty("Value",envVarValueElement) 
+                                    &    || envVarValueElement.ValueKind!=JsonValueKind.String)
+                                    begin
+                                        errorMessage = "Missing or invalid environment variable name property!"
+                                        ok = false
+                                        exitloop
+                                    end
+
+                                    ;If we get here we have a valid environment variable
+                                    Settings.EnvironmentVariables[ix+1] = new EnvironmentVariable() { Name=envVarName, Value=envVarValue }
+                                end
+                            end
+                        end
+                    end
+
+                    if (!ok)
+                    begin
+                        Settings.EnvironmentVariables = ^null
+                        exit
+                    end
+
                     ;ErrorSleepTime
                     if (instance.TryGetProperty("ErrorSleepTime",setting))
                     begin
@@ -1221,19 +1299,19 @@ namespace ReplicationLibrary
                     if (!ok) exit
 
 .ifdef DBLNET
-                    ;KafkaServers
+                    ;KafkaBrokers
                     if (ok)
                     begin
-                        if (instance.TryGetProperty("KafkaServers",setting))
+                        if (instance.TryGetProperty("KafkaBrokers",setting))
                         begin
                             if (setting.ValueKind!=JsonValueKind.String || String.IsNullOrWhitespace(setting.GetString())) then
                             begin
-                                errorMessage = "KafkaServers must have a non-blank string value!"
+                                errorMessage = "KafkaBrokers must have a non-blank string value!"
                                 ok = false
                             end
                             else
                             begin
-                                Settings.KafkaServers = setting.GetString()
+                                Settings.KafkaBrokers = setting.GetString()
                             end
                         end
                     end
@@ -1391,11 +1469,7 @@ namespace ReplicationLibrary
                             ("ISAMFILE"),
                                 Settings.QueueType = MessageQueueType.IsamFile
                             ("KAFKA"),
-.ifdef DBLNET
                                 Settings.QueueType = MessageQueueType.Kafka
-.else
-                                ok = false
-.endc
                             (),
                                 ok = false
                             endusing
@@ -1806,10 +1880,9 @@ namespace ReplicationLibrary
                 ;--------------------------------------------------------------------------------------------------------
                 ;Validations
 
-.ifdef DBLNET
-                if (ok && Settings.QueueType==MessageQueueType.Kafka && String.IsNullOrWhitespace(Settings.KafkaServers))
+                if (ok && Settings.QueueType==MessageQueueType.Kafka && String.IsNullOrWhitespace(Settings.KafkaBrokers))
                 begin
-                    errorMessage = "Can't use Kafka queue mode because KafkaServers has not been set!"
+                    errorMessage = "Can't use Kafka queue mode because KafkaBrokers has not been set!"
                     ok = false
                 end
 
@@ -1818,16 +1891,10 @@ namespace ReplicationLibrary
                 begin
                     Settings.DatabaseCommitMode = DatabaseCommitMode.None
                 end
-.else
+.ifndef DBLNET
                 if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SqlClient)
                 begin
                     errorMessage = "SqlClient mode is only supported in .NET!"
-                    ok = false
-                end
-
-                if (ok && Settings.DatabaseConnectMode == DatabaseConnectionMode.SDMS)
-                begin
-                    errorMessage = "SDMS mode is only supported in .NET!"
                     ok = false
                 end
 .endc

@@ -82,7 +82,7 @@ proc
     ;Check that we have the basic environment that we need
     begin
         data errorMessage, string
-        if (!%ValidateBasicEnvironment(errorMessage))
+        if (!%ValidateBasicEnvironment(false,errorMessage))
         begin
             Console.WriteLine("ERROR: Basic environment not established. Error was: " + errorMessage)
             Console.Write("Press ENTER: ")
@@ -142,7 +142,7 @@ proc
     begin
         ;Connect to the Kafka server
         data conf = new ProducerConfig()
-        conf.BootstrapServers = Settings.KafkaServers
+        conf.BootstrapServers = Settings.KafkaBrokers
         conf.EnableIdempotence = true ;ensure delivery of messages in the order specified
         producer = new ProducerBuilder<string,string>(conf).Build()
 
@@ -196,25 +196,37 @@ proc
         if (!String.IsNullOrWhiteSpace(tableName))
         begin
             xcall w_disp(mainwnd,WD_POS, 3,50,"C.  Create table")
-            xcall w_disp(mainwnd,WD_POS, 4,50,"L.  Load table")
-            xcall w_disp(mainwnd,WD_POS, 5,50,"CL. Create and load table")
+            if (Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS)
+            begin
+                xcall w_disp(mainwnd,WD_POS, 4,50,"L.  Load table")
+                xcall w_disp(mainwnd,WD_POS, 5,50,"CL. Create and load table")
+            end
             xcall w_disp(mainwnd,WD_POS, 6,50,"BL. Bulk load table")
-            xcall w_disp(mainwnd,WD_POS, 7,50,"BR. Bulk load first 1000")
-            xcall w_disp(mainwnd,WD_POS, 8,50,"BC. Bulk copy table")
-            xcall w_disp(mainwnd,WD_POS, 9,50,"AI. Add indexes")
-            xcall w_disp(mainwnd,WD_POS,10,50,"DI. Delete indexes")
+
+            if (Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS)
+            begin
+                xcall w_disp(mainwnd,WD_POS, 7,50,"BR. Bulk load first 1000")
+                xcall w_disp(mainwnd,WD_POS, 8,50,"BC. Bulk copy table")
+                xcall w_disp(mainwnd,WD_POS, 9,50,"AI. Add indexes")
+                xcall w_disp(mainwnd,WD_POS,10,50,"DI. Delete indexes")
+            end
+
             xcall w_disp(mainwnd,WD_POS,11,50,"TR. Truncate table")
             xcall w_disp(mainwnd,WD_POS,12,50,"D.  Delete table")
-            xcall w_disp(mainwnd,WD_POS,13,50,"X.  Export to CSV")
+
+            if (Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS)
+            begin
+                xcall w_disp(mainwnd,WD_POS,13,50,"X.  Export to CSV")
+            end
 
             if (windows && (tableName=="EMPLOYEE" || tableName=="DEPARTMENT"))
                 xcall w_disp(mainwnd,WD_POS,15,50,"M.  Maintainance")
 .ifdef DBLNET
-            if (tableName=="EMPLOYEE" || tableName=="DEPARTMENT")
+            if (Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS && (tableName=="EMPLOYEE" || tableName=="DEPARTMENT"))
             begin
                 xcall w_disp(mainwnd,WD_POS,16,50,"TT. Transform TEST")
             end
-            if (tableName=="EMPLOYEE")
+            if (Settings.DatabaseConnectMode != DatabaseConnectionMode.SDMS && tableName=="EMPLOYEE")
             begin
                 xcall w_disp(mainwnd,WD_POS,17,50,"LT. Load Test")
             end
@@ -699,7 +711,7 @@ proc
                 begin
                     ;Connect to the Kafka server
                     data conf = new ProducerConfig()
-                    conf.BootstrapServers = Settings.KafkaServers
+                    conf.BootstrapServers = Settings.KafkaBrokers
                     producer = new ProducerBuilder<string,string>(conf).Build()
                 end
 .endc

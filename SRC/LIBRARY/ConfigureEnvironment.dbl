@@ -37,6 +37,21 @@ proc
 
     ok = Settings.Load(errorMessage)
 
+    ;Do we have any instance specific environment variables in our configuration?
+
+    if (Settings.EnvironmentVariables != ^null && Settings.EnvironmentVariables.Length > 0)
+    begin
+        data envvar, @EnvironmentVariable
+        data sts, d1
+        foreach envvar in Settings.EnvironmentVariables
+        begin
+            if String.IsNullOrWhitespace(envvar.Value) then
+                xcall setlog(envvar.Name,,sts)
+            else
+                xcall setlog(envvar.Name,envvar.Value,sts)
+        end
+    end
+
     ;Running on terminal?
 
     if (Settings.RunningOnTerminal)
@@ -44,7 +59,12 @@ proc
 .ifndef DBLNET
         display(Settings.TerminalChannel,$scr_pos(1,1),$scr_clr(SCREEN))
 .endc
-        writes(Settings.TerminalChannel,"SQL Replicator")
+        using Settings.DatabaseConnectMode select
+        (DatabaseConnectionMode.SDMS),
+            writes(Settings.TerminalChannel,"SDMS Replicator")
+        (),
+            writes(Settings.TerminalChannel,"SQL Replicator")
+        endusing
         writes(Settings.TerminalChannel,"")
     end
 
@@ -408,17 +428,17 @@ proc
             end
             else
             begin
-            sb.AppendLine("Replicator is NOT configured to send email messages")
-        end
+                sb.AppendLine("Replicator is NOT configured to send email messages")
+            end
 
 .ifdef DBLNET
         nop
 .else
-        xcall syn_reportevent(D_EVENTLOG_INFORMATION_TYPE,sb.ToString())
+            xcall syn_reportevent(D_EVENTLOG_INFORMATION_TYPE,sb.ToString())
 .endc
+        end
     end
-end
 
-freturn ok
+    freturn ok
 
 endfunction

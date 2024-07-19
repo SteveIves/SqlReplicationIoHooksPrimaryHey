@@ -71,7 +71,7 @@ endfunction
 ; SENDING MESSAGES
 
 ;;; <summary>
-;;; Initiate senfing a message. When using this routine you should subsequently
+;;; Initiate sending a message. When using this routine you should subsequently
 ;;; call KAFKA_POLL to ensure message delivery and recieve a delivert receipt.
 ;;; </summary>
 ;;; <param name="topic">Topic name to send message to</param>
@@ -155,7 +155,8 @@ proc
 endfunction
 
 ;;; <summary>
-;;; This tells Kafka that I have completed processing a message I received (i.e. the file has been uploaded)
+;;; This tells Kafka that we have completed processing a message we received
+;;; Calling commit ensures the message will not be received again.
 ;;; </summary>
 ;;; <param name="topic">Topic in which to commit</param>
 ;;; <param name="partition">Partition # in which to commit</param>
