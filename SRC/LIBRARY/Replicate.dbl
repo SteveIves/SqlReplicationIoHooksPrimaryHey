@@ -66,66 +66,48 @@ proc
     instanceName = aInstanceName
 
     ;;-----------------------------------------------------------------------------------------------------------------------
-    ;;For several special instructions (e.g. STOP REPLICATOR) there is a chance that
-    ;;we could be called BEFORE the OPEN_FILE instruction has been called for the
-    ;;instance. We need to deal with that here.
+    ;; Make sure we have the queue file open for the current instance
 
-    if ((instances==^null && aAction!=REPLICATION_INSTRUCTION.OPEN_FILE) || (instances!=^null && aAction!=REPLICATION_INSTRUCTION.OPEN_FILE && !instances.TryGet(instanceName,instanceObj)))
+    ;;Do we need to create the StringDictionary?
+    if (instances == ^null)
     begin
+        instances = new StringDictionary()
+    end
+
+    ;;Are we already tracking this instance?
+    if (instances.TryGet(instanceName,instanceObj)) then
+    begin
+        ;;Yes, record the additional channel associated with the instance.
+        instanceData = (@InstanceInfo)instanceObj
+        instanceData.ReferenceCount += 1
+    end
+    else
+    begin
+        ;;Not currently tracking this instance
         data instanceQueueFile, string, "REPLICATOR_DATA:REPLICATION_" + instanceName + ".ISM"
         data instanceChannel, int
         data errorMessage, string
 
-        ;;Do we need to create the StringDictionary?
-        if (instances == ^null)
-        begin
-            instances = new StringDictionary()
-        end
-
-        ;;Open the queue file for the instance
+        ;;Open the instance queue file
         if (!%OpenOrCreateQueueFile(instanceQueueFile,instanceChannel,errorMessage))
         begin
             throw new ApplicationException("Failed to open or create replication queue file " + instanceQueueFile + ". Error was " + errorMessage)
         end
-        ;;Create and record the instance data
+
+        ;;Create and track the instance data
         instanceData = new InstanceInfo() { QueueFile=instanceQueueFile, Channel=instanceChannel, ReferenceCount=1 }
         instances.Add(instanceName,instanceData)
     end
+
     ;;-----------------------------------------------------------------------------------------------------------------------
 
     using aAction select
 
     (REPLICATION_INSTRUCTION.OPEN_FILE),
     begin
-        ;;Do we need to create the StringDictionary?
-        if (instances == ^null)
-        begin
-            instances = new StringDictionary()
-        end
-
-        ;;Are we already tracking this instance?
-        if (instances.TryGet(instanceName,instanceObj)) then
-        begin
-            ;;Already tracking this instance.
-            ;;Record the additional channel associated with the instance.
-            instanceData = (@InstanceInfo)instanceObj
-            instanceData.ReferenceCount += 1
-        end
-        else
-        begin
-            ;;Not currently tracking this instance
-            data instanceQueueFile, string, "REPLICATOR_DATA:REPLICATION_" + instanceName + ".ISM"
-            data instanceChannel, int
-            data errorMessage, string
-            ;;Open the queue file for the instance
-            if (!%OpenOrCreateQueueFile(instanceQueueFile,instanceChannel,errorMessage))
-            begin
-                throw new ApplicationException("Failed to open or create replication queue file " + instanceQueueFile + ". Error was " + errorMessage)
-            end
-            ;;Create and record the instance data
-            instanceData = new InstanceInfo() { QueueFile=instanceQueueFile, Channel=instanceChannel, ReferenceCount=1 }
-            instances.Add(instanceName,instanceData)
-        end
+        ;Here we used to have the code that is now above, to open and track the instance queue file,
+        ;but there are some scenarios (in replicator menu for example) where other instructions can
+        ;be written BEFORE the OPEN_FILE operation (e.g. STOP commands).
     end
 
     (REPLICATION_INSTRUCTION.CLOSE_FILE),
